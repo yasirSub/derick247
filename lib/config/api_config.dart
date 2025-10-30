@@ -9,6 +9,7 @@ class ApiConfig {
   static Map<String, String> get jsonHeaders => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    
     'x-api-key': apiKey,
   };
 

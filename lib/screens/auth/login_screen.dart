@@ -14,12 +14,23 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(
-    text: 'user@example.com',
-  ); // Debug data
-  final _passwordController = TextEditingController(
-    text: 'password',
-  ); // Debug data
+  final _emailController = TextEditingController(text: 'user@gmail.com');
+  final _passwordController = TextEditingController(text: 'password');
+  bool _obscurePassword = true;
+  String _preset = 'user'; // 'user' or 'vendor'
+
+  void _applyPreset(String preset) {
+    setState(() {
+      _preset = preset;
+      if (preset == 'vendor') {
+        _emailController.text = 'vendor@gmail.com';
+      } else {
+        _emailController.text = 'user@gmail.com';
+      }
+      _passwordController.text = 'password';
+    });
+  }
+
   bool _rememberMe = false;
 
   @override
@@ -130,6 +141,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 8),
 
+                      // Quick presets
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('user@gmail.com'),
+                            selected: _preset == 'user',
+                            onSelected: (_) => _applyPreset('user'),
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('vendor@gmail.com'),
+                            selected: _preset == 'vendor',
+                            onSelected: (_) => _applyPreset('vendor'),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
                       // Subtitle
                       const Text(
                         'Enter your credentials to access your account',
@@ -221,7 +252,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _passwordController,
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             style: const TextStyle(fontSize: 16),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -236,6 +267,19 @@ class _LoginScreenState extends State<LoginScreen> {
                               hintText: 'Password',
                               hintStyle: const TextStyle(
                                 color: Color(0xFF9CA3AF),
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),

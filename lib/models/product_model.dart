@@ -13,6 +13,8 @@ class Product {
   final List<ShippingInfo> shippingAvailable;
   final Map<String, String> medias;
   final String? thumbnail;
+  final String? status; // e.g., active/inactive for dropshipping
+  final String? productType; // e.g., Point Web Product
 
   Product({
     required this.id,
@@ -29,6 +31,8 @@ class Product {
     required this.shippingAvailable,
     required this.medias,
     this.thumbnail,
+    this.status,
+    this.productType,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -51,6 +55,8 @@ class Product {
           [],
       medias: Map<String, String>.from(json['medias'] ?? {}),
       thumbnail: json['thumbnail'],
+      status: json['status'],
+      productType: json['product_type'] ?? json['type'],
     );
   }
 
@@ -72,6 +78,8 @@ class Product {
           .toList(),
       'medias': medias,
       'thumbnail': thumbnail,
+      'status': status,
+      'product_type': productType,
     };
   }
 

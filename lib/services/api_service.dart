@@ -60,7 +60,11 @@ class ApiService {
     return await _dio.post(
       ApiConfig.login,
       data: formData,
-      options: Options(headers: ApiConfig.formHeaders),
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
     );
   }
 
@@ -70,7 +74,11 @@ class ApiService {
     return await _dio.post(
       ApiConfig.register,
       data: formData,
-      options: Options(headers: ApiConfig.formHeaders),
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
     );
   }
 
@@ -230,9 +238,12 @@ class ApiService {
     final formData = FormData.fromMap(productData);
 
     return await _dio.post(
-      '${ApiConfig.dropshippingProduct}/update/',
+      ApiConfig.dropshippingProduct,
       data: formData,
-      options: Options(headers: ApiConfig.formHeaders),
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+      ),
     );
   }
 
@@ -249,7 +260,10 @@ class ApiService {
     return await _dio.post(
       '${ApiConfig.dropshippingProduct}/$productId',
       data: formData,
-      options: Options(headers: ApiConfig.formHeaders),
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+      ),
     );
   }
 
@@ -271,7 +285,10 @@ class ApiService {
     return await _dio.post(
       ApiConfig.vendorProduct,
       data: formData,
-      options: Options(headers: ApiConfig.formHeaders),
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+      ),
     );
   }
 
@@ -288,7 +305,10 @@ class ApiService {
     return await _dio.post(
       '${ApiConfig.vendorProduct}/$productId',
       data: formData,
-      options: Options(headers: ApiConfig.formHeaders),
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+      ),
     );
   }
 

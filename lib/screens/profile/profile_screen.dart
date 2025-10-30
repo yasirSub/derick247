@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
+import '../../widgets/app_drawer.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user_model.dart';
 import 'edit_profile_screen.dart';
 import 'referral_dashboard_screen.dart';
-import 'settings_screen.dart';
 import '../auth/login_screen.dart';
+import 'dropshipping_products_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -29,22 +30,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
+      drawer: const AppDrawer(current: 'profile'),
       appBar: AppBar(
         title: const Text('Profile'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.orange,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
-          ),
-        ],
       ),
       body: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
@@ -77,6 +68,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  // Drawer removed; using shared AppDrawer
 
   Widget _buildLoginPrompt() {
     return Center(
@@ -395,6 +388,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // TODO: Navigate to orders screen
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Orders screen coming soon!')),
+          );
+        },
+      ),
+      _MenuItem(
+        title: 'Dropshipping Products',
+        icon: Icons.local_shipping,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const DropshippingProductsScreen(),
+            ),
           );
         },
       ),
