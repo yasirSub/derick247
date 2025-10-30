@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/theme_config.dart';
+import '../../widgets/custom_app_bar.dart';
 import '../products/products_screen.dart';
 
 class WishlistScreen extends StatefulWidget {
@@ -17,15 +18,31 @@ class _WishlistScreenState extends State<WishlistScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Wishlist'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.orange,
-        elevation: 0,
+      appBar: CustomAppBar(
+        title: 'Wishlist',
+        isDark: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.favorite, color: Colors.white),
+            onPressed: () {
+              // Optionally implement a relevant action or leave as is
+            },
+            tooltip: 'Wishlist',
+          ),
+        ],
       ),
-      body: _wishlistItems.isEmpty
-          ? _buildEmptyWishlist()
-          : _buildWishlistContent(),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Refresh wishlist data
+          await Future.delayed(const Duration(milliseconds: 500));
+        },
+        child: _wishlistItems.isEmpty
+            ? SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: _buildEmptyWishlist(),
+              )
+            : _buildWishlistContent(),
+      ),
     );
   }
 

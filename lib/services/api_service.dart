@@ -318,4 +318,25 @@ class ApiService {
       options: Options(headers: ApiConfig.formHeaders),
     );
   }
+
+  // Currency methods
+  // Get currencies from countries (countries API returns currency_code)
+  Future<Response> getCurrencies() async {
+    // Using locations endpoint to get countries with currencies
+    return await _dio.get(ApiConfig.locations);
+  }
+
+  Future<Response> setCurrency(String currencyCode) async {
+    final formData = FormData.fromMap({'currency': currencyCode});
+
+    return await _dio.post(
+      ApiConfig.setCurrency,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
 }

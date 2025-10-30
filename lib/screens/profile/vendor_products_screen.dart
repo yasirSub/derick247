@@ -106,18 +106,20 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
       drawer: const AppDrawer(current: 'vendor'),
       appBar: AppBar(
         title: const Text('Vendor Products'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.orange,
+        backgroundColor: AppTheme.darkAppBarColor,
+        foregroundColor: Colors.white,
         elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(30),
+            bottomRight: Radius.circular(30),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             onPressed: _showAddProductOptions,
             tooltip: 'Add Product',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchProducts,
           ),
         ],
       ),
@@ -157,75 +159,133 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
     }
 
     if (_products.isEmpty) {
-      return const Center(child: Text('No products available'));
+      return RefreshIndicator(
+        onRefresh: _fetchProducts,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: const Center(child: Text('No products available')),
+          ),
+        ),
+      );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(AppTheme.spacingSmall),
-      itemCount: _filtered.length + 1,
-      separatorBuilder: (_, __) =>
-          const SizedBox(height: AppTheme.spacingSmall),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _buildSearchField();
-        }
-        final product = _filtered[index - 1];
-        return _VendorListTile(
-          product: product,
-          onEdit: () async {
-            final created = await Navigator.push<bool>(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    VendorCreateProductScreen(productId: product.id),
-              ),
-            );
-            if (created == true) {
-              _fetchProducts();
-            }
-          },
-          onDelete: () async {
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Delete Product'),
-                content: const Text(
-                  'Are you sure you want to delete this product?',
+    return RefreshIndicator(
+      onRefresh: _fetchProducts,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(AppTheme.spacingSmall),
+        itemCount: _filtered.length + 1,
+        separatorBuilder: (_, __) =>
+            const SizedBox(height: AppTheme.spacingSmall),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _buildSearchField();
+          }
+          final product = _filtered[index - 1];
+          return _VendorListTile(
+            product: product,
+            onEdit: () async {
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      VendorCreateProductScreen(productId: product.id),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel'),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Delete'),
-                  ),
-                ],
-              ),
-            );
-            if (confirm == true) {
-              try {
-                await ApiService().deleteVendorProduct(product.id);
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Product deleted')),
-                );
+              );
+              if (created == true) {
                 _fetchProducts();
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
               }
-            }
-          },
-        );
-      },
+            },
+            onDelete: () async {
+              final confirm = await showModalBottomSheet<bool>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (ctx) => Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(30),
+                      topRight: Radius.circular(30),
+                    ),
+                  ),
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                    left: 20,
+                    right: 20,
+                    top: 20,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const Text(
+                        'Delete Product',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Are you sure you want to delete this product?',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  ),
+                ),
+              );
+              if (confirm == true) {
+                try {
+                  await ApiService().deleteVendorProduct(product.id);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Product deleted')),
+                  );
+                  _fetchProducts();
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+                }
+              }
+            },
+          );
+        },
+      ),
     );
   }
 

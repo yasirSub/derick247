@@ -109,4 +109,13 @@ class StorageService {
     }
     return null;
   }
+
+  // Currency specific methods
+  Future<void> saveSelectedCurrency(String currencyCode) async {
+    await saveString('selected_currency', currencyCode);
+  }
+
+  Future<String?> getSelectedCurrency() async {
+    return await getString('selected_currency');
+  }
 }

@@ -9,7 +9,7 @@ class ApiConfig {
   static Map<String, String> get jsonHeaders => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    
+
     'x-api-key': apiKey,
   };
 
@@ -28,6 +28,9 @@ class ApiConfig {
 
   // Location endpoints
   static const String locations = 'locations';
+
+  // Currency endpoints
+  static const String setCurrency = 'set-currency';
 
   // Product endpoints
   static const String home = ''; // Home API endpoint (root)

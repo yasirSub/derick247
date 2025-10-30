@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/custom_app_bar.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user_model.dart';
+import '../home/home_screen.dart';
 import 'edit_profile_screen.dart';
-import 'referral_dashboard_screen.dart';
 import '../auth/login_screen.dart';
-import 'dropshipping_products_screen.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -28,43 +29,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      drawer: const AppDrawer(current: 'profile'),
-      appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.orange,
-        elevation: 0,
-      ),
-      body: Consumer<AuthProvider>(
-        builder: (context, authProvider, child) {
-          if (authProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!authProvider.isLoggedIn) {
-            return _buildLoginPrompt();
-          }
-
-          final user = authProvider.user!;
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(AppTheme.spacingMedium),
-            child: Column(
-              children: [
-                _buildProfileHeader(user),
-                const SizedBox(height: AppTheme.spacingLarge),
-                _buildProfileInfo(user),
-                const SizedBox(height: AppTheme.spacingLarge),
-                _buildQuickActions(user),
-                const SizedBox(height: AppTheme.spacingLarge),
-                _buildMenuItems(user),
-                const SizedBox(height: AppTheme.spacingLarge),
-                _buildLogoutButton(authProvider),
-              ],
+    return PopScope(
+      canPop: false, // Prevent default back behavior
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          // Navigate to Home screen when back button is pressed
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => const HomeScreen(),
             ),
+            (route) => false, // Remove all previous routes
           );
-        },
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        drawer: const AppDrawer(current: 'profile'),
+        appBar: CustomAppBar(
+          title: 'Profile',
+          isDark: true,
+        ),
+        body: Consumer<AuthProvider>(
+          builder: (context, authProvider, child) {
+            if (authProvider.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!authProvider.isLoggedIn) {
+              return _buildLoginPrompt();
+            }
+
+            final user = authProvider.user!;
+            return RefreshIndicator(
+              onRefresh: () async {
+                await authProvider.refreshUser();
+              },
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppTheme.spacingMedium),
+                child: Column(
+                  children: [
+                    _buildProfileHeader(user),
+                    const SizedBox(height: AppTheme.spacingLarge),
+                    _buildProfileInfo(user),
+                    const SizedBox(height: AppTheme.spacingLarge),
+                    _buildMenuItems(user),
+                    const SizedBox(height: AppTheme.spacingLarge),
+                    _buildLogoutButton(authProvider),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -278,131 +294,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildQuickActions(User user) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.spacingLarge),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Quick Actions',
-            style: TextStyle(
-              fontSize: AppTheme.fontSizeLarge,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textColor,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacingMedium),
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionCard(
-                  'Referral Dashboard',
-                  Icons.dashboard,
-                  Colors.green,
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ReferralDashboardScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: AppTheme.spacingMedium),
-              Expanded(
-                child: _buildActionCard(
-                  'Edit Profile',
-                  Icons.edit,
-                  Colors.blue,
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const EditProfileScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionCard(
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-      child: Container(
-        padding: const EdgeInsets.all(AppTheme.spacingMedium),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 30),
-            const SizedBox(height: AppTheme.spacingSmall),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: AppTheme.fontSizeSmall,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildMenuItems(User user) {
     final menuItems = [
-      _MenuItem(
-        title: 'My Orders',
-        icon: Icons.shopping_bag,
-        onTap: () {
-          // TODO: Navigate to orders screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Orders screen coming soon!')),
-          );
-        },
-      ),
-      _MenuItem(
-        title: 'Dropshipping Products',
-        icon: Icons.local_shipping,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const DropshippingProductsScreen(),
-            ),
-          );
-        },
-      ),
       _MenuItem(
         title: 'Wishlist',
         icon: Icons.favorite,
@@ -447,6 +340,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           },
         ),
       ],
+      _MenuItem(
+        title: 'Settings',
+        icon: Icons.settings,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SettingsScreen(),
+            ),
+          );
+        },
+      ),
       _MenuItem(
         title: 'Help & Support',
         icon: Icons.help,
@@ -502,24 +407,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       child: ElevatedButton(
         onPressed: () async {
-          final shouldLogout = await showDialog<bool>(
+          final shouldLogout = await showModalBottomSheet<bool>(
             context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Logout'),
-              content: const Text('Are you sure you want to logout?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text(
-                    'Logout',
-                    style: TextStyle(color: Colors.red),
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 20,
+                right: 20,
+                top: 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-              ],
+                  const Text(
+                    'Logout',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Are you sure you want to logout?'),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: TextButton.styleFrom(foregroundColor: Colors.red),
+                          child: const Text('Logout'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
             ),
           );
 

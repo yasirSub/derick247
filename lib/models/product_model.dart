@@ -36,6 +36,28 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    // Extract medias map
+    Map<String, String> medias = {};
+    String? thumbnail;
+
+    if (json['medias'] != null) {
+      if (json['medias'] is Map) {
+        medias = Map<String, String>.from(json['medias']);
+
+        // Find thumbnail - it's the one with "thumbnail" in the URL or the first one
+        for (var entry in medias.entries) {
+          if (entry.value.toString().contains('thumbnail')) {
+            thumbnail = entry.value;
+            break;
+          }
+        }
+        // If no thumbnail found, use the first media as thumbnail
+        if (thumbnail == null && medias.isNotEmpty) {
+          thumbnail = medias.values.first;
+        }
+      }
+    }
+
     return Product(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
@@ -53,8 +75,8 @@ class Product {
               ?.map((item) => ShippingInfo.fromJson(item))
               .toList() ??
           [],
-      medias: Map<String, String>.from(json['medias'] ?? {}),
-      thumbnail: json['thumbnail'],
+      medias: medias,
+      thumbnail: thumbnail ?? json['thumbnail'],
       status: json['status'],
       productType: json['product_type'] ?? json['type'],
     );

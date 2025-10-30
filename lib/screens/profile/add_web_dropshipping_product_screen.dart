@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../config/theme_config.dart';
 import '../../services/api_service.dart';
+import '../../widgets/custom_app_bar.dart';
 
 class AddWebDropshippingProductScreen extends StatefulWidget {
   final int? productId; // when present, treat as edit
@@ -303,11 +304,9 @@ class _State extends State<AddWebDropshippingProductScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Product'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.orange,
-        elevation: 0,
+      appBar: CustomAppBar(
+        title: 'Create Product',
+        isDark: true,
       ),
       backgroundColor: AppTheme.backgroundColor,
       body: SingleChildScrollView(

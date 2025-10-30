@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/referral_popup.dart';
+import '../../widgets/custom_app_bar.dart';
 import '../auth/login_screen.dart';
 import 'product_detail_screen.dart';
 
@@ -22,10 +23,29 @@ class ProductsScreen extends StatefulWidget {
 class _ProductsScreenState extends State<ProductsScreen> {
   bool _isGridView = true;
 
+  @override
+  void initState() {
+    super.initState();
+    // Load products when screen is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      
+      // If coming from search, keep the search query
+      // Otherwise, clear any previous search and load all products
+      if (widget.categoryName != 'Search Results' && productProvider.searchQuery != null) {
+        productProvider.clearFilters();
+      }
+      
+      // Always load products fresh when opening ProductsScreen
+      productProvider.loadProducts(refresh: true);
+    });
+  }
+
   void _showReferralPopup(BuildContext context, product) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return ReferralPopup(
           product: product,
@@ -38,32 +58,77 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   void _showLoginPrompt(BuildContext context) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Login Required'),
-          content: const Text(
-            'Please log in to access referral features and earn commissions.',
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                );
-              },
-              child: const Text('Login'),
-            ),
-          ],
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                'Login Required',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Please log in to access referral features and earn commissions.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        );
+                      },
+                      child: const Text('Login'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         );
       },
     );
@@ -73,10 +138,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: Text(widget.categoryName ?? 'Explore Products'),
-        backgroundColor: Colors.white,
-        elevation: 0,
+      appBar: CustomAppBar(
+        title: widget.categoryName ?? 'Explore Products',
+        isDark: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
@@ -96,12 +160,95 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ),
       body: Consumer<ProductProvider>(
         builder: (context, productProvider, child) {
+          // Show error if exists
+          if (productProvider.error != null && productProvider.products.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppTheme.spacingLarge),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: AppTheme.errorColor,
+                    ),
+                    const SizedBox(height: AppTheme.spacingMedium),
+                    Text(
+                      'Error loading products',
+                      style: TextStyle(
+                        fontSize: AppTheme.fontSizeLarge,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.errorColor,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spacingSmall),
+                    Text(
+                      productProvider.error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: AppTheme.fontSizeMedium,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spacingLarge),
+                    ElevatedButton(
+                      onPressed: () {
+                        productProvider.loadProducts(refresh: true);
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          
           if (productProvider.isLoading && productProvider.products.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (productProvider.products.isEmpty) {
-            return const Center(child: Text('No products found'));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppTheme.spacingLarge),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 64,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                    const SizedBox(height: AppTheme.spacingMedium),
+                    Text(
+                      'No products found',
+                      style: TextStyle(
+                        fontSize: AppTheme.fontSizeLarge,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textColor,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spacingSmall),
+                    Text(
+                      productProvider.searchQuery != null
+                          ? 'Try a different search term'
+                          : 'Products will appear here',
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spacingLarge),
+                    ElevatedButton(
+                      onPressed: () {
+                        productProvider.loadProducts(refresh: true);
+                      },
+                      child: const Text('Refresh'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
 
           return RefreshIndicator(
@@ -114,7 +261,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.7,
+                          childAspectRatio: 0.60, // Flexible aspect ratio to prevent overflow
                           crossAxisSpacing: AppTheme.spacingSmall,
                           mainAxisSpacing: AppTheme.spacingSmall,
                         ),

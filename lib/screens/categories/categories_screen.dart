@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/product_provider.dart';
 import '../../models/category_model.dart';
+import '../../widgets/custom_app_bar.dart';
 import '../products/products_screen.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -35,16 +36,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          'All Categories',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textColor,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
+      appBar: CustomAppBar(
+        title: 'All Categories',
+        isDark: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {

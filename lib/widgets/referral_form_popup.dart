@@ -346,7 +346,7 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                                 style: TextStyle(
                                   fontSize: AppTheme.fontSizeMedium,
                                   fontWeight: FontWeight.w500,
-                                  color: Colors.white,
+                                  color: Colors.black, // Changed from Colors.white
                                 ),
                               ),
                               const SizedBox(height: AppTheme.spacingSmall),

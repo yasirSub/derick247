@@ -51,35 +51,33 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('Referral Dashboard'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.orange,
+        backgroundColor: AppTheme.darkAppBarColor,
+        foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _isLoading = true;
-              });
-              _loadReferralStats();
-            },
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(30),
+            bottomRight: Radius.circular(30),
           ),
-        ],
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(AppTheme.spacingMedium),
-              child: Column(
-                children: [
-                  _buildStatsOverview(),
-                  const SizedBox(height: AppTheme.spacingLarge),
-                  _buildQuickActions(),
-                  const SizedBox(height: AppTheme.spacingLarge),
-                  _buildReferralHistory(),
-                  const SizedBox(height: AppTheme.spacingLarge),
-                  _buildFeaturedProducts(),
-                ],
+          : RefreshIndicator(
+              onRefresh: _loadReferralStats,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppTheme.spacingMedium),
+                child: Column(
+                  children: [
+                    _buildStatsOverview(),
+                    const SizedBox(height: AppTheme.spacingLarge),
+                    _buildQuickActions(),
+                    const SizedBox(height: AppTheme.spacingLarge),
+                    _buildReferralHistory(),
+                    const SizedBox(height: AppTheme.spacingLarge),
+                    _buildFeaturedProducts(),
+                  ],
+                ),
               ),
             ),
     );
@@ -527,8 +525,10 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
             ),
             trailing: ElevatedButton(
               onPressed: () {
-                showDialog(
+                showModalBottomSheet(
                   context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
                   builder: (context) => ReferralPopup(
                     product: product,
                     onClose: () => Navigator.pop(context),

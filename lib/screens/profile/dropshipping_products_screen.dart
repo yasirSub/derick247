@@ -7,6 +7,8 @@ import '../../models/product_model.dart';
 import '../../services/api_service.dart';
 import 'dropshipping_product_detail_screen.dart';
 import 'add_web_dropshipping_product_screen.dart';
+import '../home/home_screen.dart';
+import '../../widgets/custom_app_bar.dart';
 
 class DropshippingProductsScreen extends StatefulWidget {
   const DropshippingProductsScreen({Key? key}) : super(key: key);
@@ -158,26 +160,34 @@ class _DropshippingProductsScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const AppDrawer(current: 'pointer'),
-      appBar: AppBar(
-        title: const Text('Dropshipping Products'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.orange,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: _showAddProductOptions,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchProducts,
-          ),
-        ],
+    return PopScope(
+      canPop: false, // Always handle pop manually
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          // Go to HomeScreen instead of exiting app
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => const HomeScreen(),
+            ),
+            (route) => false,
+          );
+        }
+      },
+      child: Scaffold(
+        drawer: const AppDrawer(current: 'pointer'),
+        appBar: CustomAppBar(
+          title: 'Dropshipping Products',
+          isDark: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: _showAddProductOptions,
+            ),
+          ],
+        ),
+        backgroundColor: AppTheme.backgroundColor,
+        body: _buildBody(),
       ),
-      backgroundColor: AppTheme.backgroundColor,
-      body: _buildBody(),
     );
   }
 
@@ -212,15 +222,26 @@ class _DropshippingProductsScreenState
     }
 
     if (_products.isEmpty) {
-      return const Center(child: Text('No products available'));
+      return RefreshIndicator(
+        onRefresh: _fetchProducts,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: const Center(child: Text('No products available')),
+          ),
+        ),
+      );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(AppTheme.spacingSmall),
-      itemCount: _filtered.length + 1,
-      separatorBuilder: (_, __) =>
-          const SizedBox(height: AppTheme.spacingSmall),
-      itemBuilder: (context, index) {
+    return RefreshIndicator(
+      onRefresh: _fetchProducts,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(AppTheme.spacingSmall),
+        itemCount: _filtered.length + 1,
+        separatorBuilder: (_, __) =>
+            const SizedBox(height: AppTheme.spacingSmall),
+        itemBuilder: (context, index) {
         if (index == 0) {
           return _buildSearchField();
         }
@@ -319,6 +340,7 @@ class _DropshippingProductsScreenState
           },
         );
       },
+      ),
     );
   }
 

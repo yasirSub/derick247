@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/custom_app_bar.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({Key? key}) : super(key: key);
@@ -61,11 +62,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.orange,
-        elevation: 0,
+      appBar: CustomAppBar(
+        title: 'Edit Profile',
+        isDark: true,
         actions: [
           if (_isLoading)
             const Padding(

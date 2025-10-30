@@ -9,6 +9,13 @@ import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'screens/home/home_screen.dart';
 
+class NoGlowScrollBehavior extends ScrollBehavior {
+  @override
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) {
+    return child;
+  }
+}
+
 void main() {
   runApp(const Derick247App());
 }
@@ -25,11 +32,14 @@ class Derick247App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => ReferralProvider()),
       ],
-      child: MaterialApp(
-        title: 'Derick247',
-        theme: AppTheme.lightTheme,
-        debugShowCheckedModeBanner: false,
-        home: const AppInitializer(),
+      child: ScrollConfiguration(
+        behavior: NoGlowScrollBehavior(),
+        child: MaterialApp(
+          title: 'Derick247',
+          theme: AppTheme.lightTheme,
+          debugShowCheckedModeBanner: false,
+          home: const AppInitializer(),
+        ),
       ),
     );
   }

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
+import '../../widgets/custom_app_bar.dart';
 import '../auth/login_screen.dart';
+import '../products/product_detail_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({Key? key}) : super(key: key);
@@ -144,69 +147,131 @@ class _CartScreenState extends State<CartScreen> {
         '🔄 Updating cart item: ${cartItem.product.name} (Product ID: ${cartItem.product.id}, New Qty: $newQuantity)',
       );
 
+      // Update local state first for instant UI feedback
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+
       if (newQuantity <= 0) {
         // Remove item
         print('🗑️ Removing item from cart');
+        // Update local state first
+        await cartProvider.removeFromCart(cartItem.product);
+
+        // Then sync with API in background
         if (cartItem.cartItemId != null) {
           print('🌐 Removing from API with cartItemId: ${cartItem.cartItemId}');
-          await _apiService.removeFromCart(cartItem.cartItemId!);
+          _apiService.removeFromCart(cartItem.cartItemId!).catchError((error) {
+            print('Error syncing with API: $error');
+            // Silently handle error
+            return null as dynamic;
+          });
         } else {
           print('📱 Removing local-only item (no cartItemId)');
         }
-        final cartProvider = Provider.of<CartProvider>(context, listen: false);
-        await cartProvider.removeFromCart(cartItem.product);
       } else {
         // Update quantity
         print(
           '📝 Updating quantity to $newQuantity (CartItemId: ${cartItem.cartItemId})',
         );
+        // Update local state first
+        await cartProvider.updateQuantity(cartItem.product, newQuantity);
+
+        // Then sync with API in background
         if (cartItem.cartItemId != null) {
           print('🌐 Updating API with cartItemId: ${cartItem.cartItemId}');
-          await _apiService.updateCartItem(cartItem.cartItemId!, newQuantity);
+          _apiService
+              .updateCartItem(cartItem.cartItemId!, newQuantity)
+              .catchError((error) {
+                print('Error syncing with API: $error');
+                // Silently handle error
+                return null as dynamic;
+              });
         } else {
           print('📱 Updating local-only item (no cartItemId)');
         }
-        final cartProvider = Provider.of<CartProvider>(context, listen: false);
-        await cartProvider.updateQuantity(cartItem.product, newQuantity);
       }
 
-      // Reload cart from API to ensure consistency
-      await _loadCartFromAPI();
+      // No full reload - just update local state and sync in background
     } catch (e) {
       print('Error updating cart item quantity: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update cart: $e'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update cart: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _showDeleteConfirmation(CartItem cartItem) async {
-    final result = await showDialog<bool>(
+    final result = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Remove Item'),
-          content: Text(
-            'Are you sure you want to remove "${cartItem.product.name}" from your cart?',
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Remove'),
-            ),
-          ],
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                'Remove Item',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Are you sure you want to remove "${cartItem.product.name}" from your cart?',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(false);
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(true);
+                      },
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('Remove'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         );
       },
     );
@@ -266,29 +331,72 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _showClearAllConfirmation() async {
-    final result = await showDialog<bool>(
+    final result = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Clear All Items'),
-          content: const Text(
-            'Are you sure you want to remove all items from your cart?',
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Clear All'),
-            ),
-          ],
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                'Clear All Items',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Are you sure you want to remove all items from your cart?',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(false);
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(true);
+                      },
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('Clear All'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         );
       },
     );
@@ -351,104 +459,129 @@ class _CartScreenState extends State<CartScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
 
     if (!authProvider.isLoggedIn) {
-      return Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
-        appBar: AppBar(
-          title: const Text('Shopping Cart'),
-          backgroundColor: Colors.white,
-          elevation: 0,
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
         ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.shopping_cart_outlined,
-                size: 80,
-                color: AppTheme.textSecondaryColor,
+        child: Scaffold(
+          backgroundColor: AppTheme.backgroundColor,
+          appBar: AppBar(
+            title: const Text('Shopping Cart'),
+            backgroundColor: AppTheme.darkAppBarColor,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(15),
+                bottomRight: Radius.circular(15),
               ),
-              const SizedBox(height: AppTheme.spacingLarge),
-              Text(
-                'Please log in to view your cart',
-                style: TextStyle(
-                  fontSize: AppTheme.fontSizeLarge,
-                  fontWeight: FontWeight.w500,
+            ),
+          ),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 80,
                   color: AppTheme.textSecondaryColor,
                 ),
-              ),
-              const SizedBox(height: AppTheme.spacingMedium),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
-                    ),
-                  );
-                },
-                child: const Text('Login'),
-              ),
-            ],
+                const SizedBox(height: AppTheme.spacingLarge),
+                Text(
+                  'Please log in to view your cart',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontSizeLarge,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spacingMedium),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text('Login'),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Shopping Cart'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          Consumer<CartProvider>(
-            builder: (context, cartProvider, child) {
-              if (cartProvider.isEmpty) return const SizedBox.shrink();
-
-              return IconButton(
-                icon: const Icon(Icons.clear_all, color: Colors.red),
-                onPressed: () {
-                  _showClearAllConfirmation();
-                },
-                tooltip: 'Clear all items',
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadCartFromAPI,
-          ),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? _buildErrorState()
-          : Consumer<CartProvider>(
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: CustomAppBar(
+          title: 'Shopping Cart',
+          isDark: true,
+          actions: [
+            Consumer<CartProvider>(
               builder: (context, cartProvider, child) {
-                if (cartProvider.isEmpty) {
-                  return _buildEmptyCart();
-                }
+                if (cartProvider.isEmpty) return const SizedBox.shrink();
 
-                return Column(
-                  children: [
-                    // Cart Items List
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(AppTheme.spacingMedium),
-                        itemCount: cartProvider.cartItems.length,
-                        itemBuilder: (context, index) {
-                          final cartItem = cartProvider.cartItems[index];
-                          return _buildCartItem(cartItem);
-                        },
-                      ),
-                    ),
-
-                    // Cart Summary
-                    _buildCartSummary(cartProvider),
-                  ],
+                return IconButton(
+                  icon: const Icon(Icons.clear_all, color: Colors.white),
+                  onPressed: () {
+                    _showClearAllConfirmation();
+                  },
+                  tooltip: 'Clear all items',
                 );
               },
             ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? _buildErrorState()
+            : Consumer<CartProvider>(
+                builder: (context, cartProvider, child) {
+                  if (cartProvider.isEmpty) {
+                    return RefreshIndicator(
+                      onRefresh: _loadCartFromAPI,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: _buildEmptyCart(),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      // Cart Items List
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _loadCartFromAPI,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(
+                              AppTheme.spacingMedium,
+                            ),
+                            itemCount: cartProvider.cartItems.length,
+                            itemBuilder: (context, index) {
+                              final cartItem = cartProvider.cartItems[index];
+                              return _buildCartItem(cartItem);
+                            },
+                          ),
+                        ),
+                      ),
+
+                      // Cart Summary
+                      _buildCartSummary(cartProvider),
+                    ],
+                  );
+                },
+              ),
+      ),
     );
   }
 
@@ -512,124 +645,119 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildCartItem(CartItem cartItem) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppTheme.spacingMedium),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spacingMedium),
-        child: Row(
-          children: [
-            // Product Image
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                color: Colors.grey[200],
-              ),
-              child: cartItem.product.firstImage != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                      child: Image.network(
-                        cartItem.product.firstImage!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.image, color: Colors.grey);
-                        },
-                      ),
-                    )
-                  : const Icon(Icons.image, color: Colors.grey),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProductDetailScreen(productId: cartItem.product.id),
+          ),
+        );
+      },
+      child: AppTheme.buildCard(
+      padding: const EdgeInsets.all(AppTheme.spacingMedium),
+      child: Row(
+        children: [
+          // Product Image
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              color: Colors.grey[200],
             ),
-            const SizedBox(width: AppTheme.spacingMedium),
+            child: cartItem.product.firstImage != null
+                ? ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSmall),
+                    child: Image.network(
+                      cartItem.product.firstImage!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(Icons.image, color: Colors.grey);
+                      },
+                    ),
+                  )
+                : const Icon(Icons.image, color: Colors.grey),
+          ),
+          const SizedBox(width: AppTheme.spacingMedium),
 
-            // Product Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // Product Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cartItem.product.name,
+                  style: const TextStyle(
+                    fontSize: AppTheme.fontSizeMedium,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppTheme.spacingSmall),
+                Text(
+                  cartItem.formattedTotal,
+                  style: const TextStyle(
+                    fontSize: AppTheme.fontSizeLarge,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Quantity Controls and Delete Button
+          Column(
+            children: [
+              // Quantity Controls Row
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  IconButton(
+                    onPressed: () {
+                      _updateCartItemQuantity(cartItem, cartItem.quantity - 1);
+                    },
+                    icon: const Icon(Icons.remove),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
                   Text(
-                    cartItem.product.name,
+                    cartItem.quantity.toString(),
                     style: const TextStyle(
                       fontSize: AppTheme.fontSizeMedium,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.textColor,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: AppTheme.spacingSmall),
-                  Text(
-                    cartItem.formattedTotal,
-                    style: const TextStyle(
-                      fontSize: AppTheme.fontSizeLarge,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                  IconButton(
+                    onPressed: () {
+                      _updateCartItemQuantity(cartItem, cartItem.quantity + 1);
+                    },
+                    icon: const Icon(Icons.add),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
                     ),
                   ),
                 ],
               ),
-            ),
-
-            // Quantity Controls and Delete Button
-            Column(
-              children: [
-                // Quantity Controls Row
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        _updateCartItemQuantity(
-                          cartItem,
-                          cartItem.quantity - 1,
-                        );
-                      },
-                      icon: const Icon(Icons.remove),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                    ),
-                    Text(
-                      cartItem.quantity.toString(),
-                      style: const TextStyle(
-                        fontSize: AppTheme.fontSizeMedium,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        _updateCartItemQuantity(
-                          cartItem,
-                          cartItem.quantity + 1,
-                        );
-                      },
-                      icon: const Icon(Icons.add),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Delete Button
-                IconButton(
-                  onPressed: () {
-                    _showDeleteConfirmation(cartItem);
-                  },
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
-                  ),
-                  tooltip: 'Remove item',
-                ),
-              ],
-            ),
-          ],
+              // Delete Button
+              IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () {
+                    _removeCartItem(cartItem);
+                },
+              ),
+            ],
+          ),
+        ],
         ),
       ),
     );

@@ -74,9 +74,15 @@ class _State extends State<DropshippingProductDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Product Details'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.orange,
+        backgroundColor: AppTheme.darkAppBarColor,
+        foregroundColor: Colors.white,
         elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(30),
+            bottomRight: Radius.circular(30),
+          ),
+        ),
       ),
       backgroundColor: AppTheme.backgroundColor,
       body: _buildBody(),
