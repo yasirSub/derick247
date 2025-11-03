@@ -118,4 +118,12 @@ class StorageService {
   Future<String?> getSelectedCurrency() async {
     return await getString('selected_currency');
   }
+
+  Future<void> saveSelectedCountryCode(String countryCode) async {
+    await saveString('selected_country_code', countryCode);
+  }
+
+  Future<String?> getSelectedCountryCode() async {
+    return await getString('selected_country_code');
+  }
 }

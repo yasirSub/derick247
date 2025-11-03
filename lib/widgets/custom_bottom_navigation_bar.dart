@@ -99,9 +99,9 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar>
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: Colors.orange.withOpacity(0.20), // Only faint glow
-                    blurRadius: 16,
-                    spreadRadius: 2,
+                    color: Colors.orange.withOpacity(0.12), // more subtle
+                    blurRadius: 12,
+                    spreadRadius: 1,
                     offset: const Offset(0, 0.5),
                   ),
                 ]
@@ -115,7 +115,7 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.18),
+                  color: Colors.orange.withOpacity(0.10),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -143,15 +143,15 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 14,
+            offset: const Offset(0, -4),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 6,
+            offset: const Offset(0, -1),
             spreadRadius: 0,
           ),
         ],

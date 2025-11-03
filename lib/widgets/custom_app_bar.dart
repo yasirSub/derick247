@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import '../config/theme_config.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -20,6 +21,7 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final bool showSearchBar;
   final Function(String)? onSearchSubmitted;
   final String? searchHint;
+  final double? leadingWidth;
 
   const CustomAppBar({
     Key? key,
@@ -32,19 +34,21 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
     this.showSearchBar = false,
     this.onSearchSubmitted,
     this.searchHint,
+    this.leadingWidth,
   }) : super(key: key);
 
   @override
   State<CustomAppBar> createState() => _CustomAppBarState();
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(52);
 }
 
 class _CustomAppBarState extends State<CustomAppBar> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final LayerLink _layerLink = LayerLink();
+  final GlobalKey _searchKey = GlobalKey();
   bool _showClearButton = false;
   bool _showSuggestions = false;
   List<Product> _searchSuggestions = [];
@@ -189,8 +193,8 @@ class _CustomAppBarState extends State<CustomAppBar> {
 
     _removeOverlay();
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final searchBarWidth = screenWidth - 32 - 16; // Account for margins
+    final box = _searchKey.currentContext?.findRenderObject() as RenderBox?;
+    final searchBarWidth = box?.size.width ?? (_searchExpanded ? 220.0 : 100.0);
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
@@ -198,7 +202,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
         child: CompositedTransformFollower(
           link: _layerLink,
           showWhenUnlinked: false,
-          offset: const Offset(0, 48),
+          offset: const Offset(0, 40),
           child: Material(
             elevation: 8,
             borderRadius: BorderRadius.circular(12),
@@ -345,12 +349,14 @@ class _CustomAppBarState extends State<CustomAppBar> {
       backgroundColor: backgroundColor,
       foregroundColor: foregroundColor,
       elevation: 0,
+      toolbarHeight: 52,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(15),
           bottomRight: Radius.circular(15),
         ),
       ),
+      leadingWidth: widget.leadingWidth,
       leading: widget.leading,
       titleSpacing: widget.showSearchBar ? 0 : null,
       title: widget.showSearchBar
@@ -365,93 +371,121 @@ class _CustomAppBarState extends State<CustomAppBar> {
   Widget _buildSearchBar(BuildContext context) {
     return CompositedTransformTarget(
       link: _layerLink,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 270),
-        curve: Curves.easeInOutCubic,
-        width: _searchExpanded ? 240 : 114,
-        height: 42,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(21),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () {
-            if (!_searchExpanded) {
-              setState(() {
-                _searchExpanded = true;
-              });
-              FocusScope.of(context).requestFocus(_searchFocusNode);
-            }
-          },
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Icon(Icons.search, color: Colors.grey[600], size: 22),
-              ),
-              if (_searchExpanded) ...[
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    focusNode: _searchFocusNode,
-                    decoration: InputDecoration(
-                      hintText: widget.searchHint ?? 'Search products...',
-                      hintStyle: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 14,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 12,
-                      ),
-                      isDense: true,
-                      suffixIcon: _showClearButton
-                          ? IconButton(
-                              icon: Icon(
-                                Icons.clear,
-                                color: Colors.grey[600],
-                                size: 20,
-                              ),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _showClearButton = false;
-                                });
-                                _removeOverlay();
-                              },
-                            )
-                          : null,
-                    ),
-                    style: const TextStyle(fontSize: 14, color: Colors.black87),
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (value) {
-                      if (value.trim().isNotEmpty) {
-                        _removeOverlay();
-                        _handleSearch(context, value.trim());
-                      }
-                    },
-                    onTap: () {
-                      if (_searchController.text.isNotEmpty &&
-                          _showSuggestions) {
-                        _showSearchOverlay();
-                      }
-                    },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double targetWidth = _searchExpanded
+              ? math.min(constraints.maxWidth, 220)
+              : 100;
+          return Align(
+            alignment: Alignment.centerRight,
+            child: AnimatedContainer(
+              key: _searchKey,
+              duration: const Duration(milliseconds: 270),
+              curve: Curves.easeInOutCubic,
+              width: targetWidth,
+              height: 32,
+              margin: const EdgeInsets.only(left: 0, right: 48),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(21),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
+                ],
+              ),
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () {
+                  if (!_searchExpanded) {
+                    setState(() {
+                      _searchExpanded = true;
+                    });
+                    FocusScope.of(context).requestFocus(_searchFocusNode);
+                  }
+                },
+                child: Row(
+                  children: [
+                    if (_searchExpanded) ...[
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          decoration: InputDecoration(
+                            hintText: widget.searchHint ?? 'Search products...',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 14,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                            isDense: true,
+                            suffixIcon: _showClearButton
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      color: Colors.grey[600],
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _showClearButton = false;
+                                      });
+                                      _removeOverlay();
+                                    },
+                                  )
+                                : null,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (value) {
+                            if (value.trim().isNotEmpty) {
+                              _removeOverlay();
+                              _handleSearch(context, value.trim());
+                            }
+                          },
+                          onTap: () {
+                            if (_searchController.text.isNotEmpty &&
+                                _showSuggestions) {
+                              _showSearchOverlay();
+                            }
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Icon(
+                          Icons.search,
+                          color: Colors.grey[600],
+                          size: 22,
+                        ),
+                      ),
+                    ] else ...[
+                      const Spacer(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Icon(
+                          Icons.search,
+                          color: Colors.grey[600],
+                          size: 22,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ],
-          ),
-        ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
@@ -39,8 +40,8 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       final userJson = prefs.getString('user_data');
       if (userJson != null) {
-        // Parse user data if needed
-        _currentUser = null; // Will be loaded from API
+        final userData = jsonDecode(userJson);
+        _currentUser = User.fromJson(userData);
       }
     } catch (e) {
       print('Error loading user data: $e');
@@ -125,7 +126,7 @@ class AuthService {
 
     if (_currentUser != null) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_data', _currentUser!.toJson().toString());
+      await prefs.setString('user_data', jsonEncode(_currentUser!.toJson()));
     }
   }
 

@@ -7,6 +7,7 @@ import '../screens/profile/dashboard_screen.dart';
 import '../screens/profile/settings_screen.dart';
 import '../screens/orders/orders_list_screen.dart';
 import '../screens/home/home_screen.dart';
+import '../screens/wallet/wallet_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   final String current; // e.g., 'profile', 'pointer'
@@ -18,22 +19,12 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      elevation: 16,
-      backgroundColor: Colors.transparent,
-      child: Stack(
-        children: [
-          Container(
-            margin: EdgeInsets.only(top: kToolbarHeight + 8, bottom: 12),
-            decoration: BoxDecoration(
+      elevation: 0,
+      backgroundColor: Colors.white,
+      child: Container(
+            decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 32,
-                  color: Colors.black.withOpacity(0.08),
-                  offset: const Offset(8, 2),
-                ),
-              ],
+              // No borderRadius - full white box without curves
             ),
             child: Column(
               mainAxisSize: MainAxisSize.max,
@@ -168,9 +159,10 @@ class AppDrawer extends StatelessWidget {
                         selected: false,
                         onTap: () {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Wallet coming soon!'),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const WalletScreen(),
                             ),
                           );
                         },
@@ -243,8 +235,6 @@ class AppDrawer extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        ],
       ),
     );
   }

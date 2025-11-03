@@ -9,6 +9,20 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../screens/auth/login_screen.dart';
 
+String _formatPriceWithSpace(String value) {
+  if (value.isEmpty) return value;
+  // If starts with any non-digit run directly followed by digit, insert a space
+  final mGeneric = RegExp(r'^(\D+)(\d)').firstMatch(value);
+  if (mGeneric != null) {
+    final prefix = mGeneric.group(1)!;
+    if (!prefix.endsWith(' ')) {
+      return value.replaceFirst(prefix, '$prefix ');
+    }
+    return value;
+  }
+  return value;
+}
+
 class ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback? onTap;
@@ -16,6 +30,7 @@ class ProductCard extends StatelessWidget {
   final VoidCallback? onRefer;
   final VoidCallback? onAddToCart;
   final bool showEarnButton;
+  final bool priceAsPill;
 
   const ProductCard({
     Key? key,
@@ -25,6 +40,7 @@ class ProductCard extends StatelessWidget {
     this.onRefer,
     this.onAddToCart,
     this.showEarnButton = true,
+    this.priceAsPill = false,
   }) : super(key: key);
 
   Future<void> _addToCart(BuildContext context) async {
@@ -190,23 +206,23 @@ Check out this amazing product: ${product.name}
         product.referrerCommission != null && product.referrerCommission! > 0;
 
     return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacingMedium,
-        vertical: AppTheme.spacingSmall,
-      ),
+      margin: EdgeInsets.zero,
       elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         child: Padding(
-          padding: const EdgeInsets.all(AppTheme.spacingSmall),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spacingSmall,
+            vertical: 6,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Product Image
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 child: Container(
                   width: 100,
                   height: 100,
@@ -249,29 +265,52 @@ Check out this amazing product: ${product.name}
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Product Name
-                    Text(
-                      product.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                    // Product Name - fixed height container for consistent positioning
+                    SizedBox(
+                      height: 40, // Fixed height for 2 lines of text
+                      child: Text(
+                        product.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
 
                     const SizedBox(height: 6),
 
                     // Price
-                    Text(
-                      product.formattedPrice,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue, // Blue color as shown in image
-                      ),
-                    ),
+                    priceAsPill
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.orange.shade100),
+                            ),
+                            child: Text(
+                              _formatPriceWithSpace(product.formattedPrice),
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade700,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            _formatPriceWithSpace(product.formattedPrice),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
 
                     const SizedBox(height: 8),
 
@@ -289,7 +328,7 @@ Check out this amazing product: ${product.name}
                               begin: Alignment.centerLeft,
                               end: Alignment.centerRight,
                             ),
-                            borderRadius: BorderRadius.circular(26),
+                            borderRadius: BorderRadius.circular(6),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.orange.withOpacity(0.15),
@@ -300,14 +339,14 @@ Check out this amazing product: ${product.name}
                           ),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 8,
+                              horizontal: 16,
+                              vertical: 6,
                             ),
                             alignment: Alignment.center,
                             child: Text(
                               'Ref & Earn ${product.referrerCommission?.toStringAsFixed(0) ?? '0'}',
                               style: const TextStyle(
-                                fontSize: 13.5,
+                                fontSize: 12.5,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
                                 letterSpacing: 0.04,
@@ -508,13 +547,13 @@ class ProductGridCard extends StatelessWidget {
         product.referrerCommission != null && product.referrerCommission! > 0;
 
     return Card(
-      margin: const EdgeInsets.all(AppTheme.spacingSmall),
+      margin: EdgeInsets.zero,
       elevation: 5,
       shadowColor: Colors.black26,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(6),
         splashColor: Theme.of(context).primaryColorLight.withOpacity(0.18),
         highlightColor: Colors.orange.withOpacity(0.06),
         child: LayoutBuilder(
@@ -530,9 +569,7 @@ class ProductGridCard extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(18),
-                        ),
+                        borderRadius: BorderRadius.circular(6),
                         child: product.firstImage != null
                             ? CachedNetworkImage(
                                 imageUrl: product.firstImage!,
@@ -591,12 +628,12 @@ class ProductGridCard extends StatelessWidget {
                         right: 10,
                         child: Material(
                           color: Colors.black.withOpacity(0.72),
-                          borderRadius: BorderRadius.circular(9),
+                          borderRadius: BorderRadius.circular(6),
                           child: InkWell(
                             onTap: () => _addToCart(context),
-                            borderRadius: BorderRadius.circular(9),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8),
+                            borderRadius: BorderRadius.circular(6),
+                            child: const Padding(
+                              padding: EdgeInsets.all(8),
                               child: Icon(
                                 Icons.shopping_cart,
                                 color: Colors.white,
@@ -610,39 +647,39 @@ class ProductGridCard extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product name
-                      Text(
-                        product.name,
-                        style: const TextStyle(
-                          fontSize: 11.7,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                          height: 1.16,
+                      // Product name - fixed height container for consistent positioning
+                      SizedBox(
+                        height: 30, // Fixed height for 2 lines of text
+                        child: Text(
+                          product.name,
+                          style: const TextStyle(
+                            fontSize: 11.7,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                            height: 1.16,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 4),
                       // Price as pill/label
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 5,
+                          horizontal: 12,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: Colors.orange.shade100),
                         ),
                         child: Text(
-                          product.formattedPrice,
+                          _formatPriceWithSpace(product.formattedPrice),
                           style: TextStyle(
                             fontSize: 14.2,
                             fontWeight: FontWeight.bold,
@@ -652,7 +689,7 @@ class ProductGridCard extends StatelessWidget {
                       ),
                       // Ref & Earn
                       if (hasCommission && showEarnButton) ...[
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 4),
                         DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -663,7 +700,7 @@ class ProductGridCard extends StatelessWidget {
                               begin: Alignment.centerLeft,
                               end: Alignment.centerRight,
                             ),
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(6),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.orange.withOpacity(0.13),
@@ -675,19 +712,19 @@ class ProductGridCard extends StatelessWidget {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(6),
                               onTap: onRefer,
                               child: Container(
                                 width: double.infinity,
                                 alignment: Alignment.center,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 7,
-                                  horizontal: 10,
+                                  horizontal: 8,
                                 ),
                                 child: Text(
                                   'Ref & Earn ${product.referrerCommission!.toStringAsFixed(0)}',
                                   style: const TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 12.5,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,
                                     letterSpacing: 0.04,

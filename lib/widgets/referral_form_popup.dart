@@ -7,9 +7,14 @@ import '../services/api_service.dart';
 class ReferralFormPopup extends StatefulWidget {
   final Product product;
   final VoidCallback? onClose;
+  final bool isFromCart;
 
-  const ReferralFormPopup({Key? key, required this.product, this.onClose})
-    : super(key: key);
+  const ReferralFormPopup({
+    Key? key,
+    required this.product,
+    this.onClose,
+    this.isFromCart = false,
+  }) : super(key: key);
 
   @override
   State<ReferralFormPopup> createState() => _ReferralFormPopupState();
@@ -18,7 +23,6 @@ class ReferralFormPopup extends StatefulWidget {
 class _ReferralFormPopupState extends State<ReferralFormPopup>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
   final _formKey = GlobalKey<FormState>();
@@ -49,10 +53,6 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -97,7 +97,9 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
         'productId': widget.product.id.toString(),
       };
 
-      final response = await apiService.referFriend(formData);
+      final response = widget.isFromCart
+          ? await apiService.referFriendFromCart(formData)
+          : await apiService.referFriend(formData);
 
       if (response.statusCode == 200 && response.data['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -135,71 +137,77 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black54,
-      child: Center(
-        child: AnimatedBuilder(
-          animation: _animationController,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: _scaleAnimation.value,
-              child: Opacity(
-                opacity: _fadeAnimation.value,
-                child: Container(
-                  margin: const EdgeInsets.all(AppTheme.spacingLarge),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2C3E50), // Dark blue-grey background
-                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(
+            CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+          ),
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF2C3E50), // Dark blue-grey background
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.radiusLarge),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, -5),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Header
-                      Container(
-                        padding: const EdgeInsets.all(AppTheme.spacingLarge),
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(AppTheme.radiusLarge),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.spacingLarge),
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(AppTheme.radiusLarge),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Refer and Earn',
+                            style: TextStyle(
+                              fontSize: AppTheme.fontSizeXLarge,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'Refer and Earn',
-                                style: TextStyle(
-                                  fontSize: AppTheme.fontSizeXLarge,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: widget.onClose,
-                              icon: const Icon(
-                                Icons.close,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
+                        IconButton(
+                          onPressed: widget.onClose,
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                  ),
 
-                      // Content
-                      Padding(
-                        padding: const EdgeInsets.all(AppTheme.spacingLarge),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                  // Content
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: AppTheme.spacingLarge,
+                      right: AppTheme.spacingLarge,
+                      top: AppTheme.spacingLarge,
+                      bottom: MediaQuery.of(context).padding.bottom +
+                          AppTheme.spacingLarge,
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                               // Title with point reward
                               Row(
                                 children: [
@@ -346,7 +354,7 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                                 style: TextStyle(
                                   fontSize: AppTheme.fontSizeMedium,
                                   fontWeight: FontWeight.w500,
-                                  color: Colors.black, // Changed from Colors.white
+                                  color: Colors.white,
                                 ),
                               ),
                               const SizedBox(height: AppTheme.spacingSmall),
@@ -496,18 +504,16 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            );
-          },
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

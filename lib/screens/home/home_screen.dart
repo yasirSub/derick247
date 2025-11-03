@@ -18,7 +18,9 @@ import '../../widgets/custom_app_bar.dart';
 import '../../widgets/currency_selection_dialog.dart';
 import '../../services/storage_service.dart';
 import '../profile/dashboard_screen.dart';
+import '../profile/dropshipping_products_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:country_flags/country_flags.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -30,12 +32,15 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    const HomeTab(),
-    const WishlistScreen(),
-    const CartScreen(),
-    const DashboardScreen(),
-  ];
+  // Build screens list - Dashboard only when needed to avoid redirect issues
+  List<Widget> _buildScreens() {
+    return [
+      const HomeTab(),
+      const WishlistScreen(),
+      const CartScreen(),
+      const DashboardScreen(),
+    ];
+  }
 
   @override
   void initState() {
@@ -59,10 +64,24 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: Scaffold(
-        body: IndexedStack(index: _selectedIndex, children: _screens),
+        body: IndexedStack(index: _selectedIndex, children: _buildScreens()),
         bottomNavigationBar: CustomBottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: (index) {
+            // Check if user is trying to access dashboard (index 3) without being logged in
+            if (index == 3) {
+              final authProvider = Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              );
+              if (!authProvider.isLoggedIn) {
+                // Redirect to login page
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+                return;
+              }
+            }
             setState(() {
               _selectedIndex = index;
             });
@@ -86,6 +105,53 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
   int _currentBannerIndex = 0;
   bool _isGridView = true; // true = grid view by default
   String? _selectedCurrency;
+  String? _selectedCountryCode;
+
+  String _flagForCurrency(String? code) {
+    if (code == null) return '💱';
+    final upper = code.toUpperCase();
+    const mapping = {
+      'USD': '🇺🇸',
+      'HNL': '🇭🇳',
+      'GTQ': '🇬🇹',
+      'EUR': '🇪🇺',
+      'GBP': '🇬🇧',
+      'INR': '🇮🇳',
+      'PKR': '🇵🇰',
+      'AUD': '🇦🇺',
+      'CAD': '🇨🇦',
+      'JPY': '🇯🇵',
+    };
+    return mapping[upper] ?? '💱';
+  }
+
+  String? _countryCodeForCurrency(String? code) {
+    if (code == null) return null;
+    switch (code.toUpperCase()) {
+      case 'USD':
+        return 'US';
+      case 'HNL':
+        return 'HN';
+      case 'GTQ':
+        return 'GT';
+      case 'EUR':
+        return null; // region, no single country
+      case 'GBP':
+        return 'GB';
+      case 'INR':
+        return 'IN';
+      case 'PKR':
+        return 'PK';
+      case 'AUD':
+        return 'AU';
+      case 'CAD':
+        return 'CA';
+      case 'JPY':
+        return 'JP';
+      default:
+        return null;
+    }
+  }
 
   @override
   void initState() {
@@ -101,10 +167,13 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
   }
 
   Future<void> _loadSelectedCurrency() async {
-    final savedCurrency = await StorageService().getSelectedCurrency();
+    final storage = StorageService();
+    final savedCurrency = await storage.getSelectedCurrency();
+    final savedCountry = await storage.getSelectedCountryCode();
     if (mounted) {
       setState(() {
         _selectedCurrency = savedCurrency;
+        _selectedCountryCode = savedCountry;
       });
     }
   }
@@ -123,6 +192,14 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
     if (selectedCurrency != null && mounted) {
       setState(() {
         _selectedCurrency = selectedCurrency;
+        // Also load any saved country code from selection
+        StorageService().getSelectedCountryCode().then((value) {
+          if (mounted) {
+            setState(() {
+              _selectedCountryCode = value;
+            });
+          }
+        });
       });
 
       // Auto-refresh home page data with new currency
@@ -277,34 +354,88 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
       backgroundColor: AppTheme.backgroundColor,
       appBar: CustomAppBar(
         isDark: true,
-        leading: IconButton(
-          icon: _selectedCurrency != null && _selectedCurrency!.isNotEmpty
-              ? Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    _selectedCurrency!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+        leadingWidth: 136,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 0),
+          child: SizedBox(
+            width: 136,
+            child: IconButton(
+              padding: const EdgeInsets.only(left: 10),
+              alignment: Alignment.centerLeft,
+              constraints: const BoxConstraints(minWidth: 104, minHeight: 44),
+              icon: _selectedCurrency != null && _selectedCurrency!.isNotEmpty
+                  ? FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.22),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.34),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Builder(
+                              builder: (context) {
+                                final iso =
+                                    _selectedCountryCode ??
+                                    _countryCodeForCurrency(_selectedCurrency);
+                                if (iso != null) {
+                                  return Container(
+                                    width: 20,
+                                    height: 14,
+                                    margin: const EdgeInsets.only(right: 0),
+                                    clipBehavior: Clip.antiAlias,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                    child: CountryFlag.fromCountryCode(
+                                      iso,
+                                      height: 14,
+                                      width: 20,
+                                    ),
+                                  );
+                                }
+                                return Text(
+                                  _flagForCurrency(_selectedCurrency),
+                                  style: const TextStyle(fontSize: 16),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              _selectedCurrency!,
+                              softWrap: false,
+                              overflow: TextOverflow.fade,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                height: 1.1,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : const Icon(
+                      Icons.currency_exchange,
                       color: Colors.white,
+                      size: 26,
                     ),
-                  ),
-                )
-              : const Icon(Icons.currency_exchange, color: Colors.white),
-          onPressed: () {
-            _showCurrencyDialog(context);
-          },
+              onPressed: () {
+                _showCurrencyDialog(context);
+              },
+            ),
+          ),
         ),
         showSearchBar: true,
         searchHint: 'Search here...',
@@ -376,8 +507,13 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                   // Sliding Banner
                   Container(
                     width: double.infinity,
-                    height: 120,
-                    margin: const EdgeInsets.all(AppTheme.spacingMedium),
+                    height: 160,
+                    margin: const EdgeInsets.fromLTRB(
+                      AppTheme.spacingMedium,
+                      AppTheme.spacingMedium,
+                      AppTheme.spacingMedium,
+                      AppTheme.spacingSmall,
+                    ),
                     child: Stack(
                       children: [
                         PageView(
@@ -388,75 +524,43 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                             });
                           },
                           children: [
-                            // Coming Soon Banner
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppTheme.primaryColor,
-                                    AppTheme.secondaryColor,
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusMedium,
-                                ),
+                            // Banner 1 Image
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusMedium,
                               ),
-                              child: const Center(
-                                child: Text(
-                                  'Coming Soon\nStay Tuned!',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: AppTheme.fontSizeXXLarge,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                              child: Container(
+                                color: Colors.white,
+                                width: double.infinity,
+                                height: double.infinity,
+                                child: Center(
+                                  child: Image.asset(
+                                    'assets/mobile/banner1.jpg',
+                                    fit: BoxFit.contain,
+                                    alignment: Alignment.center,
+                                    width: double.infinity,
+                                    height: double.infinity,
                                   ),
                                 ),
                               ),
                             ),
-                            // Developer Banner
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.grey[800]!,
-                                    Colors.grey[700]!,
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusMedium,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                            // Banner 2 Image
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusMedium,
                               ),
-                              child: const Center(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.code,
-                                      color: Colors.white,
-                                      size: 32,
-                                    ),
-                                    SizedBox(width: AppTheme.spacingMedium),
-                                    Text(
-                                      'Developed by\nWorksaar',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: AppTheme.fontSizeXXLarge,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
+                              child: Container(
+                                color: Colors.white,
+                                width: double.infinity,
+                                height: double.infinity,
+                                child: Center(
+                                  child: Image.asset(
+                                    'assets/mobile/banner2.jpg',
+                                    fit: BoxFit.contain,
+                                    alignment: Alignment.center,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                  ),
                                 ),
                               ),
                             ),
@@ -524,7 +628,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
 
                   // Categories Grid
                   SizedBox(
-                    height: 104,
+                    height: 100,
                     child: Consumer<ProductProvider>(
                       builder: (context, productProvider, child) {
                         if (productProvider.categories.isEmpty) {
@@ -554,67 +658,111 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                 );
                               },
                               child: Container(
-                                constraints: const BoxConstraints(maxWidth: 90),
+                                constraints: const BoxConstraints(maxWidth: 86),
                                 margin: const EdgeInsets.only(
-                                  right: AppTheme.spacingMedium,
+                                  right: AppTheme.spacingSmall,
                                 ),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radiusMedium,
-                                  ),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      width: 56,
-                                      height: 56,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[200],
-                                        borderRadius: BorderRadius.circular(
-                                          AppTheme.radiusMedium,
+                                child: SizedBox(
+                                  width: 72,
+                                  height: 72,
+                                  child: Stack(
+                                    children: [
+                                      // Image tile
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.black,
+                                            width: 1,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.06,
+                                              ),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        clipBehavior: Clip.antiAlias,
+                                        child: category.media != null
+                                            ? CachedNetworkImage(
+                                                imageUrl: category.media!,
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                                placeholder: (context, url) =>
+                                                    Container(
+                                                      color: Colors.grey[200],
+                                                    ),
+                                                errorWidget:
+                                                    (context, url, error) =>
+                                                        Container(
+                                                          color:
+                                                              Colors.grey[200],
+                                                          child: const Center(
+                                                            child: Icon(
+                                                              Icons.category,
+                                                              size: 40,
+                                                            ),
+                                                          ),
+                                                        ),
+                                              )
+                                            : Container(
+                                                color: Colors.grey[200],
+                                                child: const Center(
+                                                  child: Icon(
+                                                    Icons.category,
+                                                    size: 40,
+                                                  ),
+                                                ),
+                                              ),
+                                      ),
+                                      // Bottom label bar (solid)
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        child: Container(
+                                          height: 22,
+                                          decoration: BoxDecoration(
+                                            color: Colors.black54,
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                                  bottomLeft: Radius.circular(
+                                                    6,
+                                                  ),
+                                                  bottomRight: Radius.circular(
+                                                    6,
+                                                  ),
+                                                ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                          ),
+                                          child: Text(
+                                            category.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: AppTheme.fontSizeSmall,
+                                              fontWeight: FontWeight.w800,
+                                              height: 1.1,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                      child: category.media != null
-                                          ? ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    AppTheme.radiusMedium,
-                                                  ),
-                                              child: Image.network(
-                                                category.media!,
-                                                fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (
-                                                      context,
-                                                      error,
-                                                      stackTrace,
-                                                    ) {
-                                                      return const Icon(
-                                                        Icons.category,
-                                                        size: 40,
-                                                      );
-                                                    },
-                                              ),
-                                            )
-                                          : const Icon(
-                                              Icons.category,
-                                              size: 40,
-                                            ),
-                                    ),
-                                    const SizedBox(
-                                      height: AppTheme.spacingSmall,
-                                    ),
-                                    Text(
-                                      category.name,
-                                      style: const TextStyle(
-                                        fontSize: AppTheme.fontSizeSmall,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
@@ -624,7 +772,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                     ),
                   ),
 
-                  const SizedBox(height: AppTheme.spacingLarge),
+                  const SizedBox(height: AppTheme.spacingMedium),
 
                   // Featured Products
                   Padding(
@@ -696,7 +844,10 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                         ? GridView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.all(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppTheme.spacingMedium,
+                              AppTheme.spacingSmall,
+                              AppTheme.spacingMedium,
                               AppTheme.spacingMedium,
                             ),
                             gridDelegate:
@@ -705,7 +856,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                   childAspectRatio:
                                       0.60, // More flexible aspect ratio
                                   crossAxisSpacing: AppTheme.spacingSmall,
-                                  mainAxisSpacing: AppTheme.spacingSmall,
+                                  mainAxisSpacing: 6,
                                 ),
                             itemCount: productProvider.products.length,
                             itemBuilder: (context, index) {
@@ -784,75 +935,83 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                           )
                         : Column(
                             children: productProvider.products.map((product) {
-                              return ProductCard(
-                                product: product,
-                                showEarnButton: true,
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => ProductDetailScreen(
-                                        productId: product.id,
-                                        product: product,
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                  left: AppTheme.spacingMedium,
+                                  right: AppTheme.spacingMedium,
+                                  bottom: 10,
+                                ),
+                                child: ProductCard(
+                                  product: product,
+                                  showEarnButton: true,
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ProductDetailScreen(
+                                              productId: product.id,
+                                              product: product,
+                                            ),
                                       ),
-                                    ),
-                                  );
-                                },
-                                onShare: () {
-                                  // TODO: Share product
-                                },
-                                onRefer: () {
-                                  final authProvider =
-                                      Provider.of<AuthProvider>(
-                                        context,
-                                        listen: false,
-                                      );
-                                  if (authProvider.isLoggedIn) {
-                                    _showReferralPopup(context, product);
-                                  } else {
-                                    _showLoginPrompt(context);
-                                  }
-                                },
-                                onAddToCart: () {
-                                  // Show clickable popup notification
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.shopping_cart,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Expanded(
-                                            child: Text(
-                                              'Added to cart! Tap to view cart.',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w500,
+                                    );
+                                  },
+                                  onShare: () {
+                                    // TODO: Share product
+                                  },
+                                  onRefer: () {
+                                    final authProvider =
+                                        Provider.of<AuthProvider>(
+                                          context,
+                                          listen: false,
+                                        );
+                                    if (authProvider.isLoggedIn) {
+                                      _showReferralPopup(context, product);
+                                    } else {
+                                      _showLoginPrompt(context);
+                                    }
+                                  },
+                                  onAddToCart: () {
+                                    // Show clickable popup notification
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.shopping_cart,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Expanded(
+                                              child: Text(
+                                                'Added to cart! Tap to view cart.',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
+                                        backgroundColor: AppTheme.successColor,
+                                        duration: const Duration(seconds: 3),
+                                        action: SnackBarAction(
+                                          label: 'VIEW CART',
+                                          textColor: Colors.white,
+                                          onPressed: () {
+                                            // Navigate to cart screen
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const CartScreen(),
+                                              ),
+                                            );
+                                          },
+                                        ),
                                       ),
-                                      backgroundColor: AppTheme.successColor,
-                                      duration: const Duration(seconds: 3),
-                                      action: SnackBarAction(
-                                        label: 'VIEW CART',
-                                        textColor: Colors.white,
-                                        onPressed: () {
-                                          // Navigate to cart screen
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  const CartScreen(),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                },
+                                    );
+                                  },
+                                ),
                               );
                             }).toList(),
                           ),
@@ -887,6 +1046,18 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
             ),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const DropshippingProductsScreen(),
+            ),
+          );
+        },
+        backgroundColor: AppTheme.primaryColor,
+        child: const Icon(Icons.location_on, color: Colors.white),
+        tooltip: 'Add Pointer',
       ),
     );
   }

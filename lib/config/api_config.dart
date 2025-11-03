@@ -40,9 +40,13 @@ class ApiConfig {
   // Referral endpoints
   static const String referralInfo = 'referral-info/';
   static const String referFriend = 'refer-friend';
+  static const String cartReferFriend = 'cart/refer-friend';
 
   // Cart endpoints
   static const String cart = 'cart';
+  static const String checkout = 'checkout';
+  static const String addShippingAddress = 'add-new-shipping-adress';
+  static const String addressStore = 'address/store';
 
   // Order endpoints
   static const String orders = 'orders';
@@ -52,4 +56,10 @@ class ApiConfig {
 
   // Vendor Product endpoints
   static const String vendorProduct = 'vendor-product';
+
+  // Wallet endpoints
+  static const String wallet = 'wallet';
+  static const String walletCreateOrder = 'wallet/create-order';
+  static const String walletWithdraw = 'wallet/withdraw';
+  static const String walletSendMoney = 'wallet/send-money';
 }

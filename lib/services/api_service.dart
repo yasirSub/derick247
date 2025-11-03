@@ -167,6 +167,61 @@ class ApiService {
     );
   }
 
+  // Get checkout information
+  Future<Response> getCheckout() async {
+    return await _dio.get(
+      ApiConfig.checkout,
+      options: Options(headers: ApiConfig.jsonHeaders),
+    );
+  }
+
+  // Submit checkout
+  Future<Response> checkout(Map<String, dynamic> checkoutData) async {
+    final formData = FormData.fromMap(checkoutData);
+
+    return await _dio.post(
+      ApiConfig.checkout,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  // Add new shipping address (legacy endpoint)
+  Future<Response> addShippingAddress(
+    Map<String, dynamic> addressData,
+  ) async {
+    final formData = FormData.fromMap(addressData);
+
+    return await _dio.post(
+      ApiConfig.addShippingAddress,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  // Add new shipping address (new endpoint)
+  Future<Response> storeAddress(Map<String, dynamic> addressData) async {
+    final formData = FormData.fromMap(addressData);
+
+    return await _dio.post(
+      ApiConfig.addressStore,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
   // Referral methods
   Future<Response> getReferralInfo(int productId) async {
     return await _dio.get('${ApiConfig.referralInfo}$productId');
@@ -177,6 +232,17 @@ class ApiService {
 
     return await _dio.post(
       ApiConfig.referFriend,
+      data: formData,
+      options: Options(headers: ApiConfig.formHeaders),
+    );
+  }
+
+  // Cart referral method
+  Future<Response> referFriendFromCart(Map<String, dynamic> referralData) async {
+    final formData = FormData.fromMap(referralData);
+
+    return await _dio.post(
+      ApiConfig.cartReferFriend,
       data: formData,
       options: Options(headers: ApiConfig.formHeaders),
     );
@@ -331,6 +397,56 @@ class ApiService {
 
     return await _dio.post(
       ApiConfig.setCurrency,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  // Wallet methods
+  Future<Response> getWallet() async {
+    return await _dio.get(
+      ApiConfig.wallet,
+      options: Options(headers: ApiConfig.jsonHeaders),
+    );
+  }
+
+  Future<Response> createWalletOrder(Map<String, dynamic> orderData) async {
+    final formData = FormData.fromMap(orderData);
+
+    return await _dio.post(
+      ApiConfig.walletCreateOrder,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  Future<Response> withdrawFromWallet(Map<String, dynamic> withdrawData) async {
+    final formData = FormData.fromMap(withdrawData);
+
+    return await _dio.post(
+      ApiConfig.walletWithdraw,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  Future<Response> sendMoney(Map<String, dynamic> sendMoneyData) async {
+    final formData = FormData.fromMap(sendMoneyData);
+
+    return await _dio.post(
+      ApiConfig.walletSendMoney,
       data: formData,
       options: Options(
         headers: ApiConfig.formHeaders,

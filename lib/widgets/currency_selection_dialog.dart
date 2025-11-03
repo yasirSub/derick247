@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:country_flags/country_flags.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../config/theme_config.dart';
@@ -18,6 +19,71 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
   bool _isLoading = true;
   String? _selectedCurrency;
   bool _isSettingCurrency = false;
+
+  String _emojiFlagForCurrency(String? code) {
+    if (code == null) return '';
+    switch (code.toUpperCase()) {
+      case 'USD':
+        return '🇺🇸';
+      case 'HNL':
+        return '🇭🇳';
+      case 'EUR':
+        return '🇪🇺';
+      case 'GBP':
+        return '🇬🇧';
+      case 'INR':
+        return '🇮🇳';
+      case 'PKR':
+        return '🇵🇰';
+      case 'AUD':
+        return '🇦🇺';
+      case 'CAD':
+        return '🇨🇦';
+      case 'JPY':
+        return '🇯🇵';
+      default:
+        return '';
+    }
+  }
+
+  String? _countryCodeForCurrency(String? code) {
+    if (code == null) return null;
+    switch (code.toUpperCase()) {
+      case 'USD':
+        return 'US';
+      case 'HNL':
+        return 'HN';
+      case 'EUR':
+        return 'EU'; // Not a country; package may not have EU; handled below
+      case 'GBP':
+        return 'GB';
+      case 'INR':
+        return 'IN';
+      case 'PKR':
+        return 'PK';
+      case 'AUD':
+        return 'AU';
+      case 'CAD':
+        return 'CA';
+      case 'JPY':
+        return 'JP';
+      default:
+        return null;
+    }
+  }
+
+  String? _countryCodeFromEmoji(String? emoji) {
+    if (emoji == null || emoji.isEmpty) return null;
+    // Expect two Regional Indicator Symbols representing letters A-Z
+    final runes = emoji.runes.toList();
+    if (runes.length < 2) return null;
+    const base = 0x1F1E6; // Regional Indicator Symbol Letter A
+    final first = runes[0] - base;
+    final second = runes[1] - base;
+    if (first < 0 || first > 25 || second < 0 || second > 25) return null;
+    final code = String.fromCharCode(0x41 + first) + String.fromCharCode(0x41 + second);
+    return code;
+  }
 
   @override
   void initState() {
@@ -114,8 +180,25 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
       if (response.statusCode == 200 &&
           response.data != null &&
           response.data['success'] == true) {
-        // Save to local storage
+        // Save to local storage (currency + derived country code if available)
         await _storageService.saveSelectedCurrency(currencyCode);
+        final mappedCode = _countryCodeForCurrency(currencyCode);
+        String? toSaveIso = mappedCode;
+        if (toSaveIso == null) {
+          // Try from flag field in the list
+          try {
+            final cur = _currencies.firstWhere(
+              (c) => c['currency_code'] == currencyCode,
+              orElse: () => {},
+            );
+            final raw = cur['flag']?.toString();
+            final emojiIso = _countryCodeFromEmoji(raw);
+            if (emojiIso != null) toSaveIso = emojiIso;
+          } catch (_) {}
+        }
+        if (toSaveIso != null && toSaveIso.isNotEmpty) {
+          await _storageService.saveSelectedCountryCode(toSaveIso);
+        }
 
         if (mounted) {
           setState(() {
@@ -282,48 +365,110 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
                                   : Colors.transparent,
                               child: Row(
                                 children: [
-                                  // Flag display
-                                  if (currency['flag'] != null &&
-                                      currency['flag'].toString().isNotEmpty)
-                                    Container(
-                                      width: 32,
-                                      height: 24,
-                                      margin: const EdgeInsets.only(right: 12),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: Colors.grey[300]!,
-                                          width: 0.5,
+                                  // Flag display: prefer local asset flags via package, fallback to emoji, then API URL, then placeholder
+                                  Builder(builder: (context) {
+                                    final countryCode = _countryCodeForCurrency(currencyCode);
+                                    if (countryCode != null && countryCode != 'EU') {
+                                      return Container(
+                                        width: 32,
+                                        height: 24,
+                                        margin: const EdgeInsets.only(right: 12),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: Colors.grey[300]!,
+                                            width: 0.5,
+                                          ),
                                         ),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: currency['flag'].toString().startsWith('http') ||
-                                                currency['flag'].toString().startsWith('https')
-                                            ? Image.network(
-                                                currency['flag'],
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) {
-                                                  return Container(
-                                                    color: Colors.grey[200],
-                                                    child: const Icon(
-                                                      Icons.flag,
-                                                      size: 16,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  );
-                                                },
-                                              )
-                                            : Center(
-                                                child: Text(
-                                                  currency['flag'],
-                                                  style: const TextStyle(fontSize: 20),
+                                        clipBehavior: Clip.antiAlias,
+                                        child: CountryFlag.fromCountryCode(
+                                          countryCode,
+                                          height: 24,
+                                          width: 32,
+                                        ),
+                                      );
+                                    }
+
+                                    // Emoji fallback (e.g., EUR)
+                                    final fallbackEmoji = _emojiFlagForCurrency(currencyCode);
+                                    if (fallbackEmoji.isNotEmpty) {
+                                      return Container(
+                                        width: 32,
+                                        height: 24,
+                                        margin: const EdgeInsets.only(right: 12),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: Colors.grey[300]!,
+                                            width: 0.5,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            fallbackEmoji,
+                                            style: const TextStyle(fontSize: 20),
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    final raw = currency['flag']?.toString() ?? '';
+                                    // If API provides an emoji flag, convert to ISO code and use local asset
+                                    final emojiIso = _countryCodeFromEmoji(raw);
+                                    if (emojiIso != null) {
+                                      return Container(
+                                        width: 32,
+                                        height: 24,
+                                        margin: const EdgeInsets.only(right: 12),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: Colors.grey[300]!,
+                                            width: 0.5,
+                                          ),
+                                        ),
+                                        clipBehavior: Clip.antiAlias,
+                                        child: CountryFlag.fromCountryCode(
+                                          emojiIso,
+                                          height: 24,
+                                          width: 32,
+                                        ),
+                                      );
+                                    }
+                                    if (raw.isNotEmpty && (raw.startsWith('http') || raw.startsWith('https')))
+                                    {
+                                      return Container(
+                                        width: 32,
+                                        height: 24,
+                                        margin: const EdgeInsets.only(right: 12),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: Colors.grey[300]!,
+                                            width: 0.5,
+                                          ),
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: Image.network(
+                                            raw,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                color: Colors.grey[200],
+                                                child: const Icon(
+                                                  Icons.flag,
+                                                  size: 16,
+                                                  color: Colors.grey,
                                                 ),
-                                              ),
-                                      ),
-                                    )
-                                  else
-                                    Container(
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    return Container(
                                       width: 32,
                                       height: 24,
                                       margin: const EdgeInsets.only(right: 12),
@@ -336,7 +481,8 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
                                         size: 16,
                                         color: Colors.grey,
                                       ),
-                                    ),
+                                    );
+                                  }),
                                   Expanded(
                                     child: Text(
                                       currencyCode,

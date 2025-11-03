@@ -292,9 +292,10 @@ class _ReferralPopupState extends State<ReferralPopup>
                                   onTap: () {
                                     // Close current popup and show form popup
                                     Navigator.of(context).pop();
-                                    showDialog(
+                                    showModalBottomSheet(
                                       context: context,
-                                      barrierDismissible: true,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
                                       builder: (BuildContext context) {
                                         return ReferralFormPopup(
                                           product: widget.product,

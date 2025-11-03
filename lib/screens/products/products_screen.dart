@@ -28,14 +28,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
     super.initState();
     // Load products when screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final productProvider = Provider.of<ProductProvider>(context, listen: false);
-      
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+
       // If coming from search, keep the search query
       // Otherwise, clear any previous search and load all products
-      if (widget.categoryName != 'Search Results' && productProvider.searchQuery != null) {
+      if (widget.categoryName != 'Search Results' &&
+          productProvider.searchQuery != null) {
         productProvider.clearFilters();
       }
-      
+
       // Always load products fresh when opening ProductsScreen
       productProvider.loadProducts(refresh: true);
     });
@@ -91,10 +95,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ),
               const Text(
                 'Login Required',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -118,7 +119,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       onPressed: () {
                         Navigator.of(context).pop();
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => const LoginScreen(),
+                          ),
                         );
                       },
                       child: const Text('Login'),
@@ -161,7 +164,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
       body: Consumer<ProductProvider>(
         builder: (context, productProvider, child) {
           // Show error if exists
-          if (productProvider.error != null && productProvider.products.isEmpty) {
+          if (productProvider.error != null &&
+              productProvider.products.isEmpty) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(AppTheme.spacingLarge),
@@ -203,7 +207,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ),
             );
           }
-          
+
           if (productProvider.isLoading && productProvider.products.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -234,9 +238,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       productProvider.searchQuery != null
                           ? 'Try a different search term'
                           : 'Products will appear here',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                      ),
+                      style: TextStyle(color: AppTheme.textSecondaryColor),
                     ),
                     const SizedBox(height: AppTheme.spacingLarge),
                     ElevatedButton(
@@ -261,9 +263,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.60, // Flexible aspect ratio to prevent overflow
-                          crossAxisSpacing: AppTheme.spacingSmall,
-                          mainAxisSpacing: AppTheme.spacingSmall,
+                          childAspectRatio:
+                              0.60, // Flexible aspect ratio to prevent overflow
+                          crossAxisSpacing: 6,
+                          mainAxisSpacing: 10,
                         ),
                     itemCount: productProvider.products.length,
                     itemBuilder: (context, index) {
@@ -298,36 +301,45 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     },
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(AppTheme.spacingMedium),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppTheme.spacingMedium,
+                      AppTheme.spacingSmall,
+                      AppTheme.spacingMedium,
+                      AppTheme.spacingMedium,
+                    ),
                     itemCount: productProvider.products.length,
                     itemBuilder: (context, index) {
                       final product = productProvider.products[index];
-                      return ProductCard(
-                        product: product,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => ProductDetailScreen(
-                                productId: product.id,
-                                product: product,
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: ProductCard(
+                          product: product,
+                          priceAsPill: true,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => ProductDetailScreen(
+                                  productId: product.id,
+                                  product: product,
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                        onShare: () {
-                          // TODO: Share product
-                        },
-                        onRefer: () {
-                          final authProvider = Provider.of<AuthProvider>(
-                            context,
-                            listen: false,
-                          );
-                          if (authProvider.isLoggedIn) {
-                            _showReferralPopup(context, product);
-                          } else {
-                            _showLoginPrompt(context);
-                          }
-                        },
+                            );
+                          },
+                          onShare: () {
+                            // TODO: Share product
+                          },
+                          onRefer: () {
+                            final authProvider = Provider.of<AuthProvider>(
+                              context,
+                              listen: false,
+                            );
+                            if (authProvider.isLoggedIn) {
+                              _showReferralPopup(context, product);
+                            } else {
+                              _showLoginPrompt(context);
+                            }
+                          },
+                        ),
                       );
                     },
                   ),

@@ -7,8 +7,10 @@ import '../../providers/auth_provider.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/referral_form_popup.dart';
 import '../auth/login_screen.dart';
 import '../products/product_detail_screen.dart';
+import '../checkout/checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({Key? key}) : super(key: key);
@@ -763,6 +765,41 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  Future<void> _proceedToCheckout(CartProvider cartProvider) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to proceed with checkout'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+
+    if (cartProvider.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your cart is empty'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+
+    // Navigate to checkout screen
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const CheckoutScreen(),
+      ),
+    );
+
+    // If checkout was successful, reload cart
+    if (result == true) {
+      await _loadCartFromAPI();
+    }
+  }
+
   Widget _buildCartSummary(CartProvider cartProvider) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spacingLarge),
@@ -778,38 +815,131 @@ class _CartScreenState extends State<CartScreen> {
       ),
       child: Column(
         children: [
+          // Order Summary Section
+          Container(
+            padding: const EdgeInsets.all(AppTheme.spacingMedium),
+            decoration: BoxDecoration(
+              color: Colors.grey[800],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  'Order Summary',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontSizeLarge,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spacingMedium),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Subtotal:',
+                      style: TextStyle(
+                        fontSize: AppTheme.fontSizeMedium,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      cartProvider.formattedTotalAmount,
+                      style: const TextStyle(
+                        fontSize: AppTheme.fontSizeMedium,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTheme.spacingSmall),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total:',
+                      style: TextStyle(
+                        fontSize: AppTheme.fontSizeLarge,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      cartProvider.formattedTotalAmount,
+                      style: const TextStyle(
+                        fontSize: AppTheme.fontSizeLarge,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTheme.spacingMedium),
+          // Checkout and Refer a Friend buttons side by side
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Total:',
-                style: TextStyle(
-                  fontSize: AppTheme.fontSizeLarge,
-                  fontWeight: FontWeight.w600,
+              // Checkout button (white background, blue text)
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () async {
+                    await _handleCheckoutButton(cartProvider);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Checkout',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: AppTheme.fontSizeMedium,
+                    ),
+                  ),
                 ),
               ),
-              Text(
-                cartProvider.formattedTotalAmount,
-                style: const TextStyle(
-                  fontSize: AppTheme.fontSizeLarge,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
+              const SizedBox(width: AppTheme.spacingMedium),
+              // Refer a Friend button (grey background, grey text)
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    _showReferAFriendOption();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.grey[300],
+                    foregroundColor: Colors.grey[700],
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(color: Colors.grey[400]!, width: 1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Refer a Friend',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: AppTheme.fontSizeMedium,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppTheme.spacingMedium),
+          // Proceed to Checkout button (large blue button)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                // TODO: Implement checkout
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Checkout functionality coming soon!'),
-                    backgroundColor: AppTheme.successColor,
-                  ),
-                );
+              onPressed: () async {
+                await _proceedToCheckout(cartProvider);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.secondaryColor,
@@ -830,6 +960,53 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _handleCheckoutButton(CartProvider cartProvider) async {
+    // Navigate to checkout screen
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const CheckoutScreen(),
+      ),
+    );
+
+    // If checkout was successful, reload cart
+    if (result == true) {
+      await _loadCartFromAPI();
+    }
+  }
+
+  void _showReferAFriendOption() {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    
+    // Check if cart has items
+    if (cartProvider.cartItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your cart is empty. Add items to refer friends!'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+
+    // Get the first product from cart to use for referral
+    final firstProduct = cartProvider.cartItems[0].product;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return ReferralFormPopup(
+          product: firstProduct,
+          isFromCart: true,
+          onClose: () {
+            Navigator.of(context).pop();
+          },
+        );
+      },
     );
   }
 }
