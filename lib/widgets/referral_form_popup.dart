@@ -384,11 +384,17 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                                       Icons.keyboard_arrow_down,
                                       color: Colors.white70,
                                     ),
+                                    dropdownColor: Colors.white,
                                     items: _statusOptions.map((String status) {
                                       return DropdownMenuItem<String>(
                                         value: status,
                                         child: Text(
                                           _statusLabels[status] ?? status,
+                                          style: const TextStyle(
+                                            color: Colors.black87,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                       );
                                     }).toList(),

@@ -21,6 +21,7 @@ import '../profile/dashboard_screen.dart';
 import '../profile/dropshipping_products_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:country_flags/country_flags.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -160,10 +161,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
     _scrollController.addListener(_onScroll);
     _startBannerTimer();
     _loadSelectedCurrency();
-    // Auto-refresh user when home loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AuthProvider>(context, listen: false).refreshUser();
-    });
+    // Removed auto profile refresh due to backend 500 on /profile
   }
 
   Future<void> _loadSelectedCurrency() async {
@@ -223,14 +221,22 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      Provider.of<AuthProvider>(context, listen: false).refreshUser();
+      // Skipped profile refresh due to backend 500 on /profile
+    }
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      // ignore: avoid_print
+      print('Could not launch $url');
     }
   }
 
   void _startBannerTimer() {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
-        _currentBannerIndex = (_currentBannerIndex + 1) % 2;
+        _currentBannerIndex = (_currentBannerIndex + 1) % 4;
         _bannerController.animateToPage(
           _currentBannerIndex,
           duration: const Duration(milliseconds: 500),
@@ -525,42 +531,105 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                           },
                           children: [
                             // Banner 1 Image
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusMedium,
-                              ),
-                              child: Container(
-                                color: Colors.white,
-                                width: double.infinity,
-                                height: double.infinity,
-                                child: Center(
-                                  child: Image.asset(
-                                    'assets/mobile/banner1.jpg',
-                                    fit: BoxFit.contain,
-                                    alignment: Alignment.center,
-                                    width: double.infinity,
-                                    height: double.infinity,
+                            GestureDetector(
+                              onTap: () =>
+                                  _openUrl('https://comisionista247.com/'),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                child: Container(
+                                  color: Colors.white,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  child: Center(
+                                    child: Image.asset(
+                                      'assets/mobile/banner1.jpg',
+                                      fit: BoxFit.contain,
+                                      alignment: Alignment.center,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      errorBuilder: (context, error, stack) =>
+                                          const Icon(Icons.image_not_supported),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                             // Banner 2 Image
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusMedium,
-                              ),
-                              child: Container(
-                                color: Colors.white,
-                                width: double.infinity,
-                                height: double.infinity,
-                                child: Center(
-                                  child: Image.asset(
-                                    'assets/mobile/banner2.jpg',
-                                    fit: BoxFit.contain,
-                                    alignment: Alignment.center,
-                                    width: double.infinity,
-                                    height: double.infinity,
+                            GestureDetector(
+                              onTap: () =>
+                                  _openUrl('https://comisionista247.com/'),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                child: Container(
+                                  color: Colors.white,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  child: Center(
+                                    child: Image.asset(
+                                      'assets/mobile/banner2.jpg',
+                                      fit: BoxFit.contain,
+                                      alignment: Alignment.center,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      errorBuilder: (context, error, stack) =>
+                                          const Icon(Icons.image_not_supported),
+                                    ),
                                   ),
+                                ),
+                              ),
+                            ),
+                            // Banner 3 Image
+                            GestureDetector(
+                              onTap: () =>
+                                  _openUrl('https://comisionista247.com/'),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                child: Container(
+                                  color: Colors.white,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  child: Center(
+                                    child: Image.asset(
+                                      'assets/mobile/banner3.jpg',
+                                      fit: BoxFit.contain,
+                                      alignment: Alignment.center,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      errorBuilder: (context, error, stack) =>
+                                          const Icon(Icons.image_not_supported),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Banner 4 Image
+                            GestureDetector(
+                              onTap: () =>
+                                  _openUrl('https://comisionista247.com/'),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                child: Image.asset(
+                                  'assets/mobile/banner4.jpg',
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  errorBuilder: (context, error, stack) =>
+                                      Container(
+                                        color: Colors.white,
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.image_not_supported,
+                                          ),
+                                        ),
+                                      ),
                                 ),
                               ),
                             ),
@@ -573,7 +642,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                           right: 0,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(2, (index) {
+                            children: List.generate(4, (index) {
                               return Container(
                                 margin: const EdgeInsets.symmetric(
                                   horizontal: 4,

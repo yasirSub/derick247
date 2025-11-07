@@ -1,6 +1,6 @@
 class ApiConfig {
   // Base URL for the API
-  static const String baseUrl = 'https://derick247.com/api/';
+  static const String baseUrl = 'https://comisionista247.com/api/';
 
   // API Key for authentication
   static const String apiKey = 'gcs##2022##';
@@ -50,6 +50,9 @@ class ApiConfig {
 
   // Order endpoints
   static const String orders = 'orders';
+
+  // Dashboard endpoint
+  static const String dashboard = 'dashboard';
 
   // Dropshipping Product endpoints
   static const String dropshippingProduct = 'dropshipping-product';

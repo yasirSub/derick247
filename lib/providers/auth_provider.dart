@@ -3,6 +3,8 @@ import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
 class AuthProvider extends ChangeNotifier {
+  // Toggle to enable/disable verbose console logging
+  static bool debugLogging = false;
   final AuthService _authService = AuthService();
 
   User? _user;
@@ -123,6 +125,7 @@ class AuthProvider extends ChangeNotifier {
 
   // Debug method to print auth token info
   void printAuthTokenInfo() {
+    if (!debugLogging) return;
     print('🔑 Auth Token Debug Info:');
     print('   Available: ${authToken != null}');
     print('   Length: ${authToken?.length ?? 0}');
@@ -134,6 +137,7 @@ class AuthProvider extends ChangeNotifier {
 
   // Quick method to print just the token
   void printToken() {
+    if (!debugLogging) return;
     if (authToken != null) {
       print('🔑 FULL AUTH TOKEN: $authToken');
     } else {

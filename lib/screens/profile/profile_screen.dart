@@ -21,10 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Refresh user data when screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AuthProvider>(context, listen: false).refreshUser();
-    });
+    // Skip server refresh due to backend 500 on /profile
   }
 
   @override
@@ -62,7 +59,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final user = authProvider.user!;
             return RefreshIndicator(
               onRefresh: () async {
-                await authProvider.refreshUser();
+                // Temporarily skip server refresh; keep local data
+                await Future<void>.delayed(const Duration(milliseconds: 300));
               },
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppTheme.spacingMedium),

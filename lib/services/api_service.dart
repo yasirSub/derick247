@@ -124,6 +124,19 @@ class ApiService {
     return await _dio.get(ApiConfig.home, queryParameters: queryParams);
   }
 
+  // Dashboard method
+  Future<Response> getDashboard() async {
+    // Ensure Authorization header is present
+    return await _dio.get(
+      ApiConfig.dashboard,
+      options: Options(
+        headers: {
+          if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+        },
+      ),
+    );
+  }
+
   Future<Response> getProductDetail(int productId) async {
     return await _dio.get('${ApiConfig.productDetail}$productId');
   }
@@ -191,9 +204,7 @@ class ApiService {
   }
 
   // Add new shipping address (legacy endpoint)
-  Future<Response> addShippingAddress(
-    Map<String, dynamic> addressData,
-  ) async {
+  Future<Response> addShippingAddress(Map<String, dynamic> addressData) async {
     final formData = FormData.fromMap(addressData);
 
     return await _dio.post(
@@ -238,7 +249,9 @@ class ApiService {
   }
 
   // Cart referral method
-  Future<Response> referFriendFromCart(Map<String, dynamic> referralData) async {
+  Future<Response> referFriendFromCart(
+    Map<String, dynamic> referralData,
+  ) async {
     final formData = FormData.fromMap(referralData);
 
     return await _dio.post(

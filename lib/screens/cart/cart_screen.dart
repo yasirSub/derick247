@@ -30,11 +30,9 @@ class _CartScreenState extends State<CartScreen> {
 
     // Print auth token info immediately when cart screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      print('\n🚀 CART SCREEN LOADED - AUTH TOKEN INFO:');
-      print('=' * 60);
-      authProvider.printAuthTokenInfo();
-      print('=' * 60);
+      // Suppress verbose console logs in production
+      // final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      // authProvider.printAuthTokenInfo();
     });
 
     _loadCartFromAPI();
@@ -45,16 +43,16 @@ class _CartScreenState extends State<CartScreen> {
     if (!authProvider.isLoggedIn) {
       setState(() {
         _isLoading = false;
+        _error = 'Please login to view your cart';
       });
       return;
     }
 
-    // Debug: Print detailed auth token information
-    print('=' * 50);
-    print('🔑 AUTH TOKEN DEBUG INFO');
-    print('=' * 50);
-    authProvider.printAuthTokenInfo();
-    print('=' * 50);
+    // Ensure auth token is set in API service
+    final token = authProvider.authToken;
+    if (token != null) {
+      _apiService.setAuthToken(token);
+    }
 
     setState(() {
       _isLoading = true;
@@ -67,13 +65,7 @@ class _CartScreenState extends State<CartScreen> {
       if (response.statusCode == 200) {
         final cartData = response.data;
 
-        // Debug: Print cart API response
-        print('🛒 CART API RESPONSE:');
-        print('Success: ${cartData['success']}');
-        print(
-          'Cart Items Count: ${(cartData['cart_items'] as List?)?.length ?? 0}',
-        );
-        print('Cart Items: ${cartData['cart_items']}');
+        // Suppressed verbose cart response logs
 
         // Parse cart data and update CartProvider
         final cartProvider = Provider.of<CartProvider>(context, listen: false);
@@ -84,13 +76,11 @@ class _CartScreenState extends State<CartScreen> {
         // Add items from API response
         if (cartData['cart_items'] != null) {
           final items = cartData['cart_items'] as List;
-          print('🛒 Processing ${items.length} cart items...');
+          // Suppressed verbose per-item logs
 
           for (int i = 0; i < items.length; i++) {
             final item = items[i];
-            print(
-              '📦 Processing item ${i + 1}: ${item['product_name']} (Product ID: ${item['product_id']}, Cart Item ID: ${item['id']})',
-            );
+            //
 
             // Create a Product object from cart item data
             final productData = {
@@ -106,7 +96,7 @@ class _CartScreenState extends State<CartScreen> {
               'shipping_available': [],
             };
 
-            print('🔧 Product data: $productData');
+            //
 
             // Add to cart provider with cart item ID
             await cartProvider.addToCartWithId(
@@ -115,9 +105,7 @@ class _CartScreenState extends State<CartScreen> {
               cartItemId: item['id'], // Store the cart item ID from API
             );
 
-            print(
-              '✅ Added to cart: ${item['product_name']} (Qty: ${item['quantity']})',
-            );
+            //
             print(
               '🛒 Current cart items count: ${cartProvider.cartItems.length}',
             );
@@ -127,8 +115,28 @@ class _CartScreenState extends State<CartScreen> {
         print('🛒 Cart Provider Items Count: ${cartProvider.cartItems.length}');
       }
     } catch (e) {
+      String errorMessage = e.toString();
+
+      // Handle 401 Unauthorized specifically
+      if (errorMessage.contains('401') ||
+          errorMessage.contains('Unauthenticated')) {
+        errorMessage = 'Your session has expired. Please login again.';
+        // Clear auth state
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.logout();
+
+        // Optionally redirect to login after a delay
+        if (mounted) {
+          Future.delayed(const Duration(seconds: 2), () {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
+          });
+        }
+      }
+
       setState(() {
-        _error = e.toString();
+        _error = errorMessage;
       });
     } finally {
       setState(() {
@@ -588,28 +596,75 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildErrorState() {
+    final isAuthError =
+        _error?.contains('401') == true ||
+        _error?.contains('Unauthenticated') == true ||
+        _error?.contains('session has expired') == true;
+
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 64, color: AppTheme.errorColor),
-          const SizedBox(height: 16),
-          Text(
-            'Failed to load cart',
-            style: TextStyle(fontSize: 18, color: AppTheme.errorColor),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppTheme.textSecondaryColor),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _loadCartFromAPI,
-            child: const Text('Retry'),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacingLarge),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isAuthError ? Icons.lock_outline : Icons.error_outline,
+              size: 64,
+              color: AppTheme.errorColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isAuthError ? 'Authentication Required' : 'Failed to load cart',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.errorColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _error ?? 'An error occurred',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (!isAuthError)
+              ElevatedButton(
+                onPressed: _loadCartFromAPI,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('Retry'),
+              )
+            else
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('Go to Login'),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -657,109 +712,114 @@ class _CartScreenState extends State<CartScreen> {
         );
       },
       child: AppTheme.buildCard(
-      padding: const EdgeInsets.all(AppTheme.spacingMedium),
-      child: Row(
-        children: [
-          // Product Image
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-              color: Colors.grey[200],
+        padding: const EdgeInsets.all(AppTheme.spacingMedium),
+        child: Row(
+          children: [
+            // Product Image
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                color: Colors.grey[200],
+              ),
+              child: cartItem.product.firstImage != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      child: Image.network(
+                        cartItem.product.firstImage!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.image, color: Colors.grey);
+                        },
+                      ),
+                    )
+                  : const Icon(Icons.image, color: Colors.grey),
             ),
-            child: cartItem.product.firstImage != null
-                ? ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusSmall),
-                    child: Image.network(
-                      cartItem.product.firstImage!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.image, color: Colors.grey);
-                      },
-                    ),
-                  )
-                : const Icon(Icons.image, color: Colors.grey),
-          ),
-          const SizedBox(width: AppTheme.spacingMedium),
+            const SizedBox(width: AppTheme.spacingMedium),
 
-          // Product Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  cartItem.product.name,
-                  style: const TextStyle(
-                    fontSize: AppTheme.fontSizeMedium,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textColor,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: AppTheme.spacingSmall),
-                Text(
-                  cartItem.formattedTotal,
-                  style: const TextStyle(
-                    fontSize: AppTheme.fontSizeLarge,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Quantity Controls and Delete Button
-          Column(
-            children: [
-              // Quantity Controls Row
-              Row(
-                mainAxisSize: MainAxisSize.min,
+            // Product Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    onPressed: () {
-                      _updateCartItemQuantity(cartItem, cartItem.quantity - 1);
-                    },
-                    icon: const Icon(Icons.remove),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
                   Text(
-                    cartItem.quantity.toString(),
+                    cartItem.product.name,
                     style: const TextStyle(
                       fontSize: AppTheme.fontSizeMedium,
                       fontWeight: FontWeight.w600,
+                      color: AppTheme.textColor,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  IconButton(
-                    onPressed: () {
-                      _updateCartItemQuantity(cartItem, cartItem.quantity + 1);
-                    },
-                    icon: const Icon(Icons.add),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
+                  const SizedBox(height: AppTheme.spacingSmall),
+                  Text(
+                    cartItem.formattedTotal,
+                    style: const TextStyle(
+                      fontSize: AppTheme.fontSizeLarge,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
                     ),
                   ),
                 ],
               ),
-              // Delete Button
-              IconButton(
+            ),
+
+            // Quantity Controls and Delete Button
+            Column(
+              children: [
+                // Quantity Controls Row
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        _updateCartItemQuantity(
+                          cartItem,
+                          cartItem.quantity - 1,
+                        );
+                      },
+                      icon: const Icon(Icons.remove),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
+                    Text(
+                      cartItem.quantity.toString(),
+                      style: const TextStyle(
+                        fontSize: AppTheme.fontSizeMedium,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        _updateCartItemQuantity(
+                          cartItem,
+                          cartItem.quantity + 1,
+                        );
+                      },
+                      icon: const Icon(Icons.add),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
+                  ],
+                ),
+                // Delete Button
+                IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () {
+                  onPressed: () {
                     _removeCartItem(cartItem);
-                },
-              ),
-            ],
-          ),
-        ],
+                  },
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -788,11 +848,9 @@ class _CartScreenState extends State<CartScreen> {
     }
 
     // Navigate to checkout screen
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const CheckoutScreen(),
-      ),
-    );
+    final result = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const CheckoutScreen()));
 
     // If checkout was successful, reload cart
     if (result == true) {
@@ -965,11 +1023,9 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _handleCheckoutButton(CartProvider cartProvider) async {
     // Navigate to checkout screen
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const CheckoutScreen(),
-      ),
-    );
+    final result = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const CheckoutScreen()));
 
     // If checkout was successful, reload cart
     if (result == true) {
@@ -979,7 +1035,7 @@ class _CartScreenState extends State<CartScreen> {
 
   void _showReferAFriendOption() {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
-    
+
     // Check if cart has items
     if (cartProvider.cartItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
