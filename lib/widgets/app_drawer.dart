@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../config/theme_config.dart';
 import '../screens/profile/dropshipping_products_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/dashboard_screen.dart';
-import '../screens/profile/settings_screen.dart';
 import '../screens/orders/orders_list_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/wallet/wallet_screen.dart';
+import '../screens/auth/login_screen.dart';
+import '../providers/auth_provider.dart';
+import '../models/user_model.dart';
 
 class AppDrawer extends StatelessWidget {
   final String current; // e.g., 'profile', 'pointer'
@@ -16,225 +18,299 @@ class AppDrawer extends StatelessWidget {
 
   bool _is(String key) => current == key;
 
+  String _getInitials(User user) {
+    if (user.firstName != null && user.lastName != null) {
+      return '${user.firstName![0].toUpperCase()}${user.lastName![0].toUpperCase()}';
+    } else if (user.firstName != null && user.firstName!.isNotEmpty) {
+      return user.firstName![0].toUpperCase();
+    } else if (user.username.isNotEmpty) {
+      return user.username[0].toUpperCase();
+    } else if (user.email.isNotEmpty) {
+      return user.email[0].toUpperCase();
+    }
+    return 'U';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.user;
+
     return Drawer(
       elevation: 0,
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF1A1D24),
       child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              // No borderRadius - full white box without curves
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1D24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            // User Profile Section
+            if (user != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 50, bottom: 20),
+                child: Column(
                   children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        size: 27,
-                        color: Colors.black54,
+                    // Avatar with green border
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.green,
+                          width: 2,
+                        ),
                       ),
-                      onPressed: () => Navigator.of(context).pop(),
-                      tooltip: 'Close menu',
-                      splashRadius: 22,
-                      padding: const EdgeInsets.only(top: 4, right: 7),
+                      child: CircleAvatar(
+                        radius: 38,
+                        backgroundColor: Colors.grey[800],
+                        child: Text(
+                          _getInitials(user),
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFF8C00), // Orange-yellow color
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // User Name
+                    Text(
+                      user.fullName.isNotEmpty ? user.fullName : 'System user',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // User Email
+                    Text(
+                      user.email,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[400],
+                      ),
                     ),
                   ],
                 ),
-                const Divider(height: 0),
-                Expanded(
-                  child: ListView(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      _tile(
-                        context,
-                        icon: Icons.home_outlined,
-                        label: 'Home',
-                        selected: _is('home'),
-                        onTap: () {
-                          if (_is('home')) {
-                            Navigator.pop(context);
-                            return;
-                          }
-                          Navigator.pop(context);
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const HomeScreen(),
-                            ),
-                          );
-                        },
+              ),
+              // Separator
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: Colors.grey[700],
+                indent: 20,
+                endIndent: 20,
+              ),
+            ] else ...[
+              // If not logged in, show placeholder
+              Padding(
+                padding: const EdgeInsets.only(top: 50, bottom: 20),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.green,
+                          width: 2,
+                        ),
                       ),
-                      _tile(
-                        context,
-                        icon: Icons.dashboard_outlined,
-                        label: 'Dashboard',
-                        selected: _is('dashboard'),
-                        onTap: () {
-                          if (_is('dashboard')) {
-                            Navigator.pop(context);
-                            return;
-                          }
-                          Navigator.pop(context);
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const DashboardScreen(),
-                            ),
-                          );
-                        },
+                      child: CircleAvatar(
+                        radius: 38,
+                        backgroundColor: Colors.grey[800],
+                        child: const Text(
+                          'U',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFF8C00),
+                          ),
+                        ),
                       ),
-                      _tile(
-                        context,
-                        icon: Icons.inventory_2_outlined,
-                        label: 'Pointer Products',
-                        selected: _is('pointer'),
-                        onTap: () {
-                          if (_is('pointer')) {
-                            Navigator.pop(context);
-                            return;
-                          }
-                          Navigator.pop(context);
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const DropshippingProductsScreen(),
-                            ),
-                          );
-                        },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Guest User',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                      _tile(
-                        context,
-                        icon: Icons.receipt_long_outlined,
-                        label: 'Orders',
-                        selected: _is('orders'),
-                        onTap: () {
-                          if (_is('orders')) {
-                            Navigator.pop(context);
-                            return;
-                          }
-                          Navigator.pop(context);
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const OrdersListScreen(),
-                            ),
-                          );
-                        },
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Not logged in',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[400],
                       ),
-                      _tile(
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: Colors.grey[700],
+                indent: 20,
+                endIndent: 20,
+              ),
+            ],
+            // Navigation Links
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                children: [
+                  _tile(
+                    context,
+                    icon: Icons.home_outlined,
+                    label: 'Home',
+                    selected: _is('home'),
+                    onTap: () {
+                      if (_is('home')) {
+                        Navigator.pop(context);
+                        return;
+                      }
+                      Navigator.pop(context);
+                      Navigator.pushReplacement(
                         context,
-                        icon: Icons.person_outline,
-                        label: 'Profile',
-                        selected: _is('profile'),
-                        onTap: () {
-                          if (_is('profile')) {
-                            Navigator.pop(context);
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const HomeScreen(),
-                              ),
-                            );
-                            return;
-                          }
-                          Navigator.pop(context);
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ProfileScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _tile(
+                        MaterialPageRoute(
+                          builder: (_) => const HomeScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _tile(
+                    context,
+                    icon: Icons.dashboard_outlined,
+                    label: 'Dashboard',
+                    selected: _is('dashboard'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
                         context,
-                        icon: Icons.account_balance_wallet_outlined,
-                        label: 'Wallet',
-                        selected: false,
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const WalletScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _tile(
+                        MaterialPageRoute(
+                          builder: (_) => const DashboardScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _tile(
+                    context,
+                    icon: Icons.inventory_2_outlined,
+                    label: 'Pointer Products',
+                    selected: _is('pointer'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
                         context,
-                        icon: Icons.favorite_border,
-                        label: 'Wishlist',
-                        selected: false,
-                        onTap: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Wishlist coming soon!'),
-                            ),
-                          );
-                        },
-                      ),
-                      _tile(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const DropshippingProductsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _tile(
+                    context,
+                    icon: Icons.receipt_long_outlined,
+                    label: 'Orders',
+                    selected: _is('orders'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
                         context,
-                        icon: Icons.notifications_none_outlined,
-                        label: 'Notifications',
-                        selected: false,
-                        onTap: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Notifications coming soon!'),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(
-                        height: 18,
-                        thickness: 0.5,
-                        indent: 10,
-                        endIndent: 10,
-                      ),
-                      _tile(
+                        MaterialPageRoute(
+                          builder: (_) => const OrdersListScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _tile(
+                    context,
+                    icon: Icons.person_outline,
+                    label: 'Profile',
+                    selected: _is('profile'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
                         context,
-                        icon: Icons.settings,
-                        label: 'Settings',
-                        selected: false,
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SettingsScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _tile(
+                        MaterialPageRoute(
+                          builder: (_) => const ProfileScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _tile(
+                    context,
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: 'Wallet',
+                    selected: false,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
                         context,
-                        icon: Icons.help_outline,
-                        label: 'Help & Support',
-                        selected: false,
-                        onTap: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Help & Support coming soon!'),
-                            ),
-                          );
-                        },
+                        MaterialPageRoute(
+                          builder: (_) => const WalletScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            // Logout Button
+            if (user != null)
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await authProvider.logout();
+                    if (context.mounted) {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LoginScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF8C00), // Orange
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.arrow_forward, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Logout',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -246,44 +322,32 @@ class AppDrawer extends StatelessWidget {
     required bool selected,
     required VoidCallback onTap,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 210),
-      curve: Curves.ease,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       decoration: BoxDecoration(
-        color: selected ? Colors.orange.withOpacity(0.13) : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        color: selected ? Colors.orange.withOpacity(0.15) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
         dense: true,
-        minVerticalPadding: 5,
-        minLeadingWidth: 28,
-        leading: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          transitionBuilder: (child, anim) =>
-              FadeTransition(opacity: anim, child: child),
-          child: Icon(
-            icon,
-            color: selected ? Colors.orange : Colors.black54,
-            size: 18,
-            key: ValueKey(selected),
-          ),
+        leading: Icon(
+          icon,
+          color: selected ? Colors.orange : Colors.white,
+          size: 20,
         ),
         title: Text(
           label,
           style: TextStyle(
             fontSize: 16,
-            color: selected ? Colors.orange : AppTheme.textColor,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            letterSpacing: 0,
+            color: selected ? Colors.orange : Colors.white,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
-        //splashColor: Colors.orange.withOpacity(0.15),
-        selected: false, // handled above
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 11, vertical: 0),
-        horizontalTitleGap: 8,
-        visualDensity: const VisualDensity(vertical: -2.1, horizontal: -1.2),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
     );
   }

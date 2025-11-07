@@ -63,7 +63,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 await Future<void>.delayed(const Duration(milliseconds: 300));
               },
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppTheme.spacingMedium),
+                padding: EdgeInsets.only(
+                  left: AppTheme.spacingMedium,
+                  right: AppTheme.spacingMedium,
+                  top: AppTheme.spacingMedium,
+                  bottom: AppTheme.spacingMedium +
+                      MediaQuery.of(context).padding.bottom,
+                ),
                 child: Column(
                   children: [
                     _buildProfileHeader(user),

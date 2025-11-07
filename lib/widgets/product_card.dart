@@ -344,7 +344,7 @@ Check out this amazing product: ${product.name}
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              'Ref & Earn ${product.referrerCommission?.toStringAsFixed(0) ?? '0'}',
+                              'Ref & Earn ${product.formattedCommission}',
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w700,
@@ -722,7 +722,7 @@ class ProductGridCard extends StatelessWidget {
                                   horizontal: 8,
                                 ),
                                 child: Text(
-                                  'Ref & Earn ${product.referrerCommission!.toStringAsFixed(0)}',
+                                  'Ref & Earn ${product.formattedCommission}',
                                   style: const TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w700,

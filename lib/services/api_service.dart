@@ -19,10 +19,11 @@ class ApiService {
       ),
     );
 
-    // Add interceptors
-    _dio.interceptors.add(
-      LogInterceptor(requestBody: true, responseBody: true, error: true),
-    );
+    // LogInterceptor removed to reduce console noise
+    // Uncomment below if you need to debug API calls:
+    // _dio.interceptors.add(
+    //   LogInterceptor(requestBody: false, responseBody: false, error: true),
+    // );
 
     _dio.interceptors.add(
       InterceptorsWrapper(

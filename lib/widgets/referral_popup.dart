@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../config/theme_config.dart';
 import '../models/product_model.dart';
 import '../models/referral_info_model.dart';
 import '../services/api_service.dart';
@@ -14,7 +12,7 @@ class ReferralPopup extends StatefulWidget {
   final VoidCallback? onClose;
 
   const ReferralPopup({Key? key, required this.product, this.onClose})
-    : super(key: key);
+      : super(key: key);
 
   @override
   State<ReferralPopup> createState() => _ReferralPopupState();
@@ -85,9 +83,33 @@ class _ReferralPopupState extends State<ReferralPopup>
     }
   }
 
+  Widget _buildHighlightedText(String text, String highlight) {
+    final parts = text.split(highlight);
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          fontSize: 14,
+          color: Colors.grey,
+        ),
+        children: [
+          TextSpan(text: parts[0]),
+          TextSpan(
+            text: highlight,
+            style: const TextStyle(
+              color: Color(0xFFFF8C00), // Orange-yellow
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (parts.length > 1) TextSpan(text: parts[1]),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final earnAmount = _referralInfo?.formattedEarnAmount ?? '\$36';
 
     return AnimatedBuilder(
       animation: _animationController,
@@ -97,37 +119,25 @@ class _ReferralPopupState extends State<ReferralPopup>
           child: FadeTransition(
             opacity: _fadeAnimation,
             child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF2C3E50), // Dark blue-grey background
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(AppTheme.radiusLarge),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A1D24), // Dark background
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(20),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Header
-                  Container(
-                    padding: const EdgeInsets.all(AppTheme.spacingLarge),
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(AppTheme.radiusLarge),
-                      ),
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
                     child: Row(
                       children: [
                         const Expanded(
                           child: Text(
                             'Refer and Earn',
                             style: TextStyle(
-                              fontSize: AppTheme.fontSizeXLarge,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
@@ -135,22 +145,28 @@ class _ReferralPopupState extends State<ReferralPopup>
                         ),
                         IconButton(
                           onPressed: widget.onClose,
-                          icon: const Icon(Icons.close, color: Colors.white),
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.grey,
+                            size: 24,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
                       ],
                     ),
                   ),
-
+                  // Divider
+                  Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: Colors.grey[700],
+                    indent: 20,
+                    endIndent: 20,
+                  ),
                   // Content
                   Padding(
-                    padding: EdgeInsets.only(
-                      left: AppTheme.spacingLarge,
-                      right: AppTheme.spacingLarge,
-                      top: AppTheme.spacingLarge,
-                      bottom:
-                          MediaQuery.of(context).padding.bottom +
-                          AppTheme.spacingLarge,
-                    ),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
                         // Gift Icon
@@ -158,139 +174,99 @@ class _ReferralPopupState extends State<ReferralPopup>
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: Colors.yellow,
-                            borderRadius: BorderRadius.circular(40),
+                            color: const Color(0xFFFFC107), // Yellow
+                            shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.card_giftcard,
                             size: 40,
-                            color: Colors.black,
+                            color: Colors.black87,
                           ),
                         ),
-
-                        const SizedBox(height: AppTheme.spacingLarge),
-
+                        const SizedBox(height: 20),
                         // Invite Friends Title
                         const Text(
                           'Invite Friends',
                           style: TextStyle(
-                            fontSize: AppTheme.fontSizeXLarge,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
-
-                        const SizedBox(height: AppTheme.spacingMedium),
-
-                        // Reward Information
+                        const SizedBox(height: 12),
+                        // Descriptive Text with highlighted amount
                         if (_referralInfo != null)
-                          Text(
-                            'Choose your preferred way to invite friends and earn rewards ${_referralInfo!.formattedEarnAmount}',
-                            style: const TextStyle(
-                              fontSize: AppTheme.fontSizeMedium,
-                              color: Colors.white70,
-                            ),
-                            textAlign: TextAlign.center,
+                          _buildHighlightedText(
+                            'Choose your preferred way to invite friends and earn rewards $earnAmount',
+                            earnAmount,
+                          )
+                        else
+                          _buildHighlightedText(
+                            'Choose your preferred way to invite friends and earn rewards $earnAmount',
+                            earnAmount,
                           ),
-
-                        const SizedBox(height: AppTheme.spacingLarge),
-
-                        // Login Warning
-                        if (!authProvider.isLoggedIn) ...[
+                        const SizedBox(height: 16),
+                        // Logged in message
+                        if (authProvider.isLoggedIn) ...[
                           Container(
-                            padding: const EdgeInsets.all(
-                              AppTheme.spacingMedium,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusMedium,
-                              ),
-                              border: Border.all(
-                                color: Colors.red.withOpacity(0.3),
-                              ),
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Column(
+                            child: Row(
                               children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.warning,
-                                      color: Colors.yellow,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(
-                                      width: AppTheme.spacingSmall,
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        'Please log in to start earning ${_referralInfo?.formattedEarnAmount ?? '\$45'} per referral.',
-                                        style: const TextStyle(
-                                          fontSize: AppTheme.fontSizeSmall,
-                                          color: Colors.white70,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                const Icon(
+                                  Icons.celebration,
+                                  color: Colors.green,
+                                  size: 20,
                                 ),
-                                const SizedBox(height: AppTheme.spacingSmall),
-                                GestureDetector(
-                                  onTap: () {
-                                    // Navigate to login screen
-                                    Navigator.of(context).pop();
-                                    // You can add navigation to login screen here
-                                  },
-                                  child: const Text(
-                                    'Login',
-                                    style: TextStyle(
-                                      fontSize: AppTheme.fontSizeMedium,
-                                      color: Colors.red,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _buildHighlightedText(
+                                    'You\'re logged in! You can earn $earnAmount for every friend you refer.',
+                                    earnAmount,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: AppTheme.spacingLarge),
+                          const SizedBox(height: 20),
                         ],
-
                         // Loading State
                         if (_isLoading)
                           const Center(
                             child: CircularProgressIndicator(
-                              color: Colors.yellow,
+                              color: Color(0xFFFFC107),
                             ),
                           )
                         else if (_error != null)
                           Container(
-                            padding: const EdgeInsets.all(
-                              AppTheme.spacingMedium,
-                            ),
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: Colors.red.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusMedium,
-                              ),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               _error!,
                               style: const TextStyle(
                                 color: Colors.red,
-                                fontSize: AppTheme.fontSizeSmall,
+                                fontSize: 14,
                               ),
                               textAlign: TextAlign.center,
                             ),
                           )
                         else if (_referralInfo != null) ...[
-                          // Referral Options
+                          // Two Cards
                           Row(
                             children: [
-                              // Refer via Form Button
+                              // Left Card - Refer via Form
                               Expanded(
                                 child: GestureDetector(
                                   onTap: () {
-                                    // Close current popup and show form popup
                                     Navigator.of(context).pop();
                                     showModalBottomSheet(
                                       context: context,
@@ -307,12 +283,11 @@ class _ReferralPopupState extends State<ReferralPopup>
                                     );
                                   },
                                   child: Container(
-                                    height: 100,
+                                    height: 140,
+                                    padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: Colors.yellow,
-                                      borderRadius: BorderRadius.circular(
-                                        AppTheme.radiusMedium,
-                                      ),
+                                      color: const Color(0xFFFFC107), // Yellow
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Column(
                                       mainAxisAlignment:
@@ -320,28 +295,25 @@ class _ReferralPopupState extends State<ReferralPopup>
                                       children: [
                                         const Icon(
                                           Icons.person_add,
-                                          color: Colors.black,
-                                          size: 24,
+                                          color: Colors.black87,
+                                          size: 32,
                                         ),
-                                        const SizedBox(
-                                          height: AppTheme.spacingSmall,
-                                        ),
+                                        const SizedBox(height: 8),
                                         const Text(
                                           'Refer via Form',
                                           style: TextStyle(
-                                            fontSize: AppTheme.fontSizeMedium,
+                                            fontSize: 16,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.black,
+                                            color: Colors.black87,
                                           ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           'Fill out details and we\'ll contact them',
                                           style: TextStyle(
-                                            fontSize: AppTheme.fontSizeSmall,
-                                            color: Colors.black.withOpacity(
-                                              0.7,
-                                            ),
+                                            fontSize: 12,
+                                            color: Colors.black87
+                                                .withOpacity(0.7),
                                           ),
                                           textAlign: TextAlign.center,
                                         ),
@@ -350,16 +322,16 @@ class _ReferralPopupState extends State<ReferralPopup>
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: AppTheme.spacingMedium),
-                              // Share a Link Button
+                              const SizedBox(width: 12),
+                              // Right Card - Share a Link
                               Expanded(
                                 child: GestureDetector(
                                   onTap: () {
-                                    // Close current popup and show share popup
                                     Navigator.of(context).pop();
-                                    showDialog(
+                                    showModalBottomSheet(
                                       context: context,
-                                      barrierDismissible: true,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
                                       builder: (BuildContext context) {
                                         return ShareLinkPopup(
                                           product: widget.product,
@@ -372,30 +344,30 @@ class _ReferralPopupState extends State<ReferralPopup>
                                     );
                                   },
                                   child: Container(
-                                    height: 100,
+                                    height: 140,
+                                    padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF2C3E50),
-                                      borderRadius: BorderRadius.circular(
-                                        AppTheme.radiusMedium,
+                                      color: const Color(0xFF2D323E), // Dark grey
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: const Color(0xFFFF8C00), // Orange
+                                        width: 1,
                                       ),
-                                      border: Border.all(color: Colors.yellow),
                                     ),
                                     child: Column(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
                                         const Icon(
-                                          Icons.share,
+                                          Icons.link,
                                           color: Colors.white,
-                                          size: 24,
+                                          size: 32,
                                         ),
-                                        const SizedBox(
-                                          height: AppTheme.spacingSmall,
-                                        ),
+                                        const SizedBox(height: 8),
                                         const Text(
                                           'Share a Link',
                                           style: TextStyle(
-                                            fontSize: AppTheme.fontSizeMedium,
+                                            fontSize: 16,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.white,
                                           ),
@@ -404,10 +376,8 @@ class _ReferralPopupState extends State<ReferralPopup>
                                         Text(
                                           'Send your unique referral link',
                                           style: TextStyle(
-                                            fontSize: AppTheme.fontSizeSmall,
-                                            color: Colors.white.withOpacity(
-                                              0.7,
-                                            ),
+                                            fontSize: 12,
+                                            color: Colors.white.withOpacity(0.7),
                                           ),
                                           textAlign: TextAlign.center,
                                         ),
@@ -419,9 +389,7 @@ class _ReferralPopupState extends State<ReferralPopup>
                             ],
                           ),
                         ],
-
-                        const SizedBox(height: AppTheme.spacingLarge),
-
+                        const SizedBox(height: 24),
                         // Cancel Button
                         SizedBox(
                           width: double.infinity,
@@ -430,19 +398,16 @@ class _ReferralPopupState extends State<ReferralPopup>
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.black,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: AppTheme.spacingMedium,
-                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusMedium,
-                                ),
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              elevation: 0,
                             ),
                             child: const Text(
                               'Cancel',
                               style: TextStyle(
-                                fontSize: AppTheme.fontSizeMedium,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),

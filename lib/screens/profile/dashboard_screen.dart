@@ -124,18 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onWillPop: () => _onWillPop(context),
       child: Scaffold(
         drawer: const AppDrawer(current: 'dashboard'),
-        appBar: CustomAppBar(
-          title: 'Dashboard',
-          isDark: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                context.read<DashboardProvider>().loadDashboard();
-              },
-            ),
-          ],
-        ),
+        appBar: CustomAppBar(title: 'Dashboard', isDark: true),
         backgroundColor: AppTheme.backgroundColor,
         body: SafeArea(
           child: Consumer<DashboardProvider>(
@@ -148,7 +137,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onRefresh: () =>
                     context.read<DashboardProvider>().loadDashboard(),
                 child: ListView(
-                  padding: const EdgeInsets.all(AppTheme.spacingMedium),
+                  padding: EdgeInsets.only(
+                    left: AppTheme.spacingMedium,
+                    right: AppTheme.spacingMedium,
+                    top: AppTheme.spacingMedium,
+                    bottom:
+                        AppTheme.spacingMedium +
+                        MediaQuery.of(context).padding.bottom,
+                  ),
                   children: [
                     // Header Section
                     const Text(
@@ -173,34 +169,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                         ),
-                        // Toggle Button for View Mode
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _isStatsListView
-                                  ? Icons.view_carousel
-                                  : Icons.list,
-                              size: 18,
-                              color: Colors.orange,
-                            ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _isStatsListView = !_isStatsListView;
-                                });
-                              },
-                              child: Text(
-                                _isStatsListView ? 'Slider' : 'List',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.orange,
-                                ),
-                              ),
-                            ),
-                          ],
+                        // Toggle Button for View Mode - Icon only
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isStatsListView = !_isStatsListView;
+                            });
+                          },
+                          child: Icon(
+                            _isStatsListView ? Icons.view_carousel : Icons.list,
+                            size: 20,
+                            color: Colors.orange,
+                          ),
                         ),
                       ],
                     ),

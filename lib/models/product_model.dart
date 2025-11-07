@@ -105,10 +105,10 @@ class Product {
     };
   }
 
-  String get formattedPrice => '$currencySymbol${price.toStringAsFixed(0)}';
+  String get formattedPrice => '$currencySymbol ${price.toStringAsFixed(0)}';
   String get formattedCommission => referrerCommission != null
-      ? '$currencySymbol${referrerCommission!.toStringAsFixed(0)}'
-      : '${currencySymbol}0';
+      ? '$currencySymbol ${referrerCommission!.toStringAsFixed(0)}'
+      : '$currencySymbol 0';
 
   String? get firstImage {
     if (thumbnail != null) {

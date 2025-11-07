@@ -573,8 +573,12 @@ class _CartScreenState extends State<CartScreen> {
                         child: RefreshIndicator(
                           onRefresh: _loadCartFromAPI,
                           child: ListView.builder(
-                            padding: const EdgeInsets.all(
-                              AppTheme.spacingMedium,
+                            padding: EdgeInsets.only(
+                              left: AppTheme.spacingMedium,
+                              right: AppTheme.spacingMedium,
+                              top: AppTheme.spacingMedium,
+                              bottom: AppTheme.spacingMedium +
+                                  MediaQuery.of(context).padding.bottom,
                             ),
                             itemCount: cartProvider.cartItems.length,
                             itemBuilder: (context, index) {
