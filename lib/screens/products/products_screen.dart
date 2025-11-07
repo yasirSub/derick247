@@ -287,15 +287,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           // TODO: Share product
                         },
                         onRefer: () {
-                          final authProvider = Provider.of<AuthProvider>(
-                            context,
-                            listen: false,
-                          );
-                          if (authProvider.isLoggedIn) {
-                            _showReferralPopup(context, product);
-                          } else {
-                            _showLoginPrompt(context);
-                          }
+                          _showReferralPopup(context, product);
                         },
                       );
                     },

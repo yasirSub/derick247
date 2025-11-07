@@ -664,15 +664,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
-                  final authProvider = Provider.of<AuthProvider>(
-                    context,
-                    listen: false,
-                  );
-                  if (authProvider.isLoggedIn) {
-                    _showReferralPopup();
-                  } else {
-                    _showLoginPrompt();
-                  }
+                  _showReferralPopup();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange.shade700,

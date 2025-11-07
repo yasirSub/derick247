@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/black_board_provider.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/referral_popup.dart';
 import '../auth/login_screen.dart';
@@ -18,7 +19,6 @@ import '../../widgets/custom_app_bar.dart';
 import '../../widgets/currency_selection_dialog.dart';
 import '../../services/storage_service.dart';
 import '../profile/dashboard_screen.dart';
-import '../profile/dropshipping_products_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:country_flags/country_flags.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -65,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: const Color(0xFF10131A),
         body: IndexedStack(index: _selectedIndex, children: _buildScreens()),
         bottomNavigationBar: CustomBottomNavigationBar(
           currentIndex: _selectedIndex,
@@ -82,6 +83,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
                 return;
               }
+            }
+            if (index == 1) {
+              Provider.of<BlackBoardProvider>(
+                context,
+                listen: false,
+              ).loadEntries(refresh: true);
             }
             setState(() {
               _selectedIndex = index;
@@ -272,82 +279,6 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
           onClose: () {
             Navigator.of(context).pop();
           },
-        );
-      },
-    );
-  }
-
-  void _showLoginPrompt(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(30),
-              topRight: Radius.circular(30),
-            ),
-          ),
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const Text(
-                'Login Required',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Please log in to access referral features and earn commissions.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const LoginScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text('Login'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
         );
       },
     );
@@ -947,16 +878,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                   // TODO: Share product
                                 },
                                 onRefer: () {
-                                  final authProvider =
-                                      Provider.of<AuthProvider>(
-                                        context,
-                                        listen: false,
-                                      );
-                                  if (authProvider.isLoggedIn) {
-                                    _showReferralPopup(context, product);
-                                  } else {
-                                    _showLoginPrompt(context);
-                                  }
+                                  _showReferralPopup(context, product);
                                 },
                                 onAddToCart: () {
                                   // Show clickable popup notification
@@ -1028,16 +950,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                     // TODO: Share product
                                   },
                                   onRefer: () {
-                                    final authProvider =
-                                        Provider.of<AuthProvider>(
-                                          context,
-                                          listen: false,
-                                        );
-                                    if (authProvider.isLoggedIn) {
-                                      _showReferralPopup(context, product);
-                                    } else {
-                                      _showLoginPrompt(context);
-                                    }
+                                    _showReferralPopup(context, product);
                                   },
                                   onAddToCart: () {
                                     // Show clickable popup notification
@@ -1118,9 +1031,10 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const DropshippingProductsScreen(),
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Coming soon'),
+              behavior: SnackBarBehavior.floating,
             ),
           );
         },

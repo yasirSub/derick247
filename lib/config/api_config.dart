@@ -54,6 +54,9 @@ class ApiConfig {
   // Dashboard endpoint
   static const String dashboard = 'dashboard';
 
+  // Leaderboard endpoints
+  static const String blackBoard = 'black-board';
+
   // Dropshipping Product endpoints
   static const String dropshippingProduct = 'dropshipping-product';
 

@@ -6,6 +6,7 @@ import 'providers/product_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/referral_provider.dart';
 import 'providers/dashboard_provider.dart';
+import 'providers/black_board_provider.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'screens/home/home_screen.dart';
@@ -33,6 +34,7 @@ class Derick247App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => ReferralProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
+        ChangeNotifierProvider(create: (_) => BlackBoardProvider()),
       ],
       child: ScrollConfiguration(
         behavior: NoGlowScrollBehavior(),

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
 import '../config/theme_config.dart';
 import '../models/product_model.dart';
 import '../models/referral_info_model.dart';
+import '../providers/auth_provider.dart';
+import '../screens/auth/login_screen.dart';
 
 class ShareLinkPopup extends StatefulWidget {
   final Product product;
@@ -28,6 +31,8 @@ class _ShareLinkPopupState extends State<ShareLinkPopup>
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
   bool _isProductLink = true; // true for product link, false for checkout link
+  bool _linkCopied = false;
+  bool _checkoutRequiresLogin = false;
 
   @override
   void initState() {
@@ -55,16 +60,31 @@ class _ShareLinkPopupState extends State<ShareLinkPopup>
     super.dispose();
   }
 
-  String get _currentLink {
-    if (_isProductLink) {
-      return widget.referralInfo.shareLink;
-    } else {
-      // Generate checkout link - you can modify this based on your API structure
-      final baseUrl = widget.referralInfo.shareLink.split('?').first;
-      final checkoutUrl =
-          '$baseUrl/checkout?ref=${widget.referralInfo.referralCode ?? ''}';
-      return checkoutUrl;
+  String get _productLink {
+    final link = widget.referralInfo.shareLink;
+    final code = widget.referralInfo.referralCode;
+    if (code != null && code.isNotEmpty && !link.contains('ref=')) {
+      final separator = link.contains('?') ? '&' : '?';
+      return '$link${separator}ref=$code';
     }
+    return link;
+  }
+
+  String get _checkoutLink {
+    final checkout = widget.referralInfo.checkoutLink;
+    if (checkout != null && checkout.isNotEmpty) {
+      return checkout;
+    }
+    // Fallback: append referral code to checkout path
+    final code = widget.referralInfo.referralCode;
+    if (code != null && code.isNotEmpty) {
+      return 'https://comisionista247.com/checkout-guest/$code';
+    }
+    return 'https://comisionista247.com/checkout-guest';
+  }
+
+  String get _currentLink {
+    return _isProductLink ? _productLink : _checkoutLink;
   }
 
   Future<void> _shareViaWhatsApp() async {
@@ -129,6 +149,18 @@ $_currentLink
     try {
       await Clipboard.setData(ClipboardData(text: _currentLink));
       if (mounted) {
+        setState(() {
+          _linkCopied = true;
+        });
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() {
+              _linkCopied = false;
+            });
+          }
+        });
+      }
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Link copied to clipboard'),
@@ -137,6 +169,11 @@ $_currentLink
         );
       }
     } catch (e) {
+      if (mounted) {
+        setState(() {
+          _linkCopied = false;
+        });
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -159,7 +196,9 @@ $_currentLink
             opacity: _fadeAnimation,
             child: Container(
               decoration: const BoxDecoration(
-                color: Color(0xFF2C3E50), // Dark blue-grey background
+                color: Color(
+                  0xFF2C3E50,
+                ), // Dark blue-grey background (preferred)
                 borderRadius: BorderRadius.vertical(
                   top: Radius.circular(AppTheme.radiusLarge),
                 ),
@@ -258,6 +297,8 @@ $_currentLink
                                 onTap: () {
                                   setState(() {
                                     _isProductLink = true;
+                                    _linkCopied = false;
+                                    _checkoutRequiresLogin = false;
                                   });
                                 },
                                 child: Container(
@@ -291,8 +332,14 @@ $_currentLink
                             Expanded(
                               child: GestureDetector(
                                 onTap: () {
+                                  final isLoggedIn = Provider.of<AuthProvider>(
+                                    context,
+                                    listen: false,
+                                  ).isLoggedIn;
                                   setState(() {
                                     _isProductLink = false;
+                                    _linkCopied = false;
+                                    _checkoutRequiresLogin = !isLoggedIn;
                                   });
                                 },
                                 child: Container(
@@ -326,156 +373,253 @@ $_currentLink
 
                         const SizedBox(height: AppTheme.spacingLarge),
 
-                        // Sharing Options
-                        Row(
-                          children: [
-                            // WhatsApp Button
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: _shareViaWhatsApp,
-                                child: Container(
-                                  height: 120,
+                        if (_checkoutRequiresLogin && !_isProductLink)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2D323E),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusMedium,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 64,
+                                  height: 64,
                                   decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
                                     color: const Color(
-                                      0xFF25D366,
-                                    ), // WhatsApp green
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusMedium,
+                                      0xFFFFC107,
+                                    ).withOpacity(0.1),
+                                  ),
+                                  child: const Icon(
+                                    Icons.lock_outline,
+                                    color: Color(0xFFFFC107),
+                                    size: 32,
+                                  ),
+                                ),
+                                const SizedBox(height: AppTheme.spacingLarge),
+                                const Text(
+                                  'Login Required',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.fontSizeLarge,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: AppTheme.spacingSmall),
+                                const Text(
+                                  'You need to be logged in to share checkout links.',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.fontSizeSmall,
+                                    color: Colors.white70,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: AppTheme.spacingLarge),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                      widget.onClose?.call();
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const LoginScreen(),
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFFFC107),
+                                      foregroundColor: Colors.black,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: AppTheme.spacingMedium,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          AppTheme.radiusMedium,
+                                        ),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Login Now',
+                                      style: TextStyle(
+                                        fontSize: AppTheme.fontSizeMedium,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.chat_bubble_outline,
-                                        color: Colors.white,
-                                        size: 32,
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Row(
+                            children: [
+                              // WhatsApp Button
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: _shareViaWhatsApp,
+                                  child: Container(
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF25D366,
+                                      ), // WhatsApp green
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusMedium,
                                       ),
-                                      const SizedBox(
-                                        height: AppTheme.spacingSmall,
-                                      ),
-                                      const Text(
-                                        'WhatsApp',
-                                        style: TextStyle(
-                                          fontSize: AppTheme.fontSizeMedium,
-                                          fontWeight: FontWeight.bold,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.chat_bubble_outline,
                                           color: Colors.white,
+                                          size: 32,
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const Text(
-                                        'Share via WhatsApp',
-                                        style: TextStyle(
-                                          fontSize: AppTheme.fontSizeSmall,
-                                          color: Colors.white70,
+                                        const SizedBox(
+                                          height: AppTheme.spacingSmall,
                                         ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
+                                        const Text(
+                                          'WhatsApp',
+                                          style: TextStyle(
+                                            fontSize: AppTheme.fontSizeMedium,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        const Text(
+                                          'Share via WhatsApp',
+                                          style: TextStyle(
+                                            fontSize: AppTheme.fontSizeSmall,
+                                            color: Colors.white70,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: AppTheme.spacingMedium),
-                            // Facebook Button
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: _shareViaFacebook,
-                                child: Container(
-                                  height: 120,
-                                  decoration: BoxDecoration(
-                                    color: const Color(
-                                      0xFF1877F2,
-                                    ), // Facebook blue
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusMedium,
+                              const SizedBox(width: AppTheme.spacingMedium),
+                              // Facebook Button
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: _shareViaFacebook,
+                                  child: Container(
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF1877F2,
+                                      ), // Facebook blue
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusMedium,
+                                      ),
                                     ),
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Text(
-                                        'f',
-                                        style: TextStyle(
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                          fontFamily: 'Arial',
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Text(
+                                          'f',
+                                          style: TextStyle(
+                                            fontSize: 32,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            fontFamily: 'Arial',
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(
-                                        height: AppTheme.spacingSmall,
-                                      ),
-                                      const Text(
-                                        'Facebook',
-                                        style: TextStyle(
-                                          fontSize: AppTheme.fontSizeMedium,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
+                                        const SizedBox(
+                                          height: AppTheme.spacingSmall,
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const Text(
-                                        'Share on Facebook',
-                                        style: TextStyle(
-                                          fontSize: AppTheme.fontSizeSmall,
-                                          color: Colors.white70,
+                                        const Text(
+                                          'Facebook',
+                                          style: TextStyle(
+                                            fontSize: AppTheme.fontSizeMedium,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
                                         ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
+                                        const SizedBox(height: 4),
+                                        const Text(
+                                          'Share on Facebook',
+                                          style: TextStyle(
+                                            fontSize: AppTheme.fontSizeSmall,
+                                            color: Colors.white70,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: AppTheme.spacingMedium),
-                            // Copy Link Button
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: _copyLink,
-                                child: Container(
-                                  height: 120,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF2D323E), // Dark grey
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusMedium,
+                              const SizedBox(width: AppTheme.spacingMedium),
+                              // Copy Link Button
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: _copyLink,
+                                  child: Container(
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      color: _linkCopied
+                                          ? const Color(
+                                              0xFF25D366,
+                                            ) // Green highlight
+                                          : const Color(
+                                              0xFF2D323E,
+                                            ), // Dark grey
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusMedium,
+                                      ),
                                     ),
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.copy,
-                                        color: Colors.white,
-                                        size: 32,
-                                      ),
-                                      const SizedBox(
-                                        height: AppTheme.spacingSmall,
-                                      ),
-                                      const Text(
-                                        'Copy Link',
-                                        style: TextStyle(
-                                          fontSize: AppTheme.fontSizeMedium,
-                                          fontWeight: FontWeight.bold,
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          _linkCopied
+                                              ? Icons.check
+                                              : Icons.copy,
                                           color: Colors.white,
+                                          size: 32,
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const Text(
-                                        'Copy referral link',
-                                        style: TextStyle(
-                                          fontSize: AppTheme.fontSizeSmall,
-                                          color: Colors.white70,
+                                        const SizedBox(
+                                          height: AppTheme.spacingSmall,
                                         ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
+                                        Text(
+                                          _linkCopied ? 'Copied!' : 'Copy Link',
+                                          style: const TextStyle(
+                                            fontSize: AppTheme.fontSizeMedium,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _linkCopied
+                                              ? 'Link copied successfully'
+                                              : 'Copy referral link',
+                                          style: const TextStyle(
+                                            fontSize: AppTheme.fontSizeSmall,
+                                            color: Colors.white70,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
 
                         const SizedBox(height: AppTheme.spacingLarge),
 

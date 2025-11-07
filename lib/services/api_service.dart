@@ -239,6 +239,13 @@ class ApiService {
     return await _dio.get('${ApiConfig.referralInfo}$productId');
   }
 
+  Future<Response> getBlackBoard({int page = 1}) async {
+    return await _dio.get(
+      ApiConfig.blackBoard,
+      queryParameters: {'page': page},
+    );
+  }
+
   Future<Response> referFriend(Map<String, dynamic> referralData) async {
     final formData = FormData.fromMap(referralData);
 

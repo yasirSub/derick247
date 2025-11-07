@@ -141,9 +141,13 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
       animation: _animationController,
       builder: (context, child) {
         return SlideTransition(
-          position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(
-            CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-          ),
+          position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+              .animate(
+                CurvedAnimation(
+                  parent: _animationController,
+                  curve: Curves.easeOut,
+                ),
+              ),
           child: FadeTransition(
             opacity: _fadeAnimation,
             child: Container(
@@ -185,10 +189,7 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                         ),
                         IconButton(
                           onPressed: widget.onClose,
-                          icon: const Icon(
-                            Icons.close,
-                            color: Colors.white,
-                          ),
+                          icon: const Icon(Icons.close, color: Colors.white),
                         ),
                       ],
                     ),
@@ -200,7 +201,8 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                       left: AppTheme.spacingLarge,
                       right: AppTheme.spacingLarge,
                       top: AppTheme.spacingLarge,
-                      bottom: MediaQuery.of(context).padding.bottom +
+                      bottom:
+                          MediaQuery.of(context).padding.bottom +
                           AppTheme.spacingLarge,
                     ),
                     child: Form(
@@ -208,308 +210,305 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                              // Title with point reward
-                              Row(
-                                children: [
-                                  const Text(
-                                    'Refer by Form By Spending',
-                                    style: TextStyle(
-                                      fontSize: AppTheme.fontSizeLarge,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(width: AppTheme.spacingSmall),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppTheme.spacingSmall,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.yellow,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.diamond,
-                                          color: Colors.black,
-                                          size: 16,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          '1 Point',
-                                          style: TextStyle(
-                                            fontSize: AppTheme.fontSizeSmall,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: AppTheme.spacingMedium),
-
-                              // Instructions
+                          // Title with point reward
+                          Row(
+                            children: [
                               const Text(
-                                'Complete the step below to invite your friend',
+                                'Refer by Form By Spending',
                                 style: TextStyle(
-                                  fontSize: AppTheme.fontSizeMedium,
-                                  color: Colors.white70,
-                                ),
-                              ),
-
-                              const SizedBox(height: AppTheme.spacingLarge),
-
-                              // Friend's Name Field
-                              const Text(
-                                'Friend\'s Name',
-                                style: TextStyle(
-                                  fontSize: AppTheme.fontSizeMedium,
-                                  fontWeight: FontWeight.w500,
+                                  fontSize: AppTheme.fontSizeLarge,
+                                  fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(height: AppTheme.spacingSmall),
-                              TextFormField(
-                                controller: _friendNameController,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  hintText: 'e.g., Jane Doe',
-                                  hintStyle: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey[800],
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusMedium,
-                                    ),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: AppTheme.spacingMedium,
-                                    vertical: AppTheme.spacingSmall,
-                                  ),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Please enter friend\'s name';
-                                  }
-                                  return null;
-                                },
-                              ),
-
-                              const SizedBox(height: AppTheme.spacingLarge),
-
-                              // Friend's Phone Field
-                              const Text(
-                                'Friend\'s Phone',
-                                style: TextStyle(
-                                  fontSize: AppTheme.fontSizeMedium,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: AppTheme.spacingSmall),
-                              TextFormField(
-                                controller: _friendPhoneController,
-                                keyboardType: TextInputType.phone,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  hintText: 'e.g., +8801XXXXXXXXX',
-                                  hintStyle: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey[800],
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusMedium,
-                                    ),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: AppTheme.spacingMedium,
-                                    vertical: AppTheme.spacingSmall,
-                                  ),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Please enter friend\'s phone';
-                                  }
-                                  return null;
-                                },
-                              ),
-
-                              const SizedBox(height: AppTheme.spacingLarge),
-
-                              // How Ready Are You? Dropdown
-                              const Text(
-                                'How Ready Are You?',
-                                style: TextStyle(
-                                  fontSize: AppTheme.fontSizeMedium,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: AppTheme.spacingSmall),
+                              const SizedBox(width: AppTheme.spacingSmall),
                               Container(
-                                width: double.infinity,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: AppTheme.spacingMedium,
-                                  vertical: AppTheme.spacingSmall,
+                                  horizontal: AppTheme.spacingSmall,
+                                  vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[800],
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radiusMedium,
-                                  ),
+                                  color: Colors.yellow,
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _friendStatus.isEmpty
-                                        ? null
-                                        : _friendStatus,
-                                    hint: const Text(
-                                      'Select One',
-                                      style: TextStyle(color: Colors.white70),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.diamond,
+                                      color: Colors.black,
+                                      size: 16,
                                     ),
-                                    style: const TextStyle(color: Colors.white),
-                                    icon: const Icon(
-                                      Icons.keyboard_arrow_down,
-                                      color: Colors.white70,
+                                    SizedBox(width: 4),
+                                    Text(
+                                      '1 Point',
+                                      style: TextStyle(
+                                        fontSize: AppTheme.fontSizeSmall,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
                                     ),
-                                    dropdownColor: Colors.white,
-                                    items: _statusOptions.map((String status) {
-                                      return DropdownMenuItem<String>(
-                                        value: status,
-                                        child: Text(
-                                          _statusLabels[status] ?? status,
-                                          style: const TextStyle(
-                                            color: Colors.black87,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (String? newValue) {
-                                      setState(() {
-                                        _friendStatus = newValue ?? '';
-                                      });
-                                    },
-                                  ),
+                                  ],
                                 ),
                               ),
+                            ],
+                          ),
 
-                              const SizedBox(height: AppTheme.spacingLarge),
+                          const SizedBox(height: AppTheme.spacingMedium),
 
-                              // Notes Field
-                              const Text(
-                                'Notes',
-                                style: TextStyle(
-                                  fontSize: AppTheme.fontSizeMedium,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                ),
+                          // Instructions
+                          const Text(
+                            'Complete the step below to invite your friend',
+                            style: TextStyle(
+                              fontSize: AppTheme.fontSizeMedium,
+                              color: Colors.white70,
+                            ),
+                          ),
+
+                          const SizedBox(height: AppTheme.spacingLarge),
+
+                          // Friend's Name Field
+                          const Text(
+                            'Friend\'s Name',
+                            style: TextStyle(
+                              fontSize: AppTheme.fontSizeMedium,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingSmall),
+                          TextFormField(
+                            controller: _friendNameController,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: 'e.g., Jane Doe',
+                              hintStyle: TextStyle(
+                                color: Colors.white.withOpacity(0.5),
                               ),
-                              const SizedBox(height: AppTheme.spacingSmall),
-                              TextFormField(
-                                controller: _notesController,
-                                maxLines: 3,
+                              filled: true,
+                              fillColor: Colors.grey[800],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.spacingMedium,
+                                vertical: AppTheme.spacingSmall,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter friend\'s name';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: AppTheme.spacingLarge),
+
+                          // Friend's Phone Field
+                          const Text(
+                            'Friend\'s Phone',
+                            style: TextStyle(
+                              fontSize: AppTheme.fontSizeMedium,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingSmall),
+                          TextFormField(
+                            controller: _friendPhoneController,
+                            keyboardType: TextInputType.phone,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: 'e.g., +8801XXXXXXXXX',
+                              hintStyle: TextStyle(
+                                color: Colors.white.withOpacity(0.5),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[800],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.spacingMedium,
+                                vertical: AppTheme.spacingSmall,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter friend\'s phone';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: AppTheme.spacingLarge),
+
+                          // How Ready Are You? Dropdown
+                          const Text(
+                            'How Ready Are You?',
+                            style: TextStyle(
+                              fontSize: AppTheme.fontSizeMedium,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingSmall),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppTheme.spacingMedium,
+                              vertical: AppTheme.spacingSmall,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[800],
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusMedium,
+                              ),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _friendStatus.isEmpty
+                                    ? null
+                                    : _friendStatus,
+                                hint: const Text(
+                                  'Select One',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
                                 style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  hintText: 'Add any extra details',
-                                  hintStyle: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey[800],
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusMedium,
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: Colors.white70,
+                                ),
+                                dropdownColor: Colors.grey[800],
+                                items: _statusOptions.map((String status) {
+                                  return DropdownMenuItem<String>(
+                                    value: status,
+                                    child: Text(
+                                      _statusLabels[status] ?? status,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
-                                    borderSide: BorderSide.none,
+                                  );
+                                }).toList(),
+                                onChanged: (String? newValue) {
+                                  setState(() {
+                                    _friendStatus = newValue ?? '';
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: AppTheme.spacingLarge),
+
+                          // Notes Field
+                          const Text(
+                            'Notes',
+                            style: TextStyle(
+                              fontSize: AppTheme.fontSizeMedium,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingSmall),
+                          TextFormField(
+                            controller: _notesController,
+                            maxLines: 3,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: 'Add any extra details',
+                              hintStyle: TextStyle(
+                                color: Colors.white.withOpacity(0.5),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[800],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.all(
+                                AppTheme.spacingMedium,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: AppTheme.spacingLarge),
+
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: _isSubmitting ? null : _submitForm,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.yellow,
+                                    foregroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: AppTheme.spacingMedium,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusMedium,
+                                      ),
+                                    ),
                                   ),
-                                  contentPadding: const EdgeInsets.all(
-                                    AppTheme.spacingMedium,
+                                  child: _isSubmitting
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.black,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Send Invitation',
+                                          style: TextStyle(
+                                            fontSize: AppTheme.fontSizeMedium,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: AppTheme.spacingMedium),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: widget.onClose,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: AppTheme.spacingMedium,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusMedium,
+                                      ),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Cancel',
+                                    style: TextStyle(
+                                      fontSize: AppTheme.fontSizeMedium,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ),
-
-                              const SizedBox(height: AppTheme.spacingLarge),
-
-                              // Action Buttons
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: _isSubmitting
-                                          ? null
-                                          : _submitForm,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.yellow,
-                                        foregroundColor: Colors.black,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: AppTheme.spacingMedium,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            AppTheme.radiusMedium,
-                                          ),
-                                        ),
-                                      ),
-                                      child: _isSubmitting
-                                          ? const SizedBox(
-                                              height: 20,
-                                              width: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Colors.black,
-                                              ),
-                                            )
-                                          : const Text(
-                                              'Send Invitation',
-                                              style: TextStyle(
-                                                fontSize:
-                                                    AppTheme.fontSizeMedium,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: AppTheme.spacingMedium),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: widget.onClose,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.black,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: AppTheme.spacingMedium,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            AppTheme.radiusMedium,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Cancel',
-                                        style: TextStyle(
-                                          fontSize: AppTheme.fontSizeMedium,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),

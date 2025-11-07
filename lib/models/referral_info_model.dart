@@ -4,6 +4,7 @@ class ReferralInfo {
   final double earnAmount;
   final String shareLink;
   final int productId;
+  final String? checkoutLink;
 
   ReferralInfo({
     required this.currencySymbol,
@@ -11,6 +12,7 @@ class ReferralInfo {
     required this.earnAmount,
     required this.shareLink,
     required this.productId,
+    this.checkoutLink,
   });
 
   factory ReferralInfo.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class ReferralInfo {
       earnAmount: (json['earn_amount'] ?? 0).toDouble(),
       shareLink: json['share_link'] ?? '',
       productId: json['product_id'] ?? 0,
+      checkoutLink: json['check_out_link'],
     );
   }
 
@@ -30,6 +33,7 @@ class ReferralInfo {
       'earn_amount': earnAmount,
       'share_link': shareLink,
       'product_id': productId,
+      'check_out_link': checkoutLink,
     };
   }
 

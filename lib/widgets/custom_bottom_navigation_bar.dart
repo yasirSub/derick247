@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CustomBottomNavigationBar extends StatefulWidget {
   final int currentIndex;
@@ -92,6 +93,8 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar>
   }) {
     return GestureDetector(
       onTap: () => _onTabTap(index),
+      onTapDown: (details) => _onTabTapDown(index, details),
+      onTapCancel: () => _onTabTapCancel(index),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -133,82 +136,116 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.zero,
-      decoration: BoxDecoration(
-        color: const Color(0xFF282C34),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(15),
-          topRight: Radius.circular(15),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.18),
-            blurRadius: 14,
-            offset: const Offset(0, -4),
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.10),
-            blurRadius: 6,
-            offset: const Offset(0, -1),
-            spreadRadius: 0,
-          ),
-        ],
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final navBarColor = const Color(0xFF282C34);
+
+    // Set system navigation bar color to match the navigation bar
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        systemNavigationBarColor: navBarColor,
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(15),
-          topRight: Radius.circular(15),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Main navigation bar with rounded top corners
+        Container(
+          margin: EdgeInsets.zero,
+          decoration: BoxDecoration(
+            color: navBarColor,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(15),
+              topRight: Radius.circular(15),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.18),
+                blurRadius: 14,
+                offset: const Offset(0, -4),
+                spreadRadius: 0,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 6,
+                offset: const Offset(0, -1),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(15),
+              topRight: Radius.circular(15),
+            ),
+            child: Container(
+              color: navBarColor,
+              child: SafeArea(
+                top: false,
+                bottom: false,
+                child: Container(
+                  color: navBarColor,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: BottomNavigationBar(
+                    type: BottomNavigationBarType.fixed,
+                    currentIndex: widget.currentIndex,
+                    onTap: (i) {
+                      // Handled by gesture detectors in _buildGlowingIcon
+                    },
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    selectedItemColor: Colors.transparent,
+                    unselectedItemColor: Colors.transparent,
+                    selectedLabelStyle: const TextStyle(fontSize: 0),
+                    unselectedLabelStyle: const TextStyle(fontSize: 0),
+                    items: [
+                      BottomNavigationBarItem(
+                        icon: _buildGlowingIcon(
+                          icon: Icons.home_outlined,
+                          isSelected: widget.currentIndex == 0,
+                          index: 0,
+                        ),
+                        label: '',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: _buildGlowingIcon(
+                          icon: Icons.emoji_events_outlined,
+                          isSelected: widget.currentIndex == 1,
+                          index: 1,
+                        ),
+                        label: '',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: _buildGlowingIcon(
+                          icon: Icons.shopping_cart_outlined,
+                          isSelected: widget.currentIndex == 2,
+                          index: 2,
+                        ),
+                        label: '',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: _buildGlowingIcon(
+                          icon: Icons.dashboard_outlined,
+                          isSelected: widget.currentIndex == 3,
+                          index: 3,
+                        ),
+                        label: '',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          currentIndex: widget.currentIndex,
-          onTap: (i) {
-            // Handled by gesture detectors in _buildGlowingIcon
-          },
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: Colors.transparent,
-          unselectedItemColor: Colors.transparent,
-          selectedLabelStyle: const TextStyle(fontSize: 0),
-          unselectedLabelStyle: const TextStyle(fontSize: 0),
-          items: [
-            BottomNavigationBarItem(
-              icon: _buildGlowingIcon(
-                icon: Icons.home_outlined,
-                isSelected: widget.currentIndex == 0,
-                index: 0,
-              ),
-              label: '',
-            ),
-            BottomNavigationBarItem(
-              icon: _buildGlowingIcon(
-                icon: Icons.emoji_events_outlined,
-                isSelected: widget.currentIndex == 1,
-                index: 1,
-              ),
-              label: '',
-            ),
-            BottomNavigationBarItem(
-              icon: _buildGlowingIcon(
-                icon: Icons.shopping_cart_outlined,
-                isSelected: widget.currentIndex == 2,
-                index: 2,
-              ),
-              label: '',
-            ),
-            BottomNavigationBarItem(
-              icon: _buildGlowingIcon(
-                icon: Icons.dashboard_outlined,
-                isSelected: widget.currentIndex == 3,
-                index: 3,
-              ),
-              label: '',
-            ),
-          ],
+        // Extension container to cover system navigation area
+        Container(
+          height: bottomPadding,
+          color: navBarColor,
+          width: double.infinity,
         ),
-      ),
+      ],
     );
   }
 }
