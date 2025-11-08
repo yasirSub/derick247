@@ -64,16 +64,75 @@ class AuthService {
 
           return {'success': true, 'user': _currentUser, 'token': _authToken};
         } else {
+          // Extract error message from response
+          String errorMessage = 'Login failed';
+          if (data['message'] != null) {
+            errorMessage = data['message'].toString();
+          } else if (data['error'] != null) {
+            errorMessage = data['error'].toString();
+          } else if (data['errors'] != null) {
+            if (data['errors'] is Map) {
+              final errors = data['errors'] as Map;
+              errorMessage = errors.values.first.toString();
+            } else if (data['errors'] is List) {
+              errorMessage = data['errors'].first.toString();
+            }
+          }
           return {
             'success': false,
-            'message': data['message'] ?? 'Login failed',
+            'message': errorMessage,
           };
         }
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': 'Invalid email or password. Please try again.',
+        };
+      } else if (response.statusCode == 422) {
+        final data = response.data;
+        String errorMessage = 'Invalid input. Please check your credentials.';
+        if (data['message'] != null) {
+          errorMessage = data['message'].toString();
+        } else if (data['errors'] != null) {
+          if (data['errors'] is Map) {
+            final errors = data['errors'] as Map;
+            errorMessage = errors.values.first.toString();
+          }
+        }
+        return {'success': false, 'message': errorMessage};
+      } else if (response.statusCode == 500) {
+        return {
+          'success': false,
+          'message': 'Server error. Please try again later.',
+        };
       } else {
-        return {'success': false, 'message': 'Login failed'};
+        return {
+          'success': false,
+          'message': 'Login failed. Please check your connection and try again.',
+        };
       }
+    } on FormatException {
+      return {
+        'success': false,
+        'message': 'Invalid response from server. Please try again.',
+      };
+    } on Exception catch (e) {
+      String errorMessage = 'Network error. Please check your connection.';
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('timeout') ||
+          errorString.contains('connection')) {
+        errorMessage = 'Connection timeout. Please check your internet and try again.';
+      } else if (errorString.contains('socket')) {
+        errorMessage = 'Unable to connect. Please check your internet connection.';
+      } else if (errorString.contains('failed host lookup')) {
+        errorMessage = 'Unable to reach server. Please check your internet connection.';
+      }
+      return {'success': false, 'message': errorMessage};
     } catch (e) {
-      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+      return {
+        'success': false,
+        'message': 'An unexpected error occurred. Please try again.',
+      };
     }
   }
 
@@ -93,16 +152,75 @@ class AuthService {
 
           return {'success': true, 'user': _currentUser, 'token': _authToken};
         } else {
+          // Extract error message from response
+          String errorMessage = 'Registration failed';
+          if (data['message'] != null) {
+            errorMessage = data['message'].toString();
+          } else if (data['error'] != null) {
+            errorMessage = data['error'].toString();
+          } else if (data['errors'] != null) {
+            if (data['errors'] is Map) {
+              final errors = data['errors'] as Map;
+              errorMessage = errors.values.first.toString();
+            } else if (data['errors'] is List) {
+              errorMessage = data['errors'].first.toString();
+            }
+          }
           return {
             'success': false,
-            'message': data['message'] ?? 'Registration failed',
+            'message': errorMessage,
           };
         }
+      } else if (response.statusCode == 422) {
+        final data = response.data;
+        String errorMessage = 'Invalid input. Please check your information.';
+        if (data['message'] != null) {
+          errorMessage = data['message'].toString();
+        } else if (data['errors'] != null) {
+          if (data['errors'] is Map) {
+            final errors = data['errors'] as Map;
+            errorMessage = errors.values.first.toString();
+          }
+        }
+        return {'success': false, 'message': errorMessage};
+      } else if (response.statusCode == 409) {
+        return {
+          'success': false,
+          'message': 'Email already exists. Please use a different email.',
+        };
+      } else if (response.statusCode == 500) {
+        return {
+          'success': false,
+          'message': 'Server error. Please try again later.',
+        };
       } else {
-        return {'success': false, 'message': 'Registration failed'};
+        return {
+          'success': false,
+          'message': 'Registration failed. Please check your connection and try again.',
+        };
       }
+    } on FormatException {
+      return {
+        'success': false,
+        'message': 'Invalid response from server. Please try again.',
+      };
+    } on Exception catch (e) {
+      String errorMessage = 'Network error. Please check your connection.';
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('timeout') ||
+          errorString.contains('connection')) {
+        errorMessage = 'Connection timeout. Please check your internet and try again.';
+      } else if (errorString.contains('socket')) {
+        errorMessage = 'Unable to connect. Please check your internet connection.';
+      } else if (errorString.contains('failed host lookup')) {
+        errorMessage = 'Unable to reach server. Please check your internet connection.';
+      }
+      return {'success': false, 'message': errorMessage};
     } catch (e) {
-      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+      return {
+        'success': false,
+        'message': 'An unexpected error occurred. Please try again.',
+      };
     }
   }
 

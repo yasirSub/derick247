@@ -153,11 +153,13 @@ class ProductProvider extends ChangeNotifier {
           print('🔍 Medias in response: ${response.data['data']['medias']}');
           print('🔍 Description in response: ${response.data['data']['description']}');
           print('🔍 Short Description in response: ${response.data['data']['short_description']}');
+          print('🏳️ Flag in response: ${response.data['data']['flag']}');
           
           _selectedProduct = Product.fromJson(response.data['data']);
           
           print('🔍 Parsed Product Medias Count: ${_selectedProduct?.medias.length ?? 0}');
           print('🔍 Parsed Product Description: ${_selectedProduct?.description}');
+          print('🏳️ Parsed Product Flag: ${_selectedProduct?.flag}');
         } else {
           print('❌ No data field in response');
           _error = 'Product data not found';
@@ -168,6 +170,101 @@ class ProductProvider extends ChangeNotifier {
       }
     } catch (e) {
       print('❌ Error loading product detail: $e');
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadProductDetailBySlug(String slug) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      print('🔍 Fetching product details for slug: $slug');
+      print('🔍 API Endpoint: ${ApiConfig.baseUrl}${ApiConfig.productDetail}$slug');
+
+      final response = await _apiService.getProductDetailBySlug(slug);
+
+      print('🔍 Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        if (response.data['data'] != null) {
+          final productData = response.data['data'];
+          print('🏳️ Product data flag (loadProductDetailBySlug): ${productData['flag']}');
+          _selectedProduct = Product.fromJson(productData);
+          print('🏳️ Parsed product flag (loadProductDetailBySlug): ${_selectedProduct?.flag}');
+          _error = null;
+        } else {
+          _error = 'Product data not found';
+        }
+      } else {
+        _error = 'Failed to load product details';
+      }
+    } catch (e) {
+      print('❌ Error loading product by slug: $e');
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Load product by identifier - tries ID first, then slug if ID fails
+  Future<void> loadProductDetailByIdentifier(String identifier) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // First, try to parse as numeric ID
+      final productId = int.tryParse(identifier);
+      
+      if (productId != null) {
+        // Try loading by ID first
+        print('🔍 Trying to load product by ID: $productId');
+        try {
+          // Call the internal method directly to avoid double loading state
+          final response = await _apiService.getProductDetail(productId);
+          if (response.statusCode == 200) {
+            if (response.data['data'] != null) {
+              final productData = response.data['data'];
+              print('🏳️ Product data flag (ID): ${productData['flag']}');
+              _selectedProduct = Product.fromJson(productData);
+              print('🏳️ Parsed product flag (ID): ${_selectedProduct?.flag}');
+              _error = null;
+              _isLoading = false;
+              notifyListeners();
+              return; // Success!
+            }
+          }
+          print('⚠️ Failed to load by ID (status: ${response.statusCode}), will try as slug');
+        } catch (e) {
+          print('⚠️ Failed to load by ID, will try as slug: $e');
+        }
+      }
+      
+      // If ID approach failed or identifier is not numeric, try as slug
+      print('🔍 Trying to load product by slug: $identifier');
+      final response = await _apiService.getProductDetailBySlug(identifier);
+      if (response.statusCode == 200) {
+        if (response.data['data'] != null) {
+          final productData = response.data['data'];
+          print('🏳️ Product data flag (slug): ${productData['flag']}');
+          _selectedProduct = Product.fromJson(productData);
+          print('🏳️ Parsed product flag (slug): ${_selectedProduct?.flag}');
+          _error = null;
+        } else {
+          _error = 'Product data not found';
+        }
+      } else {
+        _error = 'Failed to load product details';
+      }
+      
+    } catch (e) {
+      print('❌ Error loading product by identifier: $e');
       _error = e.toString();
     } finally {
       _isLoading = false;

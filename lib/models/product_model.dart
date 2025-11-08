@@ -15,6 +15,7 @@ class Product {
   final String? thumbnail;
   final String? status; // e.g., active/inactive for dropshipping
   final String? productType; // e.g., Point Web Product
+  final String? flag; // Country flag emoji
 
   Product({
     required this.id,
@@ -33,6 +34,7 @@ class Product {
     this.thumbnail,
     this.status,
     this.productType,
+    this.flag,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -79,6 +81,7 @@ class Product {
       thumbnail: thumbnail ?? json['thumbnail'],
       status: json['status'],
       productType: json['product_type'] ?? json['type'],
+      flag: json['flag'],
     );
   }
 
@@ -102,6 +105,7 @@ class Product {
       'thumbnail': thumbnail,
       'status': status,
       'product_type': productType,
+      'flag': flag,
     };
   }
 

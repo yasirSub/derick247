@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
@@ -22,10 +23,16 @@ class ProductsScreen extends StatefulWidget {
 
 class _ProductsScreenState extends State<ProductsScreen> {
   bool _isGridView = true;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  Timer? _debounceTimer;
+  bool _showClearButton = false;
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
+    
     // Load products when screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final productProvider = Provider.of<ProductProvider>(
@@ -34,8 +41,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
       );
 
       // If coming from search, keep the search query
-      // Otherwise, clear any previous search and load all products
-      if (widget.categoryName != 'Search Results' &&
+      if (widget.categoryName == 'Search Results' &&
+          productProvider.searchQuery != null) {
+        _searchController.text = productProvider.searchQuery!;
+        setState(() {
+          _showClearButton = productProvider.searchQuery!.isNotEmpty;
+        });
+      } else if (widget.categoryName != 'Search Results' &&
           productProvider.searchQuery != null) {
         productProvider.clearFilters();
       }
@@ -43,6 +55,58 @@ class _ProductsScreenState extends State<ProductsScreen> {
       // Always load products fresh when opening ProductsScreen
       productProvider.loadProducts(refresh: true);
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.trim();
+    
+    setState(() {
+      _showClearButton = query.isNotEmpty;
+    });
+    
+    // Debounce search API calls
+    _debounceTimer?.cancel();
+    
+    if (query.isEmpty) {
+      // Clear search when empty
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+      if (productProvider.searchQuery != null) {
+        productProvider.clearFilters();
+      }
+      return;
+    }
+
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+      productProvider.searchProducts(query);
+    });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _showClearButton = false;
+    });
+    final productProvider = Provider.of<ProductProvider>(
+      context,
+      listen: false,
+    );
+    productProvider.clearFilters();
   }
 
   void _showReferralPopup(BuildContext context, product) {
@@ -161,11 +225,89 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ],
       ),
-      body: Consumer<ProductProvider>(
-        builder: (context, productProvider, child) {
-          // Show error if exists
-          if (productProvider.error != null &&
-              productProvider.products.isEmpty) {
+      body: Column(
+        children: [
+          // Search Bar
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacingMedium,
+              vertical: AppTheme.spacingSmall,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              decoration: InputDecoration(
+                hintText: 'Search products...',
+                hintStyle: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 14,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Colors.grey[600],
+                  size: 22,
+                ),
+                suffixIcon: _showClearButton
+                    ? IconButton(
+                        icon: Icon(
+                          Icons.clear,
+                          color: Colors.grey[600],
+                          size: 20,
+                        ),
+                        onPressed: _clearSearch,
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.grey[100],
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: AppTheme.primaryColor,
+                    width: 2,
+                  ),
+                ),
+              ),
+              onSubmitted: (value) {
+                _searchFocusNode.unfocus();
+                if (value.trim().isNotEmpty) {
+                  final productProvider = Provider.of<ProductProvider>(
+                    context,
+                    listen: false,
+                  );
+                  productProvider.searchProducts(value.trim());
+                }
+              },
+            ),
+          ),
+          // Products List
+          Expanded(
+            child: Consumer<ProductProvider>(
+              builder: (context, productProvider, child) {
+                // Show error if exists
+                if (productProvider.error != null &&
+                    productProvider.products.isEmpty) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(AppTheme.spacingLarge),
@@ -335,8 +477,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       );
                     },
                   ),
-          );
-        },
+            );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -142,6 +142,10 @@ class ApiService {
     return await _dio.get('${ApiConfig.productDetail}$productId');
   }
 
+  Future<Response> getProductDetailBySlug(String slug) async {
+    return await _dio.get('${ApiConfig.productDetail}$slug');
+  }
+
   Future<Response> getCategories() async {
     return await _dio.get(ApiConfig.categories);
   }
@@ -472,6 +476,28 @@ class ApiService {
       options: Options(
         headers: ApiConfig.formHeaders,
         contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  // Get app assets (banners, logo, etc.)
+  Future<Response> getAppAssets() async {
+    return await _dio.get(
+      ApiConfig.appAssets,
+      options: Options(
+        headers: ApiConfig.jsonHeaders,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  // Get pointer link (vendor and referrer links)
+  Future<Response> getPointerLink() async {
+    return await _dio.get(
+      ApiConfig.pointerLink,
+      options: Options(
+        headers: ApiConfig.jsonHeaders,
         validateStatus: (status) => true,
       ),
     );

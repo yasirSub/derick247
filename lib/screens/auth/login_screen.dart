@@ -350,16 +350,34 @@ class _LoginScreenState extends State<LoginScreen> {
                       // Login Button
                       Consumer<AuthProvider>(
                         builder: (context, authProvider, child) {
-                          return Container(
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
                             width: double.infinity,
                             height: 50,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Colors.orange, Color(0xFFEA580C)],
+                              gradient: LinearGradient(
+                                colors: authProvider.isLoading
+                                    ? [
+                                        Colors.orange.withOpacity(0.7),
+                                        const Color(0xFFEA580C).withOpacity(0.7),
+                                      ]
+                                    : [
+                                        Colors.orange,
+                                        const Color(0xFFEA580C),
+                                      ],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                               ),
                               borderRadius: BorderRadius.circular(8),
+                              boxShadow: authProvider.isLoading
+                                  ? []
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.orange.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
                             ),
                             child: ElevatedButton(
                               onPressed: authProvider.isLoading ? null : _login,
@@ -369,27 +387,58 @@ class _LoginScreenState extends State<LoginScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
+                                elevation: 0,
                               ),
-                              child: authProvider.isLoading
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Log in',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: ScaleTransition(
+                                      scale: animation,
+                                      child: child,
                                     ),
+                                  );
+                                },
+                                child: authProvider.isLoading
+                                    ? Row(
+                                        key: const ValueKey('loading'),
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              valueColor:
+                                                  const AlwaysStoppedAnimation<
+                                                      Color>(
+                                                    Colors.white,
+                                                  ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Text(
+                                            'Logging in...',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : const Text(
+                                        'Log in',
+                                        key: ValueKey('text'),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                              ),
                             ),
                           );
                         },

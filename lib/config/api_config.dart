@@ -1,6 +1,7 @@
 class ApiConfig {
   // Base URL for the API
-  static const String baseUrl = 'https://comisionista247.com/api/';
+  // static const String baseUrl = 'https://comisionista247.com/api/';
+  static const String baseUrl = 'https://derick247.com/api/';
 
   // API Key for authentication
   static const String apiKey = 'gcs##2022##';
@@ -68,4 +69,10 @@ class ApiConfig {
   static const String walletCreateOrder = 'wallet/create-order';
   static const String walletWithdraw = 'wallet/withdraw';
   static const String walletSendMoney = 'wallet/send-money';
+
+  // App Assets endpoint
+  static const String appAssets = 'app-assets';
+
+  // Pointer Link endpoint
+  static const String pointerLink = 'pointer-link';
 }

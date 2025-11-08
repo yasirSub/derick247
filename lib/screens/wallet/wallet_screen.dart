@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/theme_config.dart';
 import '../../services/api_service.dart';
@@ -12,17 +14,59 @@ class WalletScreen extends StatefulWidget {
   State<WalletScreen> createState() => _WalletScreenState();
 }
 
-class _WalletScreenState extends State<WalletScreen> {
+class _WalletScreenState extends State<WalletScreen>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _walletData;
+  late TabController _tabController;
+  late PageController _walletPageController;
+  int _currentWalletIndex = 0;
+  bool _isListView = false; // false = side view (stacked), true = list view
+  Timer? _autoScrollTimer;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _walletPageController = PageController();
     _loadWalletData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _walletPageController.dispose();
+    _autoScrollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted && !_isListView) {
+        if (_currentWalletIndex < 2) {
+          _walletPageController.nextPage(
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        } else {
+          // Reset to first page
+          _walletPageController.animateToPage(
+            0,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
   }
 
   Future<void> _loadWalletData() async {
@@ -40,7 +84,8 @@ class _WalletScreenState extends State<WalletScreen> {
         });
       } else {
         setState(() {
-          _error = response.data['message']?.toString() ??
+          _error =
+              response.data['message']?.toString() ??
               'Failed to load wallet information';
         });
       }
@@ -96,7 +141,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Points field
                 const Text(
                   'Points',
@@ -127,7 +172,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Payment source selection buttons (horizontal)
                 Row(
                   children: [
@@ -149,7 +194,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: selectedPaymentSource == 'paypal'
-                                  ? const Color(0xFFFFC439) // Gold border when selected
+                                  ? const Color(
+                                      0xFFFFC439,
+                                    ) // Gold border when selected
                                   : Colors.transparent,
                               width: 2,
                             ),
@@ -221,7 +268,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: selectedPaymentSource == 'wallet'
-                                  ? const Color(0xFFFFC439) // Gold border when selected
+                                  ? const Color(
+                                      0xFFFFC439,
+                                    ) // Gold border when selected
                                   : Colors.transparent,
                               width: 2,
                             ),
@@ -234,7 +283,10 @@ class _WalletScreenState extends State<WalletScreen> {
                                 width: 24,
                                 height: 24,
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Center(
@@ -262,7 +314,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // PayPal action button
                 SizedBox(
                   width: double.infinity,
@@ -280,7 +332,9 @@ class _WalletScreenState extends State<WalletScreen> {
                               return;
                             }
 
-                            final points = int.tryParse(pointsController.text.trim());
+                            final points = int.tryParse(
+                              pointsController.text.trim(),
+                            );
                             if (points == null || points < 5) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -297,101 +351,139 @@ class _WalletScreenState extends State<WalletScreen> {
 
                             try {
                               // TODO: Replace with actual buy points API endpoint
-                              final response = await _apiService.createWalletOrder({
-                                'points': pointsController.text.trim(),
-                                'payment_source': selectedPaymentSource,
-                              });
+                              final response = await _apiService
+                                  .createWalletOrder({
+                                    'points': pointsController.text.trim(),
+                                    'payment_source': selectedPaymentSource,
+                                  });
 
                               if (mounted) {
-                                if (response.statusCode == 200 || response.statusCode == 201) {
+                                if (response.statusCode == 200 ||
+                                    response.statusCode == 201) {
                                   Navigator.of(context).pop();
-                                  
+
                                   if (selectedPaymentSource == 'paypal') {
-                                    final approvalUrl = response.data['approval_url'];
+                                    final approvalUrl =
+                                        response.data['approval_url'];
                                     if (approvalUrl != null) {
                                       try {
                                         final uri = Uri.parse(approvalUrl);
-                                        
+
                                         // Always try to launch PayPal in browser
                                         try {
                                           await launchUrl(
                                             uri,
-                                            mode: LaunchMode.externalApplication,
+                                            mode:
+                                                LaunchMode.externalApplication,
                                           );
-                                          
+
                                           // Show success message after opening
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             const SnackBar(
                                               content: Column(
                                                 mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     'Opening PayPal in your browser...',
-                                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
                                                   ),
                                                   SizedBox(height: 4),
                                                   Text(
                                                     'Please login to PayPal to complete your points purchase.',
-                                                    style: TextStyle(fontSize: 12),
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                    ),
                                                   ),
                                                 ],
                                               ),
-                                              backgroundColor: AppTheme.successColor,
+                                              backgroundColor:
+                                                  AppTheme.successColor,
                                               duration: Duration(seconds: 4),
                                             ),
                                           );
                                         } catch (launchError) {
                                           // If launch fails, show URL as fallback
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             SnackBar(
                                               content: Column(
                                                 mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
                                                     'Please open PayPal in your browser:',
-                                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   SelectableText(
                                                     approvalUrl,
-                                                    style: const TextStyle(fontSize: 12, decoration: TextDecoration.underline),
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                    ),
                                                   ),
                                                 ],
                                               ),
-                                              backgroundColor: AppTheme.successColor,
-                                              duration: const Duration(seconds: 10),
+                                              backgroundColor:
+                                                  AppTheme.successColor,
+                                              duration: const Duration(
+                                                seconds: 10,
+                                              ),
                                             ),
                                           );
                                         }
                                       } catch (e) {
                                         // Fallback: show the URL
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(
                                             content: Column(
                                               mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 const Text(
                                                   'Please open this URL in your browser:',
-                                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 SelectableText(
                                                   approvalUrl,
-                                                  style: const TextStyle(fontSize: 12, decoration: TextDecoration.underline),
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    decoration: TextDecoration
+                                                        .underline,
+                                                  ),
                                                 ),
                                               ],
                                             ),
-                                            backgroundColor: AppTheme.successColor,
-                                            duration: const Duration(seconds: 10),
+                                            backgroundColor:
+                                                AppTheme.successColor,
+                                            duration: const Duration(
+                                              seconds: 10,
+                                            ),
                                           ),
                                         );
                                       }
                                     }
                                   }
-                                  
+
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -402,7 +494,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       duration: const Duration(seconds: 3),
                                     ),
                                   );
-                                  
+
                                   // Reload wallet data
                                   await _loadWalletData();
                                 } else {
@@ -446,8 +538,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Color(0xFF003087)),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF003087),
+                              ),
                             ),
                           )
                         : Row(
@@ -498,7 +591,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Debit/Credit Card button
                 SizedBox(
                   width: double.infinity,
@@ -524,11 +617,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: const [
-                        Icon(
-                          Icons.credit_card,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        Icon(Icons.credit_card, color: Colors.white, size: 20),
                         SizedBox(width: 8),
                         Text(
                           'Debit or Credit Card',
@@ -543,7 +632,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Powered by PayPal
                 const Center(
                   child: Row(
@@ -618,7 +707,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 const Divider(color: Colors.white24, height: 24),
                 const SizedBox(height: 8),
-                
+
                 // Email field
                 const Text(
                   'Email',
@@ -649,7 +738,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Amount field
                 const Text(
                   'Amount',
@@ -682,7 +771,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Send button
                 SizedBox(
                   width: double.infinity,
@@ -699,7 +788,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               );
                               return;
                             }
-                            
+
                             if (amountController.text.trim().isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -775,8 +864,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
@@ -839,7 +929,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 const Divider(color: Colors.white24, height: 24),
                 const SizedBox(height: 8),
-                
+
                 // PayPal Email field
                 const Text(
                   'PayPal Email',
@@ -870,7 +960,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Amount field
                 const Text(
                   'Amount',
@@ -903,7 +993,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Withdraw button
                 SizedBox(
                   width: double.infinity,
@@ -920,7 +1010,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               );
                               return;
                             }
-                            
+
                             if (amountController.text.trim().isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -936,10 +1026,11 @@ class _WalletScreenState extends State<WalletScreen> {
                             });
 
                             try {
-                              final response = await _apiService.withdrawFromWallet({
-                                'email': emailController.text.trim(),
-                                'amount': amountController.text.trim(),
-                              });
+                              final response = await _apiService
+                                  .withdrawFromWallet({
+                                    'email': emailController.text.trim(),
+                                    'amount': amountController.text.trim(),
+                                  });
 
                               if (mounted) {
                                 Navigator.of(context).pop();
@@ -996,8 +1087,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
@@ -1059,7 +1151,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Amount field
                 const Text(
                   'Amount (USD)',
@@ -1092,7 +1184,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Payment method buttons
                 const Text(
                   'Select Payment Method',
@@ -1103,7 +1195,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
+
                 // PayPal button
                 GestureDetector(
                   onTap: _isSubmitting
@@ -1120,12 +1212,17 @@ class _WalletScreenState extends State<WalletScreen> {
                     decoration: BoxDecoration(
                       color: selectedPaymentMethod == 'paypal'
                           ? const Color(0xFFFFC439) // Gold when selected
-                          : const Color(0xFFF3F4F6), // Faded grey when not selected
+                          : const Color(
+                              0xFFF3F4F6,
+                            ), // Faded grey when not selected
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: selectedPaymentMethod == 'paypal'
-                            ? const Color(0xFF003087) // PayPal blue border when selected
-                            : Colors.grey[300]!, // Light grey border when not selected
+                            ? const Color(
+                                0xFF003087,
+                              ) // PayPal blue border when selected
+                            : Colors
+                                  .grey[300]!, // Light grey border when not selected
                         width: 2,
                       ),
                       boxShadow: selectedPaymentMethod == 'paypal'
@@ -1212,8 +1309,11 @@ class _WalletScreenState extends State<WalletScreen> {
                           'PayPal',
                           style: TextStyle(
                             color: selectedPaymentMethod == 'paypal'
-                                ? const Color(0xFF003087) // PayPal blue when selected
-                                : Colors.grey[600], // Faded grey when not selected
+                                ? const Color(
+                                    0xFF003087,
+                                  ) // PayPal blue when selected
+                                : Colors
+                                      .grey[600], // Faded grey when not selected
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
@@ -1224,7 +1324,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Debit/Credit Card button
                 GestureDetector(
                   onTap: _isSubmitting
@@ -1241,12 +1341,15 @@ class _WalletScreenState extends State<WalletScreen> {
                     decoration: BoxDecoration(
                       color: selectedPaymentMethod == 'card'
                           ? const Color(0xFF1E40AF) // Dark blue when selected
-                          : const Color(0xFFF3F4F6), // Faded grey when not selected
+                          : const Color(
+                              0xFFF3F4F6,
+                            ), // Faded grey when not selected
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: selectedPaymentMethod == 'card'
                             ? Colors.white
-                            : Colors.grey[300]!, // Light grey border when not selected
+                            : Colors
+                                  .grey[300]!, // Light grey border when not selected
                         width: 2,
                       ),
                     ),
@@ -1276,7 +1379,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Submit button
                 SizedBox(
                   width: double.infinity,
@@ -1297,14 +1400,18 @@ class _WalletScreenState extends State<WalletScreen> {
                             if (selectedPaymentMethod == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Please select a payment method'),
+                                  content: Text(
+                                    'Please select a payment method',
+                                  ),
                                   backgroundColor: AppTheme.errorColor,
                                 ),
                               );
                               return;
                             }
 
-                            final amount = double.tryParse(amountController.text.trim());
+                            final amount = double.tryParse(
+                              amountController.text.trim(),
+                            );
                             if (amount == null || amount <= 0) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -1320,22 +1427,26 @@ class _WalletScreenState extends State<WalletScreen> {
                             });
 
                             try {
-                              final response = await _apiService.createWalletOrder({
-                                'balance': amountController.text.trim(),
-                              });
+                              final response = await _apiService
+                                  .createWalletOrder({
+                                    'balance': amountController.text.trim(),
+                                  });
 
                               if (mounted) {
-                                if (response.statusCode == 200 || response.statusCode == 201) {
-                                  final approvalUrl = response.data['approval_url'];
+                                if (response.statusCode == 200 ||
+                                    response.statusCode == 201) {
+                                  final approvalUrl =
+                                      response.data['approval_url'];
                                   final orderID = response.data['orderID'];
                                   final amount = response.data['amount'];
-                                  
+
                                   Navigator.of(context).pop();
-                                  
-                                  if (approvalUrl != null && selectedPaymentMethod == 'paypal') {
+
+                                  if (approvalUrl != null &&
+                                      selectedPaymentMethod == 'paypal') {
                                     try {
                                       final uri = Uri.parse(approvalUrl);
-                                      
+
                                       // Always try to launch, even if canLaunchUrl fails
                                       // This ensures PayPal opens in browser
                                       try {
@@ -1343,73 +1454,105 @@ class _WalletScreenState extends State<WalletScreen> {
                                           uri,
                                           mode: LaunchMode.externalApplication,
                                         );
-                                        
+
                                         // Show success message after opening
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(
                                             content: Column(
                                               mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 const Text(
                                                   'Opening PayPal in your browser...',
-                                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
                                                   'Please login to PayPal to complete payment.\nOrder ID: $orderID\nAmount: \$$amount',
-                                                  style: const TextStyle(fontSize: 12),
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
                                                 ),
                                               ],
                                             ),
-                                            backgroundColor: AppTheme.successColor,
-                                            duration: const Duration(seconds: 4),
+                                            backgroundColor:
+                                                AppTheme.successColor,
+                                            duration: const Duration(
+                                              seconds: 4,
+                                            ),
                                           ),
                                         );
                                       } catch (launchError) {
                                         // If launch fails, show URL as fallback
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(
                                             content: Column(
                                               mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 const Text(
                                                   'Please open PayPal in your browser:',
-                                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 SelectableText(
                                                   approvalUrl,
-                                                  style: const TextStyle(fontSize: 12, decoration: TextDecoration.underline),
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    decoration: TextDecoration
+                                                        .underline,
+                                                  ),
                                                 ),
                                               ],
                                             ),
-                                            backgroundColor: AppTheme.successColor,
-                                            duration: const Duration(seconds: 10),
+                                            backgroundColor:
+                                                AppTheme.successColor,
+                                            duration: const Duration(
+                                              seconds: 10,
+                                            ),
                                           ),
                                         );
                                       }
                                     } catch (e) {
                                       // Fallback: show the URL
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
                                           content: Column(
                                             mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               const Text(
                                                 'Order created! Please open this URL in your browser:',
-                                                style: TextStyle(fontWeight: FontWeight.bold),
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                               const SizedBox(height: 4),
                                               SelectableText(
                                                 approvalUrl,
-                                                style: const TextStyle(fontSize: 12, decoration: TextDecoration.underline),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  decoration:
+                                                      TextDecoration.underline,
+                                                ),
                                               ),
                                             ],
                                           ),
-                                          backgroundColor: AppTheme.successColor,
+                                          backgroundColor:
+                                              AppTheme.successColor,
                                           duration: const Duration(seconds: 10),
                                         ),
                                       );
@@ -1418,14 +1561,18 @@ class _WalletScreenState extends State<WalletScreen> {
                                     // TODO: Implement card payment flow
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Card payment coming soon!'),
+                                        content: Text(
+                                          'Card payment coming soon!',
+                                        ),
                                         backgroundColor: AppTheme.successColor,
                                       ),
                                     );
                                   }
-                                  
+
                                   // Reload wallet data after a delay to allow payment processing
-                                  await Future.delayed(const Duration(seconds: 2));
+                                  await Future.delayed(
+                                    const Duration(seconds: 2),
+                                  );
                                   await _loadWalletData();
                                 } else {
                                   Navigator.of(context).pop();
@@ -1468,8 +1615,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
@@ -1483,7 +1631,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Powered by PayPal
                 const Center(
                   child: Row(
@@ -1523,7 +1671,21 @@ class _WalletScreenState extends State<WalletScreen> {
       drawer: const AppDrawer(current: 'wallet'),
       backgroundColor: AppTheme.backgroundColor,
       appBar: CustomAppBar(
-        title: 'Wallet',
+        titleWidget: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.account_balance_wallet, color: Colors.white, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Wallet',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
         isDark: true,
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.white),
@@ -1536,10 +1698,10 @@ class _WalletScreenState extends State<WalletScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _buildErrorState()
-              : _walletData == null
-                  ? const Center(child: Text('No wallet data available'))
-                  : _buildWalletContent(),
+          ? _buildErrorState()
+          : _walletData == null
+          ? const Center(child: Text('No wallet data available'))
+          : _buildTabContent(),
     );
   }
 
@@ -1570,8 +1732,59 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Widget _buildWalletContent() {
-    final balance = (_walletData!['balance'] ?? 0) as num;
+  Widget _buildTabContent() {
+    return Column(
+      children: [
+        // Tab Bar
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TabBar(
+            controller: _tabController,
+            indicator: BoxDecoration(
+              color: const Color(0xFF2563EB), // Blue background for selected
+              borderRadius: BorderRadius.circular(12),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: Colors.white,
+            unselectedLabelColor: const Color(0xFF1F2937),
+            labelStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+            tabs: const [
+              Tab(text: 'Wallet'),
+              Tab(text: 'Transactions'),
+            ],
+          ),
+        ),
+        // Tab Bar View
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [_buildWalletTab(), _buildTransactionsTab()],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWalletTab() {
     final points = (_walletData!['points'] ?? 0) as num;
 
     return RefreshIndicator(
@@ -1583,23 +1796,207 @@ class _WalletScreenState extends State<WalletScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // View Toggle Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'My Wallets',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1F2937),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isListView = !_isListView;
+                        if (_isListView) {
+                          _stopAutoScroll();
+                        } else {
+                          _startAutoScroll();
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _isListView ? Icons.view_carousel : Icons.list,
+                        size: 20,
+                        color: const Color(0xFF2563EB),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 8),
-            // Total Balance Card
-            _buildTotalBalanceCard(balance),
-            
-            const SizedBox(height: 16),
-            
-            // Reward Points Section
-            _buildRewardPointsSection(points),
-            
+            // Wallet Cards - Side View, List View, or Slider View
+            _isListView
+                ? _buildWalletListView(points)
+                : _buildWalletSliderView(points),
             const SizedBox(height: 24),
-            
             // Quick Actions Section
             _buildQuickActionsSection(),
-            
-            const SizedBox(height: 24),
-            
-            // Recent Transactions Section
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWalletSliderView(num points) {
+    // Start auto-scroll when slider view is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startAutoScroll();
+    });
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 280,
+          child: PageView.builder(
+            controller: _walletPageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentWalletIndex = index;
+              });
+              // Restart timer when page changes (user interaction)
+              _startAutoScroll();
+            },
+            itemCount: 3,
+            itemBuilder: (context, index) {
+              switch (index) {
+                case 0:
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildAppWalletCard(),
+                  );
+                case 1:
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildPointsCard(points),
+                  );
+                case 2:
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildEquxxWalletCard(),
+                  );
+                default:
+                  return const SizedBox();
+              }
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Navigation Arrows and Page Indicators
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Previous Arrow
+            IconButton(
+              onPressed: _currentWalletIndex > 0
+                  ? () {
+                      _walletPageController.previousPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                      // Restart auto-scroll after manual navigation
+                      _startAutoScroll();
+                    }
+                  : null,
+              icon: const Icon(Icons.chevron_left),
+              color: _currentWalletIndex > 0
+                  ? const Color(0xFF2563EB)
+                  : Colors.grey,
+              iconSize: 28,
+            ),
+            const SizedBox(width: 16),
+            // Page Indicators
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(3, (index) {
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: _currentWalletIndex == index ? 12 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _currentWalletIndex == index
+                        ? const Color(0xFF2563EB)
+                        : Colors.grey.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(width: 16),
+            // Next Arrow
+            IconButton(
+              onPressed: _currentWalletIndex < 2
+                  ? () {
+                      _walletPageController.nextPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                      // Restart auto-scroll after manual navigation
+                      _startAutoScroll();
+                    }
+                  : null,
+              icon: const Icon(Icons.chevron_right),
+              color: _currentWalletIndex < 2
+                  ? const Color(0xFF2563EB)
+                  : Colors.grey,
+              iconSize: 28,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWalletListView(num points) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          // App Wallet Card - Compact List View
+          _buildAppWalletCardCompact(),
+          const SizedBox(height: 12),
+          // Points Card - Compact List View
+          _buildPointsCardCompact(points),
+          const SizedBox(height: 12),
+          // EQUXX Wallet Card - Compact List View
+          _buildEquxxWalletCardCompact(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionsTab() {
+    return RefreshIndicator(
+      onRefresh: _loadWalletData,
+      color: const Color(0xFF7C3AED),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            // Transactions Section
             _buildTransactionsSection(),
           ],
         ),
@@ -1607,63 +2004,140 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Widget _buildTotalBalanceCard(num balance) {
+  Widget _buildAppWalletCard() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
-            Color(0xFF6366F1), // Indigo
-            Color(0xFF8B5CF6), // Purple
-            Color(0xFFA855F7), // Purple 500
+            Color(0xFF1E3A5F), // Dark blue
+            Color(0xFF2D4A6B), // Slightly lighter dark blue
+            Color(0xFF3A5A7D), // Medium blue
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF7C3AED).withOpacity(0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
             spreadRadius: 0,
           ),
         ],
       ),
-      child: Container(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        children: [
+          // Top Section
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text(
-                  'TOTAL BALANCE',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.2,
+                // Circular Profile Icon with Image
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFD4AF37), // Gold
+                      width: 3.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFD4AF37).withOpacity(0.4),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.all(3.5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFFFD700), // Light gold
+                        width: 2.5,
+                      ),
+                      color: const Color(
+                        0xFFFFF8DC,
+                      ), // Cream/off-white background
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/mobile/wallet_icon.png', // You can replace this with your baby icon image
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover, // This allows zooming/scaling
+                        errorBuilder: (context, error, stackTrace) {
+                          // Fallback to app icon if wallet_icon.png doesn't exist
+                          return Image.asset(
+                            'AppIcons/playstore.png',
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFFFFF8DC),
+                                ),
+                                child: const Icon(
+                                  Icons.account_circle,
+                                  color: Color(0xFF8B4513),
+                                  size: 40,
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
+                const SizedBox(width: 16),
+                // Wallet Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.account_balance_wallet, color: Colors.white, size: 14),
-                      SizedBox(width: 4),
-                      Text(
-                        'Wallet',
+                      const Text(
+                        'APP WALLET',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        '\$1089',
+                        style: TextStyle(
+                          color: Color(0xFFFFD700), // Bright yellow/gold
+                          fontSize: 42,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'WALLET BALANCE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1.2,
                         ),
                       ),
                     ],
@@ -1671,48 +2145,514 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '\$',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 36,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
+          ),
+          // Golden Divider Line
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  const Color(0xFFD4AF37), // Gold
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          // Bottom Section - Email
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: GestureDetector(
+                onTap: () async {
+                  const email = 'user@gmail.com';
+                  await Clipboard.setData(ClipboardData(text: email));
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Email copied to clipboard'),
+                        duration: Duration(seconds: 2),
+                        backgroundColor: AppTheme.successColor,
+                      ),
+                    );
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(
+                      0xFF1E3A5F,
+                    ).withOpacity(0.8), // Dark blue
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: const Color(
+                        0xFFD4AF37,
+                      ).withOpacity(0.3), // Gold border
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Email : user@gmail.com',
+                        style: TextStyle(
+                          color: Color(0xFFFFD700), // Gold/yellow
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.copy,
+                        color: Color(0xFFFFD700), // Gold/yellow
+                        size: 16,
+                      ),
+                    ],
                   ),
                 ),
-                Flexible(
-                  child: Text(
-                    balance.toStringAsFixed(2),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                      letterSpacing: -1,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEquxxWalletCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1E3A5F), // Dark blue
+            Color(0xFF2D4A6B), // Slightly lighter dark blue
+            Color(0xFF3A5A7D), // Medium blue
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top Section
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Circular Icon with EQUXX Logo Image
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFD4AF37), // Gold
+                      width: 3.5,
                     ),
-                    overflow: TextOverflow.ellipsis,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFD4AF37).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.all(3.5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFFFD700), // Light gold
+                        width: 2.5,
+                      ),
+                      color: const Color(0xFF1E3A5F), // Dark blue background
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/mobile/equxx icon logo.png',
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFF1E3A5F),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                'E',
+                                style: TextStyle(
+                                  color: Color(0xFFFFD700),
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Wallet Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'EQUXX WALLET',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        '€00',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 42,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'EQUXX BALANCE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
+          ),
+          // Golden Divider Line
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  const Color(0xFFD4AF37), // Gold
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          // Bottom spacing
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPointsCard(num points) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF9333EA), // Purple
+            Color(0xFFA855F7), // Lighter purple
+            Color(0xFFC084FC), // Pinkish-purple
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF9333EA).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top Section
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(Icons.trending_up, color: Colors.white70, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  'Available now',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                // Circular Icon with Points/Diamond Image
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/mobile/points icon.png',
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                            ),
+                            child: const Icon(
+                              Icons.diamond,
+                              color: Color(0xFF3B82F6),
+                              size: 50,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Points Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'POINTS',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '\$${points.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 42,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'AVAILABLE POINTS',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
+            ),
+          ),
+          // Divider Line
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  Colors.white.withOpacity(0.3),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          // Bottom Section - Point conversion info
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(
+                    0xFF7C3AED,
+                  ).withOpacity(0.6), // Darker purple
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: const Text(
+                  'Point = \$1 | 1:1',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  // Compact List View Methods
+  Widget _buildAppWalletCardCompact() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1E3A5F), // Dark blue
+            Color(0xFF2D4A6B), // Slightly lighter dark blue
+            Color(0xFF3A5A7D), // Medium blue
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFD4AF37), width: 2.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFD4AF37).withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Container(
+                margin: const EdgeInsets.all(2.5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFFD700), width: 2),
+                  color: const Color(0xFFFFF8DC),
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/mobile/wallet_icon.png',
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        'AppIcons/playstore.png',
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFFFFF8DC),
+                            ),
+                            child: const Icon(
+                              Icons.account_circle,
+                              color: Color(0xFF8B4513),
+                              size: 28,
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Wallet Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'APP WALLET',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '\$1089',
+                    style: TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1720,143 +2660,216 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Widget _buildRewardPointsSection(num points) {
+  Widget _buildPointsCardCompact(num points) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF9333EA), // Purple
+            Color(0xFFA855F7), // Lighter purple
+            Color(0xFFC084FC), // Pinkish-purple
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
+            color: const Color(0xFF9333EA).withOpacity(0.2),
+            blurRadius: 10,
             offset: const Offset(0, 4),
             spreadRadius: 0,
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Reward Points',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
-                  letterSpacing: 0.3,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  '1:1 Rate',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFFFF8DC),
-                  Color(0xFFFFF4E0),
                 ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFFFFD700).withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFFD700).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.stars_rounded,
-                    color: Color(0xFF1F2937),
-                    size: 32,
-                  ),
+              child: Container(
+                margin: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            '$points',
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1F2937),
-                              letterSpacing: -1,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'POINTS',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF6B7280),
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '= \$${points.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF6B7280),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/mobile/points icon.png',
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
                         ),
-                      ),
-                    ],
+                        child: const Icon(
+                          Icons.diamond,
+                          color: Color(0xFF3B82F6),
+                          size: 30,
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ],
+              ),
             ),
+            const SizedBox(width: 12),
+            // Points Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'POINTS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '\$${points.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEquxxWalletCardCompact() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1E3A5F), // Dark blue
+            Color(0xFF2D4A6B), // Slightly lighter dark blue
+            Color(0xFF3A5A7D), // Medium blue
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
           ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFD4AF37), width: 2.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFD4AF37).withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Container(
+                margin: const EdgeInsets.all(2.5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFFD700), width: 2),
+                  color: const Color(0xFF1E3A5F),
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/mobile/equxx icon logo.png',
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF1E3A5F),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'E',
+                            style: TextStyle(
+                              color: Color(0xFFFFD700),
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Wallet Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'EQUXX WALLET',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '€00',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1899,37 +2912,41 @@ class _WalletScreenState extends State<WalletScreen> {
           // 2x2 Grid
           Row(
             children: [
-              Expanded(child: _buildActionButton(
-                'Buy Points',
-                Icons.credit_card_rounded,
-                [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
-                _handleBuyPoints,
-              )),
+              Expanded(
+                child: _buildActionButton(
+                  'Buy Points',
+                  Icons.credit_card_rounded,
+                  [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+                  _handleBuyPoints,
+                ),
+              ),
               const SizedBox(width: 14),
-              Expanded(child: _buildActionButton(
-                'Send',
-                Icons.send_rounded,
-                [const Color(0xFF10B981), const Color(0xFF059669)],
-                _handleSend,
-              )),
+              Expanded(
+                child: _buildActionButton('Send', Icons.send_rounded, [
+                  const Color(0xFF10B981),
+                  const Color(0xFF059669),
+                ], _handleSend),
+              ),
             ],
           ),
           const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(child: _buildActionButton(
-                'Withdraw',
-                Icons.account_balance_wallet_rounded,
-                [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
-                _handleWithdraw,
-              )),
+              Expanded(
+                child: _buildActionButton(
+                  'Withdraw',
+                  Icons.account_balance_wallet_rounded,
+                  [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
+                  _handleWithdraw,
+                ),
+              ),
               const SizedBox(width: 14),
-              Expanded(child: _buildActionButton(
-                'Top-up',
-                Icons.add_circle_rounded,
-                [const Color(0xFF2563EB), const Color(0xFF6366F1)],
-                _handleTopUp,
-              )),
+              Expanded(
+                child: _buildActionButton('Top-up', Icons.add_circle_rounded, [
+                  const Color(0xFF2563EB),
+                  const Color(0xFF6366F1),
+                ], _handleTopUp),
+              ),
             ],
           ),
         ],
@@ -1982,11 +2999,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     ),
                   ],
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 32,
-                ),
+                child: Icon(icon, color: Colors.white, size: 32),
               ),
               const SizedBox(height: 12),
               Text(
@@ -2035,7 +3048,7 @@ class _WalletScreenState extends State<WalletScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Recent Transactions',
+            'Transactions',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -2075,7 +3088,9 @@ class _WalletScreenState extends State<WalletScreen> {
           const Divider(height: 1, thickness: 1),
           const SizedBox(height: 12),
           // Transaction List
-          ...transactions.map((transaction) => _buildTransactionItem(transaction)),
+          ...transactions.map(
+            (transaction) => _buildTransactionItem(transaction),
+          ),
           if (transactions.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 32),
@@ -2106,7 +3121,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Widget _buildTransactionItem(Map<String, dynamic> transaction) {
     final isCredit = transaction['isCredit'] == true;
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -2115,13 +3130,15 @@ class _WalletScreenState extends State<WalletScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: isCredit 
+              color: isCredit
                   ? const Color(0xFFD1FAE5) // Green 100
                   : const Color(0xFFFEE2E2), // Red 100
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: (isCredit ? Colors.green : Colors.red).withOpacity(0.1),
+                  color: (isCredit ? Colors.green : Colors.red).withOpacity(
+                    0.1,
+                  ),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -2129,7 +3146,7 @@ class _WalletScreenState extends State<WalletScreen> {
             ),
             child: Icon(
               Icons.attach_money,
-              color: isCredit 
+              color: isCredit
                   ? const Color(0xFF059669) // Green 600
                   : const Color(0xFFDC2626), // Red 600
               size: 22,
@@ -2167,7 +3184,7 @@ class _WalletScreenState extends State<WalletScreen> {
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
-              color: isCredit 
+              color: isCredit
                   ? const Color(0xFF059669)
                   : const Color(0xFFDC2626),
               letterSpacing: 0.3,
@@ -2178,4 +3195,3 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 }
-

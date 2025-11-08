@@ -43,15 +43,28 @@ class AuthProvider extends ChangeNotifier {
 
       if (result['success'] == true) {
         _user = result['user'];
+        _error = null;
         notifyListeners();
         return true;
       } else {
-        _error = result['message'];
+        _error = result['message'] ?? 'Login failed. Please try again.';
         notifyListeners();
         return false;
       }
+    } on Exception catch (e) {
+      String errorMessage = 'An error occurred during login.';
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('timeout') ||
+          errorString.contains('connection')) {
+        errorMessage = 'Connection timeout. Please check your internet.';
+      } else if (errorString.contains('socket')) {
+        errorMessage = 'Unable to connect. Please check your internet.';
+      }
+      _error = errorMessage;
+      notifyListeners();
+      return false;
     } catch (e) {
-      _error = e.toString();
+      _error = 'An unexpected error occurred. Please try again.';
       notifyListeners();
       return false;
     } finally {
@@ -70,15 +83,28 @@ class AuthProvider extends ChangeNotifier {
 
       if (result['success'] == true) {
         _user = result['user'];
+        _error = null;
         notifyListeners();
         return true;
       } else {
-        _error = result['message'];
+        _error = result['message'] ?? 'Registration failed. Please try again.';
         notifyListeners();
         return false;
       }
+    } on Exception catch (e) {
+      String errorMessage = 'An error occurred during registration.';
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('timeout') ||
+          errorString.contains('connection')) {
+        errorMessage = 'Connection timeout. Please check your internet.';
+      } else if (errorString.contains('socket')) {
+        errorMessage = 'Unable to connect. Please check your internet.';
+      }
+      _error = errorMessage;
+      notifyListeners();
+      return false;
     } catch (e) {
-      _error = e.toString();
+      _error = 'An unexpected error occurred. Please try again.';
       notifyListeners();
       return false;
     } finally {

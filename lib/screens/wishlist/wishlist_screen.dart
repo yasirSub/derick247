@@ -200,21 +200,31 @@ class _WishlistScreenState extends State<WishlistScreen> {
   Widget _buildSearchField() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF232837),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.amber,
+          width: 1,
+        ),
       ),
-      padding: const EdgeInsets.all(6),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _searchController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 14,
+              ),
+              decoration: InputDecoration(
                 hintText: 'Search products or category',
-                hintStyle: TextStyle(color: Colors.white54),
+                hintStyle: const TextStyle(color: Colors.grey),
                 border: InputBorder.none,
-                prefixIcon: Icon(Icons.search, color: Colors.white54),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
               ),
               onChanged: (value) {
                 setState(() {
@@ -224,23 +234,32 @@ class _WishlistScreenState extends State<WishlistScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _searchQuery = _searchController.text.trim();
-              });
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Container(
+            height: 48, // Fixed height to match TextField
+            margin: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _searchQuery = _searchController.text.trim();
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
+                minimumSize: const Size(0, 48), // Same height
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
               ),
-            ),
-            child: const Text(
-              'Search',
-              style: TextStyle(fontWeight: FontWeight.w600),
+              child: const Text(
+                'Search',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
             ),
           ),
         ],

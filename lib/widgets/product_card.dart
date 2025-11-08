@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/product_model.dart';
 import '../config/theme_config.dart';
+import '../utils/deep_link_utils.dart';
 import '../providers/cart_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
@@ -96,22 +97,32 @@ class ProductCard extends StatelessWidget {
   }
 
   Future<void> _shareProduct(BuildContext context) async {
-    final shareText = product.shareLink != null
-        ? '''
-Check out this amazing product: ${product.name}
-
-🎁 Get it for ${product.formattedPrice}
-
-${product.shareLink}
-    '''
-        : '''
-Check out this amazing product: ${product.name}
-
-🎁 Get it for ${product.formattedPrice}
-    ''';
+    // Generate shareable text with product info and deep link
+    // Use slug if available, otherwise use ID
+    final shareText = DeepLinkUtils.generateProductShareText(
+      productName: product.name,
+      price: product.formattedPrice,
+      productId: product.slug.isEmpty ? product.id : null,
+      productSlug: product.slug.isNotEmpty ? product.slug : null,
+      description: product.shortDescription,
+    );
 
     try {
-      await Share.share(shareText);
+      await Share.share(
+        shareText,
+        subject: 'Check out ${product.name}',
+      );
+
+      // Show success message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Product link shared!'),
+            backgroundColor: AppTheme.successColor,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -227,33 +238,65 @@ Check out this amazing product: ${product.name}
                   width: 100,
                   height: 100,
                   color: Colors.grey[100],
-                  child: product.firstImage != null
-                      ? CachedNetworkImage(
-                          imageUrl: product.firstImage!,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: Colors.grey[200],
-                            child: const Center(
-                              child: CircularProgressIndicator(),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      product.firstImage != null
+                          ? CachedNetworkImage(
+                              imageUrl: product.firstImage!,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: Colors.grey[200],
+                                child: const Icon(
+                                  Icons.image_not_supported,
+                                  color: Colors.grey,
+                                  size: 30,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey,
+                                size: 30,
+                              ),
                             ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: Colors.grey[200],
-                            child: const Icon(
-                              Icons.image_not_supported,
-                              color: Colors.grey,
-                              size: 30,
+                      // Flag overlay
+                      if (product.flag != null && product.flag!.isNotEmpty)
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
                             ),
-                          ),
-                        )
-                      : Container(
-                          color: Colors.grey[200],
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            color: Colors.grey,
-                            size: 30,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.65),
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              product.flag!,
+                              style: const TextStyle(fontSize: 14),
+                            ),
                           ),
                         ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -600,6 +643,33 @@ class ProductGridCard extends StatelessWidget {
                                 ),
                               ),
                       ),
+                      // Flag overlay (top-left)
+                      if (product.flag != null && product.flag!.isNotEmpty)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.65),
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              product.flag!,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ),
                       // Fade for overlay icon
                       Positioned(
                         left: 0,

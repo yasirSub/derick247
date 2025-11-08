@@ -477,7 +477,25 @@ class _CartScreenState extends State<CartScreen> {
         child: Scaffold(
           backgroundColor: AppTheme.backgroundColor,
           appBar: AppBar(
-            title: const Text('Shopping Cart'),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(
+                  Icons.shopping_cart,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Shopping Cart',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
             backgroundColor: AppTheme.darkAppBarColor,
             foregroundColor: Colors.white,
             elevation: 0,
@@ -532,7 +550,25 @@ class _CartScreenState extends State<CartScreen> {
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: CustomAppBar(
-          title: 'Shopping Cart',
+          titleWidget: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(
+                Icons.shopping_cart,
+                color: Colors.white,
+                size: 24,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Shopping Cart',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
           isDark: true,
           actions: [
             Consumer<CartProvider>(

@@ -351,10 +351,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
       elevation: 0,
       toolbarHeight: 52,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(15),
-          bottomRight: Radius.circular(15),
-        ),
+        borderRadius: BorderRadius.zero,
       ),
       leadingWidth: widget.leadingWidth,
       leading: widget.leading,

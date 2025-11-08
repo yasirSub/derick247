@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/deep_link_utils.dart';
 import '../../widgets/referral_popup.dart';
 import '../auth/login_screen.dart';
 import '../cart/cart_screen.dart';
@@ -15,11 +16,20 @@ import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 
 class ProductDetailScreen extends StatefulWidget {
-  final int productId;
+  final int? productId;
+  final String? productSlug;
   final Product? product; // Optional pre-loaded product
 
-  const ProductDetailScreen({Key? key, required this.productId, this.product})
-    : super(key: key);
+  const ProductDetailScreen({
+    Key? key,
+    this.productId,
+    this.productSlug,
+    this.product,
+  }) : assert(
+         productId != null || productSlug != null,
+         'Either productId or productSlug must be provided',
+       ),
+       super(key: key);
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -41,6 +51,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _pageController = PageController();
   }
 
+  // Method to refresh product when deep link comes in
+  void refreshProduct() {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+      _loadProductDetail();
+    }
+  }
+
+  @override
+  void didUpdateWidget(ProductDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If product identifier changed, reload the product
+    if (oldWidget.productId != widget.productId ||
+        oldWidget.productSlug != widget.productSlug) {
+      _loadProductDetail();
+    }
+  }
+
   @override
   void dispose() {
     _pageController?.dispose();
@@ -56,7 +87,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         context,
         listen: false,
       );
-      await productProvider.loadProductDetail(widget.productId);
+
+      // Load by slug if provided, otherwise by ID
+      // If we have a slug, try using loadProductDetailByIdentifier which tries both ID and slug
+      if (widget.productSlug != null) {
+        // Try identifier method first (tries ID then slug)
+        await productProvider.loadProductDetailByIdentifier(
+          widget.productSlug!,
+        );
+      } else if (widget.productId != null) {
+        await productProvider.loadProductDetail(widget.productId!);
+      }
 
       if (mounted) {
         setState(() {
@@ -64,6 +105,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           _isLoading = false;
           _error = productProvider.error;
         });
+        // Debug: Check if flag is available
+        if (_product != null) {
+          print('🏳️ Product Detail Screen - Flag value: ${_product!.flag}');
+          print(
+            '🏳️ Product Detail Screen - Flag is null: ${_product!.flag == null}',
+          );
+          print(
+            '🏳️ Product Detail Screen - Flag is empty: ${_product!.flag?.isEmpty ?? true}',
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -167,6 +218,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         );
       },
     );
+  }
+
+  Future<void> _shareProduct() async {
+    if (_product == null) return;
+
+    // Generate shareable text with product info and deep link
+    // Use slug if available, otherwise use ID
+    final shareText = DeepLinkUtils.generateProductShareText(
+      productName: _product!.name,
+      price: _product!.formattedPrice,
+      productId: _product!.slug.isEmpty ? _product!.id : null,
+      productSlug: _product!.slug.isNotEmpty ? _product!.slug : null,
+      description: _product!.shortDescription,
+    );
+
+    try {
+      await Share.share(shareText, subject: 'Check out ${_product!.name}');
+
+      // Optional: Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Product link shared!'),
+            backgroundColor: AppTheme.successColor,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _addToCart() async {
@@ -371,36 +460,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               color: Colors.black87,
                             ),
                           ),
-                          // Shipping Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade600,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(
-                                  Icons.local_shipping,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Shipping',
-                                  style: TextStyle(
+                          // Shipping Badge - Only show if shipping data is available
+                          if (_product!.shippingAvailable.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade600,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.local_shipping,
                                     color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
+                                    size: 16,
                                   ),
-                                ),
-                              ],
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Shipping',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -620,15 +710,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               color: Colors.black87,
                             ),
                             onPressed: () {
-                              if (_product!.shareLink != null) {
-                                Share.share(
-                                  'Check out ${_product!.name} - ${_product!.formattedPrice}\n${_product!.shareLink}',
-                                );
-                              } else {
-                                Share.share(
-                                  'Check out ${_product!.name} - ${_product!.formattedPrice}',
-                                );
-                              }
+                              _shareProduct();
                             },
                           ),
                         ],
@@ -812,35 +894,76 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Container(
                     width: double.infinity,
                     decoration: BoxDecoration(color: Colors.grey.shade50),
-                    child: Image.network(
-                      images[index],
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey.shade200,
-                          child: const Center(
-                            child: Icon(
-                              Icons.image_not_supported,
-                              size: 64,
-                              color: Colors.grey,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          images[index],
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  size: 64,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            );
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey.shade200,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        // Flag overlay (top-left)
+                        if (_product != null &&
+                            _product!.flag != null &&
+                            _product!.flag!.isNotEmpty)
+                          IgnorePointer(
+                            ignoring: true,
+                            child: Positioned(
+                              top: 12,
+                              left: 12,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.75),
+                                  borderRadius: BorderRadius.circular(6),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.5),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  _product!.flag!,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: Colors.grey.shade200,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
+                      ],
                     ),
                   ),
                 );

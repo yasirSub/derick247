@@ -124,7 +124,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onWillPop: () => _onWillPop(context),
       child: Scaffold(
         drawer: const AppDrawer(current: 'dashboard'),
-        appBar: CustomAppBar(title: 'Dashboard', isDark: true),
+        appBar: CustomAppBar(
+          title: 'Dashboard',
+          isDark: true,
+          actions: [], // Remove profile icon from top bar
+        ),
         backgroundColor: AppTheme.backgroundColor,
         body: SafeArea(
           child: Consumer<DashboardProvider>(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/theme_config.dart';
 
-class CustomButton extends StatelessWidget {
+class CustomButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -22,49 +22,126 @@ class CustomButton extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    Widget buttonChild = isLoading
-        ? SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                type == ButtonType.primary
-                    ? Colors.white
-                    : AppTheme.primaryColor,
-              ),
-            ),
-          )
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 18),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                text,
-                style: TextStyle(
-                  fontSize: AppTheme.fontSizeMedium,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          );
+  State<CustomButton> createState() => _CustomButtonState();
+}
 
-    return SizedBox(
-      width: width,
-      height: height ?? 48,
-      child: type == ButtonType.primary
-          ? ElevatedButton(
-              onPressed: isLoading ? null : onPressed,
-              child: buttonChild,
+class _CustomButtonState extends State<CustomButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget buttonChild = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: animation,
+            child: child,
+          ),
+        );
+      },
+      child: widget.isLoading
+          ? Row(
+              key: const ValueKey('loading'),
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      widget.type == ButtonType.primary
+                          ? Colors.white
+                          : AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Loading...',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontSizeMedium,
+                    fontWeight: FontWeight.w600,
+                    color: widget.type == ButtonType.primary
+                        ? Colors.white
+                        : AppTheme.primaryColor,
+                  ),
+                ),
+              ],
             )
-          : OutlinedButton(
-              onPressed: isLoading ? null : onPressed,
-              child: buttonChild,
+          : Row(
+              key: const ValueKey('content'),
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(widget.icon, size: 18),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  widget.text,
+                  style: TextStyle(
+                    fontSize: AppTheme.fontSizeMedium,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
+    );
+
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: SizedBox(
+        width: widget.width,
+        height: widget.height ?? 48,
+        child: widget.type == ButtonType.primary
+            ? ElevatedButton(
+                onPressed: widget.isLoading ? null : widget.onPressed,
+                style: ElevatedButton.styleFrom(
+                  elevation: widget.isLoading ? 0 : 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: buttonChild,
+              )
+            : OutlinedButton(
+                onPressed: widget.isLoading ? null : widget.onPressed,
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: buttonChild,
+              ),
+      ),
     );
   }
 }

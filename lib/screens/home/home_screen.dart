@@ -17,7 +17,10 @@ import '../../widgets/custom_bottom_navigation_bar.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/currency_selection_dialog.dart';
+import '../../widgets/login_required_bottom_sheet.dart';
+import '../../widgets/point_options_bottom_sheet.dart';
 import '../../services/storage_service.dart';
+import '../../services/api_service.dart';
 import '../profile/dashboard_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:country_flags/country_flags.dart';
@@ -110,10 +113,13 @@ class HomeTab extends StatefulWidget {
 class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final PageController _bannerController = PageController();
+  final ApiService _apiService = ApiService();
   int _currentBannerIndex = 0;
   bool _isGridView = true; // true = grid view by default
   String? _selectedCurrency;
   String? _selectedCountryCode;
+  List<Map<String, dynamic>> _banners = [];
+  bool _isLoadingBanners = true;
 
   String _flagForCurrency(String? code) {
     if (code == null) return '💱';
@@ -166,9 +172,41 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
-    _startBannerTimer();
+    _loadBanners();
     _loadSelectedCurrency();
     // Removed auto profile refresh due to backend 500 on /profile
+  }
+
+  Future<void> _loadBanners() async {
+    try {
+      final response = await _apiService.getAppAssets();
+      if (response.statusCode == 200 && mounted) {
+        final data = response.data['data'];
+        if (data != null && data['banners'] != null) {
+          setState(() {
+            _banners = List<Map<String, dynamic>>.from(data['banners']);
+            _isLoadingBanners = false;
+          });
+          if (_banners.isNotEmpty) {
+            _startBannerTimer();
+          }
+        } else {
+          setState(() {
+            _isLoadingBanners = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingBanners = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingBanners = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadSelectedCurrency() async {
@@ -241,9 +279,10 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
   }
 
   void _startBannerTimer() {
+    if (_banners.isEmpty) return;
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        _currentBannerIndex = (_currentBannerIndex + 1) % 4;
+      if (mounted && _banners.isNotEmpty) {
+        _currentBannerIndex = (_currentBannerIndex + 1) % _banners.length;
         _bannerController.animateToPage(
           _currentBannerIndex,
           duration: const Duration(milliseconds: 500),
@@ -460,111 +499,99 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                               _currentBannerIndex = index;
                             });
                           },
-                          children: [
-                            // Banner 1 Image
-                            GestureDetector(
-                              onTap: () =>
-                                  _openUrl('https://comisionista247.com/'),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusMedium,
-                                ),
-                                child: Container(
-                                  color: Colors.white,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  child: Center(
-                                    child: Image.asset(
-                                      'assets/mobile/banner1.jpg',
-                                      fit: BoxFit.contain,
-                                      alignment: Alignment.center,
+                          children: _isLoadingBanners
+                              ? [
+                                  // Loading placeholder
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusMedium,
+                                    ),
+                                    child: Container(
+                                      color: Colors.white,
                                       width: double.infinity,
                                       height: double.infinity,
-                                      errorBuilder: (context, error, stack) =>
-                                          const Icon(Icons.image_not_supported),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                            ),
-                            // Banner 2 Image
-                            GestureDetector(
-                              onTap: () =>
-                                  _openUrl('https://comisionista247.com/'),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusMedium,
-                                ),
-                                child: Container(
-                                  color: Colors.white,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  child: Center(
-                                    child: Image.asset(
-                                      'assets/mobile/banner2.jpg',
-                                      fit: BoxFit.contain,
-                                      alignment: Alignment.center,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      errorBuilder: (context, error, stack) =>
-                                          const Icon(Icons.image_not_supported),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Banner 3 Image
-                            GestureDetector(
-                              onTap: () =>
-                                  _openUrl('https://comisionista247.com/'),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusMedium,
-                                ),
-                                child: Container(
-                                  color: Colors.white,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  child: Center(
-                                    child: Image.asset(
-                                      'assets/mobile/banner3.jpg',
-                                      fit: BoxFit.contain,
-                                      alignment: Alignment.center,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      errorBuilder: (context, error, stack) =>
-                                          const Icon(Icons.image_not_supported),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Banner 4 Image
-                            GestureDetector(
-                              onTap: () =>
-                                  _openUrl('https://comisionista247.com/'),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusMedium,
-                                ),
-                                child: Image.asset(
-                                  'assets/mobile/banner4.jpg',
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  errorBuilder: (context, error, stack) =>
-                                      Container(
-                                        color: Colors.white,
-                                        child: const Center(
-                                          child: Icon(
-                                            Icons.image_not_supported,
+                                ]
+                              : _banners.isEmpty
+                                  ? [
+                                      // Fallback if no banners
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(
+                                          AppTheme.radiusMedium,
+                                        ),
+                                        child: Container(
+                                          color: Colors.white,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          child: const Center(
+                                            child: Icon(
+                                              Icons.image_not_supported,
+                                              size: 48,
+                                              color: Colors.grey,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                ),
-                              ),
-                            ),
-                          ],
+                                    ]
+                                  : _banners.map((banner) {
+                                      final imageUrl = banner['image'] as String?;
+                                      return GestureDetector(
+                                        onTap: () => _openUrl(
+                                            'https://comisionista247.com/'),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            AppTheme.radiusMedium,
+                                          ),
+                                          child: Container(
+                                            color: Colors.white,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            child: imageUrl != null
+                                                ? CachedNetworkImage(
+                                                    imageUrl: imageUrl,
+                                                    fit: BoxFit.contain,
+                                                    alignment: Alignment.center,
+                                                    width: double.infinity,
+                                                    height: double.infinity,
+                                                    placeholder: (context, url) =>
+                                                        Container(
+                                                      color: Colors.white,
+                                                      child: const Center(
+                                                        child:
+                                                            CircularProgressIndicator(),
+                                                      ),
+                                                    ),
+                                                    errorWidget: (context, url,
+                                                            error) =>
+                                                        Container(
+                                                      color: Colors.white,
+                                                      child: const Center(
+                                                        child: Icon(
+                                                          Icons
+                                                              .image_not_supported,
+                                                          color: Colors.grey,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Container(
+                                                    color: Colors.white,
+                                                    child: const Center(
+                                                      child: Icon(
+                                                        Icons
+                                                            .image_not_supported,
+                                                        color: Colors.grey,
+                                                      ),
+                                                    ),
+                                                  ),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
                         ),
                         // Page Indicators
                         Positioned(
@@ -573,21 +600,24 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                           right: 0,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(4, (index) {
-                              return Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                width: _currentBannerIndex == index ? 12 : 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: _currentBannerIndex == index
-                                      ? Colors.white
-                                      : Colors.white.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              );
-                            }),
+                            children: List.generate(
+                              _banners.isEmpty ? 1 : _banners.length,
+                              (index) {
+                                return Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  width: _currentBannerIndex == index ? 12 : 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: _currentBannerIndex == index
+                                        ? Colors.white
+                                        : Colors.white.withOpacity(0.5),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ],
@@ -875,7 +905,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                   );
                                 },
                                 onShare: () {
-                                  // TODO: Share product
+                                  // Share functionality is handled in ProductCard widget
                                 },
                                 onRefer: () {
                                   _showReferralPopup(context, product);
@@ -1029,19 +1059,64 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Coming soon'),
-              behavior: SnackBarBehavior.floating,
+      floatingActionButton: Consumer<AuthProvider>(
+        builder: (context, authProvider, child) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF2563EB), // Primary blue
+                  Color(0xFF1D4ED8), // Darker blue
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                  spreadRadius: 0,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  // Check if user is logged in
+                  if (!authProvider.isLoggedIn) {
+                    // Show login required bottom sheet
+                    LoginRequiredBottomSheet.show(context);
+                  } else {
+                    // User is logged in, show point options
+                    PointOptionsBottomSheet.show(context);
+                  }
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.add_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+              ),
             ),
           );
         },
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.location_on, color: Colors.white),
-        tooltip: 'Add Pointer',
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }

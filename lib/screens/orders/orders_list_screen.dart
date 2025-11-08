@@ -87,7 +87,25 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
       backgroundColor: AppTheme.backgroundColor,
       drawer: const AppDrawer(current: 'orders'),
       appBar: CustomAppBar(
-        title: 'Orders',
+        titleWidget: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(
+              Icons.receipt_long,
+              color: Colors.white,
+              size: 24,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Orders',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
         isDark: true,
         actions: [], // Remove default profile icon
       ),
