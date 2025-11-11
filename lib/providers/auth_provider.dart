@@ -39,19 +39,31 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (debugLogging) {
+        print('👤 [AUTH] login called with email: ${email.replaceAll(RegExp(r"(^.).*(@.*$)"), r"$1***$2")}');
+      }
       final result = await _authService.login(email, password);
 
       if (result['success'] == true) {
+        if (debugLogging) {
+          print('✅ [AUTH] login success. Token present: ${_authService.authToken != null}');
+        }
         _user = result['user'];
         _error = null;
         notifyListeners();
         return true;
       } else {
+        if (debugLogging) {
+          print('⚠️ [AUTH] login failed: ${result['message']}');
+        }
         _error = result['message'] ?? 'Login failed. Please try again.';
         notifyListeners();
         return false;
       }
     } on Exception catch (e) {
+      if (debugLogging) {
+        print('❌ [AUTH] login exception: $e');
+      }
       String errorMessage = 'An error occurred during login.';
       final errorString = e.toString().toLowerCase();
       if (errorString.contains('timeout') ||
@@ -64,6 +76,9 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     } catch (e) {
+      if (debugLogging) {
+        print('❌ [AUTH] unexpected error: $e');
+      }
       _error = 'An unexpected error occurred. Please try again.';
       notifyListeners();
       return false;

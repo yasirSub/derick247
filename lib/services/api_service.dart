@@ -6,13 +6,21 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
+  // Enable to print detailed request/response logs for debugging connectivity
+  static bool debugLogging = false;
+
   late Dio _dio;
   String? _authToken;
 
   void initialize() {
+    // Ensure baseUrl is treated as a directory by ending with '/'
+    final normalizedBaseUrl = ApiConfig.baseUrl.endsWith('/')
+        ? ApiConfig.baseUrl
+        : '${ApiConfig.baseUrl}/';
+
     _dio = Dio(
       BaseOptions(
-        baseUrl: ApiConfig.baseUrl,
+        baseUrl: normalizedBaseUrl,
         headers: ApiConfig.jsonHeaders,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
@@ -32,6 +40,29 @@ class ApiService {
           if (_authToken != null) {
             options.headers['Authorization'] = 'Bearer $_authToken';
           }
+          if (debugLogging) {
+            try {
+              final uri = options.uri;
+              print('🌐 [API REQUEST]');
+              print('   → ${options.method} $uri');
+              print('   → baseUrl: ${_dio.options.baseUrl}');
+              print('   → headers: ${options.headers}');
+              print('   → contentType: ${options.contentType}');
+              if (options.data is FormData) {
+                final fields = (options.data as FormData).fields
+                    .map((e) => e.key)
+                    .toList();
+                print('   → form fields: $fields');
+              } else if (options.data != null) {
+                // Avoid printing secrets; print type and size
+                final dataStr = options.data.toString();
+                final preview = dataStr.length > 300
+                    ? '${dataStr.substring(0, 300)}...'
+                    : dataStr;
+                print('   → body: $preview');
+              }
+            } catch (_) {}
+          }
           handler.next(options);
         },
         onError: (error, handler) {
@@ -39,6 +70,20 @@ class ApiService {
           if (error.response?.statusCode == 401) {
             // Token expired or invalid
             _authToken = null;
+          }
+          if (debugLogging) {
+            try {
+              final req = error.requestOptions;
+              print('❌ [API ERROR]');
+              print('   → ${req.method} ${req.uri}');
+              print('   → message: ${error.message}');
+              print('   → type: ${error.type}');
+              if (error.response != null) {
+                print('   → status: ${error.response?.statusCode}');
+                print('   → data: ${error.response?.data}');
+                print('   → headers: ${error.response?.headers}');
+              }
+            } catch (_) {}
           }
           handler.next(error);
         },
@@ -56,9 +101,20 @@ class ApiService {
 
   // Authentication methods
   Future<Response> login(String email, String password) async {
+    if (debugLogging) {
+      print('🔐 [LOGIN] Starting login request');
+      print('   → baseUrl: ${_dio.options.baseUrl}');
+      print('   → endpoint: ${ApiConfig.login}');
+      print(
+        '   → email: ${email.replaceAll(RegExp(r"(^.).*(@.*$)"), r"$1***$2")}',
+      );
+      print(
+        '   → hasApiKeyHeader: ${ApiConfig.formHeaders.containsKey('x-api-key')}',
+      );
+    }
     final formData = FormData.fromMap({'email': email, 'password': password});
 
-    return await _dio.post(
+    final resp = await _dio.post(
       ApiConfig.login,
       data: formData,
       options: Options(
@@ -67,6 +123,26 @@ class ApiService {
         validateStatus: (status) => true,
       ),
     );
+    if (debugLogging) {
+      try {
+        print('✅ [LOGIN RESPONSE]');
+        print('   → status: ${resp.statusCode}');
+        // Avoid dumping huge payload; preview JSON keys
+        final data = resp.data;
+        if (data is Map) {
+          print('   → keys: ${data.keys.toList()}');
+          print(
+            '   → message: ${data['message'] ?? data['error'] ?? data['status'] ?? data['success']}',
+          );
+        } else {
+          final str = data.toString();
+          print(
+            '   → dataPreview: ${str.length > 300 ? str.substring(0, 300) + '...' : str}',
+          );
+        }
+      } catch (_) {}
+    }
+    return resp;
   }
 
   Future<Response> register(Map<String, dynamic> userData) async {
@@ -148,6 +224,11 @@ class ApiService {
 
   Future<Response> getCategories() async {
     return await _dio.get(ApiConfig.categories);
+  }
+
+  // Subcategories for a given category
+  Future<Response> getSubcategories(int categoryId) async {
+    return await _dio.get('${ApiConfig.categories}/$categoryId/subcategories');
   }
 
   // Cart methods

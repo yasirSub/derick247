@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, curly_braces_in_flow_control_structures
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,6 +8,9 @@ import 'package:dio/dio.dart';
 import '../../config/theme_config.dart';
 import '../../services/api_service.dart';
 import '../home/home_screen.dart';
+import '../../widgets/currency_selection_dialog.dart';
+import '../../services/storage_service.dart';
+import 'package:country_flags/country_flags.dart';
 
 class VendorCreateProductScreen extends StatefulWidget {
   final int? productId; // when present -> edit mode
@@ -26,11 +31,27 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
   final TextEditingController _minQtyCtrl = TextEditingController(text: '1');
   final TextEditingController _shortCtrl = TextEditingController();
   final TextEditingController _descCtrl = TextEditingController();
+  final TextEditingController _guaranteeDurationCtrl = TextEditingController();
+  final TextEditingController _guaranteeDetailsCtrl = TextEditingController();
   int? _categoryId;
+  int? _subcategoryId;
   bool _loadingCategories = false;
   List<Map<String, dynamic>> _categories = const [];
+  // Currency
+  String _currencyCode = 'USD';
+  String? _selectedCountryCode; // for showing flag next to currency
+
+  // Guarantee
+  bool _guaranteeEnabled = false;
+  String _guaranteeType = 'Service';
+  final List<String> _guaranteeTypes = const ['Replacement', 'Service'];
+
+  bool _loadingSubcategories = false;
+  List<Map<String, dynamic>> _subcategories = const [];
   String? _selectedCategoryName;
+  String? _selectedSubcategoryName;
   final TextEditingController _categorySearchCtrl = TextEditingController();
+  final TextEditingController _subcategorySearchCtrl = TextEditingController();
 
   // Step 2 state
   int? _countryId;
@@ -66,6 +87,84 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     if (widget.productId != null) {
       _loadExisting(widget.productId!);
     }
+    _loadDefaultCurrencyFromPrefs();
+  }
+
+  Widget _buildGuaranteeSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(AppTheme.spacingMedium),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Guarantee',
+                style: TextStyle(
+                  fontSize: AppTheme.fontSizeLarge,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Switch(
+                value: _guaranteeEnabled,
+                onChanged: (value) {
+                  setState(() {
+                    _guaranteeEnabled = value;
+                  });
+                },
+              ),
+            ],
+          ),
+          if (_guaranteeEnabled) ...[
+            const SizedBox(height: AppTheme.spacingSmall),
+            _categoryStyleDropdown<String>(
+              label: 'Guarantee Type',
+              value: _guaranteeType,
+              enabled: true,
+              hint: 'Select guarantee type',
+              icon: Icons.verified_user_outlined,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _guaranteeType = value;
+                });
+              },
+              items: _guaranteeTypes
+                  .map(
+                    (e) => DropdownMenuItem<String>(value: e, child: Text(e)),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: AppTheme.spacingMedium),
+            _textField(
+              label: 'Guarantee Duration (Days)',
+              controller: _guaranteeDurationCtrl,
+              keyboardType: TextInputType.number,
+              hint: 'e.g., 30',
+            ),
+            const SizedBox(height: AppTheme.spacingMedium),
+            _multiline(
+              label: 'Guarantee Details',
+              controller: _guaranteeDetailsCtrl,
+              minLines: 3,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -94,10 +193,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         appBar: AppBar(
           title: const Text(
             'Create Product',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 20,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
           ),
           backgroundColor: AppTheme.darkAppBarColor,
           foregroundColor: Colors.white,
@@ -163,6 +259,29 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _loadDefaultCurrencyFromPrefs() async {
+    try {
+      final storage = StorageService();
+      String? saved = await storage.getSelectedCurrency();
+      // Fallback to generic user pref key if previously used elsewhere
+      final String? legacy = await storage.getUserPreference<String>(
+        'currency',
+      );
+      saved ??= legacy;
+      if (saved != null && saved.isNotEmpty && mounted) {
+        setState(() {
+          _currencyCode = saved!;
+        });
+      }
+      final savedIso = await storage.getSelectedCountryCode();
+      if (mounted) {
+        setState(() {
+          _selectedCountryCode = savedIso;
+        });
+      }
+    } catch (_) {}
   }
 
   Widget _buildStepper() {
@@ -260,6 +379,8 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         const SizedBox(height: AppTheme.spacingMedium),
         _buildCategoryField(),
         const SizedBox(height: AppTheme.spacingMedium),
+        _buildSubcategoryField(),
+        const SizedBox(height: AppTheme.spacingMedium),
         // Price and Quantity in Row
         Row(
           children: [
@@ -270,14 +391,6 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
                 controller: _priceCtrl,
               ),
             ),
-            const SizedBox(width: AppTheme.spacingSmall),
-            Expanded(
-              child: _textField(
-                label: 'Product Quantity',
-                controller: _qtyCtrl,
-                keyboardType: TextInputType.number,
-              ),
-            ),
           ],
         ),
         const SizedBox(height: AppTheme.spacingMedium),
@@ -286,6 +399,14 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
           controller: _minQtyCtrl,
           keyboardType: TextInputType.number,
         ),
+        const SizedBox(height: AppTheme.spacingMedium),
+        _textField(
+          label: 'Product Quantity',
+          controller: _qtyCtrl,
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: AppTheme.spacingMedium),
+        _buildGuaranteeSection(),
         const SizedBox(height: AppTheme.spacingMedium),
         _multiline(label: 'Product Short Summary', controller: _shortCtrl),
         const SizedBox(height: AppTheme.spacingMedium),
@@ -876,9 +997,37 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     // Submit
     setState(() => _submitting = true);
     try {
+      // Validate quantities: product quantity must be greater than or equal to minimum order quantity
+      final int? quantity = int.tryParse(_qtyCtrl.text.trim());
+      final int? minQty = int.tryParse(_minQtyCtrl.text.trim());
+      if (quantity == null || minQty == null) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter valid numeric quantities.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      if (quantity < minQty) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Product quantity must be greater than minimum quantity.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       final payload = <String, dynamic>{
         'name': _nameCtrl.text.trim(),
         if (_categoryId != null) 'category_id': _categoryId,
+        if (_subcategoryId != null) 'subcategory_id': _subcategoryId,
+        'currency': _currencyCode,
         'price': _priceCtrl.text.trim(),
         'quantity': _qtyCtrl.text.trim(),
         'min_buying_qty': _minQtyCtrl.text.trim(),
@@ -887,6 +1036,12 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         if (_countryId != null) 'country_id': _countryId,
         if (_stateId != null) 'state_id': _stateId,
         if (_cityId != null) 'city_id': _cityId,
+        'has_guarantee': _guaranteeEnabled ? 1 : 0,
+        if (_guaranteeEnabled) 'guarantee_type': _guaranteeType,
+        if (_guaranteeEnabled)
+          'guarantee_duration_days': _guaranteeDurationCtrl.text.trim(),
+        if (_guaranteeEnabled)
+          'guarantee_details': _guaranteeDetailsCtrl.text.trim(),
       };
 
       for (int i = 0; i < _shipping.length; i++) {
@@ -963,6 +1118,27 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
             _categorySearchCtrl.text = _selectedCategoryName!;
           }
         }
+        final dynamic hasGuaranteeRaw =
+            obj['has_guarantee'] ??
+            obj['guarantee_enabled'] ??
+            obj['is_guarantee'];
+        if (hasGuaranteeRaw != null) {
+          final bool hasGuarantee = hasGuaranteeRaw is bool
+              ? hasGuaranteeRaw
+              : hasGuaranteeRaw.toString() == '1' ||
+                    hasGuaranteeRaw.toString().toLowerCase() == 'true';
+          _guaranteeEnabled = hasGuarantee;
+        }
+        if (_guaranteeEnabled) {
+          _guaranteeType = (obj['guarantee_type'] ?? _guaranteeType).toString();
+          _guaranteeDurationCtrl.text =
+              (obj['guarantee_duration_days'] ??
+                      obj['guarantee_duration'] ??
+                      '')
+                  .toString();
+          _guaranteeDetailsCtrl.text = (obj['guarantee_details'] ?? '')
+              .toString();
+        }
       });
     } catch (_) {}
   }
@@ -1004,6 +1180,46 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
       });
     } catch (_) {
       setState(() => _loadingCategories = false);
+    }
+  }
+
+  Future<void> _fetchSubcategories(int categoryId) async {
+    setState(() {
+      _loadingSubcategories = true;
+      _subcategories = const [];
+    });
+    try {
+      final res = await ApiService().getSubcategories(categoryId);
+      final data = res.data;
+      List<dynamic> items = const [];
+      if (data is Map<String, dynamic>) {
+        final root = data['data'];
+        if (root is Map<String, dynamic> && root['data'] is List) {
+          items = root['data'] as List;
+        } else if (data['data'] is List) {
+          items = data['data'] as List;
+        }
+      } else if (data is List) {
+        items = data;
+      }
+
+      final subs = items
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (e) => {
+              'id': e['id'] ?? e['subcategory_id'],
+              'name': e['name'] ?? e['title'] ?? 'Unknown',
+            },
+          )
+          .where((e) => e['id'] != null)
+          .toList();
+
+      setState(() {
+        _subcategories = subs;
+        _loadingSubcategories = false;
+      });
+    } catch (_) {
+      setState(() => _loadingSubcategories = false);
     }
   }
 
@@ -1100,6 +1316,122 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
                             _categoryId = (item['id'] as num).toInt();
                             _selectedCategoryName = item['name'].toString();
                             _categorySearchCtrl.text = _selectedCategoryName!;
+                            _subcategoryId = null;
+                            _selectedSubcategoryName = null;
+                            _subcategorySearchCtrl.clear();
+                          });
+                          _fetchSubcategories(_categoryId!);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSubcategoryField() {
+    final enabled = _categoryId != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spacingSmall),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Product Subcategory',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextField(
+            controller: _subcategorySearchCtrl,
+            readOnly: true,
+            onTap: enabled ? _openSubcategoryPicker : null,
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.subdirectory_arrow_right_outlined),
+              hintText:
+                  _selectedSubcategoryName ??
+                  (_loadingSubcategories
+                      ? 'Loading subcategories...'
+                      : (enabled
+                            ? 'Select subcategory...'
+                            : 'Select category first...')),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openSubcategoryPicker() {
+    if (_loadingSubcategories) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        List<Map<String, dynamic>> filtered = List.from(_subcategories);
+        final controller = TextEditingController();
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: AppTheme.spacingMedium,
+              right: AppTheme.spacingMedium,
+              top: AppTheme.spacingMedium,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  onChanged: (q) {
+                    final query = q.toLowerCase();
+                    filtered = _subcategories
+                        .where(
+                          (e) => (e['name'] ?? '')
+                              .toString()
+                              .toLowerCase()
+                              .contains(query),
+                        )
+                        .toList();
+                    (context as Element).markNeedsBuild();
+                  },
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Search subcategory...',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = filtered[index];
+                      return ListTile(
+                        leading: const Icon(Icons.label_important_outline),
+                        title: Text(item['name'].toString()),
+                        onTap: () {
+                          setState(() {
+                            _subcategoryId = (item['id'] as num).toInt();
+                            _selectedSubcategoryName = item['name'].toString();
+                            _subcategorySearchCtrl.text =
+                                _selectedSubcategoryName!;
                           });
                           Navigator.pop(context);
                         },
@@ -1382,6 +1714,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     required TextEditingController controller,
     String? hint,
     TextInputType? keyboardType,
+    bool enabled = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1391,6 +1724,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         TextField(
           controller: controller,
           keyboardType: keyboardType,
+          enabled: enabled,
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
@@ -1415,14 +1749,47 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         const SizedBox(height: 6),
         Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            GestureDetector(
+              onTap: _openCurrencyPicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_selectedCountryCode != null &&
+                        _selectedCountryCode!.isNotEmpty)
+                      Container(
+                        width: 24,
+                        height: 16,
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                            width: .5,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: CountryFlag.fromCountryCode(
+                          _selectedCountryCode!,
+                          height: 16,
+                          width: 24,
+                        ),
+                      ),
+                    Text(_currencyCode),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 18),
+                  ],
+                ),
               ),
-              child: const Text('USD'),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -1444,10 +1811,34 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     );
   }
 
+  void _openCurrencyPicker() {
+    showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const CurrencySelectionDialog(),
+    ).then((selected) {
+      if (selected != null && selected.isNotEmpty && mounted) {
+        setState(() {
+          _currencyCode = selected;
+        });
+        // Also refresh stored country code for flag
+        StorageService().getSelectedCountryCode().then((iso) {
+          if (mounted) {
+            setState(() {
+              _selectedCountryCode = iso;
+            });
+          }
+        });
+      }
+    });
+  }
+
   Widget _multiline({
     required String label,
     required TextEditingController controller,
     int minLines = 3,
+    bool enabled = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1458,6 +1849,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
           controller: controller,
           minLines: minLines,
           maxLines: 8,
+          enabled: enabled,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
@@ -1589,8 +1981,6 @@ class _ShippingCountry {
   _ShippingCountry({
     required this.id,
     required this.countryId,
-    this.stateId,
-    this.cityId,
     required String shippingTime,
     required this.timeType,
   }) : timeCtrl = TextEditingController(text: shippingTime);

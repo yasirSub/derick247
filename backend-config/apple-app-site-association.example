@@ -1,0 +1,20 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAM_ID.BUNDLE_IDENTIFIER",
+        "paths": [
+          "/product/*",
+          "/category/*",
+          "/cart",
+          "/dashboard",
+          "/profile",
+          "/order/*",
+          "/"
+        ]
+      }
+    ]
+  }
+}
+

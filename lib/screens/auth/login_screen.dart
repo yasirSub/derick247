@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
 
@@ -44,6 +45,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Enable verbose API/auth debug logs just for this login attempt
+    AuthProvider.debugLogging = true;
+    ApiService.debugLogging = true;
 
     final success = await authProvider.login(
       _emailController.text.trim(),
@@ -359,12 +364,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 colors: authProvider.isLoading
                                     ? [
                                         Colors.orange.withOpacity(0.7),
-                                        const Color(0xFFEA580C).withOpacity(0.7),
+                                        const Color(
+                                          0xFFEA580C,
+                                        ).withOpacity(0.7),
                                       ]
-                                    : [
-                                        Colors.orange,
-                                        const Color(0xFFEA580C),
-                                      ],
+                                    : [Colors.orange, const Color(0xFFEA580C)],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                               ),
@@ -413,9 +417,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                               strokeWidth: 2.5,
                                               valueColor:
                                                   const AlwaysStoppedAnimation<
-                                                      Color>(
-                                                    Colors.white,
-                                                  ),
+                                                    Color
+                                                  >(Colors.white),
                                             ),
                                           ),
                                           const SizedBox(width: 12),

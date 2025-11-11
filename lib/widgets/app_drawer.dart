@@ -4,10 +4,10 @@ import 'package:provider/provider.dart';
 import '../screens/profile/dropshipping_products_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/dashboard_screen.dart';
+import '../screens/profile/vendor_products_screen.dart';
 import '../screens/orders/orders_list_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/wallet/wallet_screen.dart';
-import '../screens/auth/login_screen.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_model.dart';
 
@@ -40,9 +40,7 @@ class AppDrawer extends StatelessWidget {
       elevation: 0,
       backgroundColor: const Color(0xFF1A1D24),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1D24),
-        ),
+        decoration: const BoxDecoration(color: Color(0xFF1A1D24)),
         child: Column(
           mainAxisSize: MainAxisSize.max,
           children: [
@@ -58,10 +56,7 @@ class AppDrawer extends StatelessWidget {
                       height: 80,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.green,
-                          width: 2,
-                        ),
+                        border: Border.all(color: Colors.green, width: 2),
                       ),
                       child: CircleAvatar(
                         radius: 38,
@@ -90,10 +85,7 @@ class AppDrawer extends StatelessWidget {
                     // User Email
                     Text(
                       user.email,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[400],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[400]),
                     ),
                   ],
                 ),
@@ -117,10 +109,7 @@ class AppDrawer extends StatelessWidget {
                       height: 80,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.green,
-                          width: 2,
-                        ),
+                        border: Border.all(color: Colors.green, width: 2),
                       ),
                       child: CircleAvatar(
                         radius: 38,
@@ -147,10 +136,7 @@ class AppDrawer extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Not logged in',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[400],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[400]),
                     ),
                   ],
                 ),
@@ -181,9 +167,7 @@ class AppDrawer extends StatelessWidget {
                       Navigator.pop(context);
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const HomeScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
                       );
                     },
                   ),
@@ -205,15 +189,29 @@ class AppDrawer extends StatelessWidget {
                   _tile(
                     context,
                     icon: Icons.inventory_2_outlined,
-                    label: 'Pointer Products',
+                    label: 'Products',
+                    selected: _is('vendor'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const VendorProductsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _tile(
+                    context,
+                    icon: Icons.inventory_2_outlined,
+                    label: 'MINES',
                     selected: _is('pointer'),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) =>
-                              const DropshippingProductsScreen(),
+                          builder: (_) => const DropshippingProductsScreen(),
                         ),
                       );
                     },
@@ -257,9 +255,7 @@ class AppDrawer extends StatelessWidget {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const WalletScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const WalletScreen()),
                       );
                     },
                   ),
@@ -277,9 +273,7 @@ class AppDrawer extends StatelessWidget {
                     if (context.mounted) {
                       Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const LoginScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
                         (route) => false,
                       );
                     }
@@ -345,9 +339,7 @@ class AppDrawer extends StatelessWidget {
         ),
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
