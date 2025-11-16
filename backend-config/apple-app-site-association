@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAM_ID.com.example.derick247",
+        "paths": [
+          "/product/*",
+          "/category/*",
+          "/cart",
+          "/dashboard",
+          "/profile",
+          "/checkout-guest/*",
+          "/order/*",
+          "/"
+        ]
+      }
+    ]
+  }
+}
+
