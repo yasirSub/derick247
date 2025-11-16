@@ -8,6 +8,9 @@ import 'providers/cart_provider.dart';
 import 'providers/referral_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/black_board_provider.dart';
+import 'providers/locale_provider.dart';
+import 'services/translation_service.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/deep_link_service.dart';
@@ -15,7 +18,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/products/product_detail_screen.dart';
 import 'screens/products/products_screen.dart';
 import 'screens/cart/cart_screen.dart';
-import 'screens/checkout/checkout_screen.dart';
+import 'screens/checkout/guest/guest_checkout_screen.dart';
 import 'screens/profile/dashboard_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/orders/order_details_screen.dart';
@@ -46,6 +49,14 @@ class Derick247App extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(
+          create: (_) {
+            final service = TranslationService();
+            service.initialize();
+            return service;
+          },
+        ),
+        ChangeNotifierProvider(create: (_) => LocaleProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
@@ -53,15 +64,30 @@ class Derick247App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => BlackBoardProvider()),
       ],
-      child: ScrollConfiguration(
-        behavior: NoGlowScrollBehavior(),
-        child: MaterialApp(
-          navigatorKey: navigatorKey,
-          title: 'Derick247',
-          theme: AppTheme.lightTheme,
-          debugShowCheckedModeBanner: false,
-          home: const AppInitializer(),
-        ),
+      child: Consumer2<LocaleProvider, TranslationService>(
+        builder: (context, localeProvider, translationService, child) {
+          // Force rebuild when either locale or translations change
+          return ScrollConfiguration(
+            behavior: NoGlowScrollBehavior(),
+            child: MaterialApp(
+              navigatorKey: navigatorKey,
+              title: 'Derick247',
+              theme: AppTheme.lightTheme,
+              debugShowCheckedModeBanner: false,
+              locale: localeProvider.locale,
+              supportedLocales: const [
+                Locale('en', ''), // English
+                Locale('es', ''), // Spanish
+              ],
+              localizationsDelegates: [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const AppInitializer(),
+            ),
+          );
+        },
       ),
     );
   }
@@ -88,16 +114,25 @@ class _AppInitializerState extends State<AppInitializer> {
   }
 
   void _setupDeepLinks() {
-    // Set up deep link handler
-    _deepLinkService.onLinkReceived = (Uri uri) {
-      _handleDeepLink(uri);
-    };
-
-    // Initialize deep link service
+    // Initialize deep link service FIRST (it will handle pending links)
     _deepLinkService.initialize();
+
+    // Set up deep link handler AFTER initializing
+    // Use the setCallback method to ensure pending links are processed
+    _deepLinkService.setCallback((Uri uri) {
+      print('🔗 Deep link callback triggered: $uri');
+      _handleDeepLink(uri);
+    });
+
+    print('✅ Deep link service initialized and callback set');
   }
 
   void _handleDeepLink(Uri uri) {
+    print('🔗 _handleDeepLink called with: $uri');
+    print('   - _isHandlingDeepLink: $_isHandlingDeepLink');
+    print('   - _isInitialized: $_isInitialized');
+    print('   - mounted: $mounted');
+
     // Prevent multiple simultaneous deep link navigations
     if (_isHandlingDeepLink) {
       print('⚠️ Deep link already being handled, ignoring: $uri');
@@ -106,28 +141,38 @@ class _AppInitializerState extends State<AppInitializer> {
 
     // Wait for app to be initialized before handling deep links
     if (!_isInitialized) {
+      print('⏳ App not initialized yet, retrying in 500ms...');
       // Store the link to handle after initialization
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
+          print('🔄 Retrying deep link after initialization: $uri');
           _handleDeepLink(uri);
+        } else {
+          print('❌ Widget not mounted, cannot handle deep link: $uri');
         }
       });
       return;
     }
 
+    print('✅ App is initialized, parsing deep link...');
+
     // Parse the deep link
     final deepLinkRoute = DeepLinkService.parseRoute(uri);
     if (deepLinkRoute == null) {
-      print('Unknown deep link: $uri');
+      print('❌ Unknown deep link format: $uri');
       return;
     }
+
+    print('✅ Deep link parsed successfully: ${deepLinkRoute.type}');
 
     // Navigate based on route type
     final navigator = navigatorKey.currentState;
     if (navigator == null) {
-      print('Navigator not available for deep link: $uri');
+      print('❌ Navigator not available for deep link: $uri');
       return;
     }
+
+    print('✅ Navigator is available');
 
     // Get context from navigator - it should have access to providers
     final navContext = navigator.context;
@@ -178,6 +223,8 @@ class _AppInitializerState extends State<AppInitializer> {
 
             if (productIdentifier != null) {
               print('🔗 Opening product: $productIdentifier');
+              print('   - Product will load with or without authentication');
+              print('   - Auth token will be sent if user is logged in');
 
               // Always pop back to home first to prevent overlapping screens
               // This ensures clean navigation - no multiple product screens stacked
@@ -188,6 +235,7 @@ class _AppInitializerState extends State<AppInitializer> {
               }
 
               // Now push the product screen - this will always load fresh data
+              // Product details can be viewed without login (public access)
               navigator.push(
                 MaterialPageRoute(
                   builder: (_) =>
@@ -199,25 +247,36 @@ class _AppInitializerState extends State<AppInitializer> {
             }
             break;
           case DeepLinkType.checkoutGuest:
-            // Handle checkout-guest with referral code
-            final refCode = deepLinkRoute.queryParams['ref'];
-            try {
-              final authProvider = Provider.of<AuthProvider>(
-                navContext,
-                listen: false,
+            // Handle guest checkout with token
+            print('🔗 Processing guest checkout deep link');
+            print(
+              '   - Checkout token from route: ${deepLinkRoute.checkoutToken}',
+            );
+            print(
+              '   - Checkout token from query: ${deepLinkRoute.queryParams['token']}',
+            );
+
+            final checkoutToken =
+                deepLinkRoute.checkoutToken ??
+                deepLinkRoute.queryParams['token'];
+
+            print('🔗 Opening guest checkout with token: $checkoutToken');
+
+            if (checkoutToken == null || checkoutToken.isEmpty) {
+              print('❌ No checkout token found in deep link');
+              ScaffoldMessenger.of(navContext).showSnackBar(
+                const SnackBar(
+                  content: Text('Invalid checkout link'),
+                  backgroundColor: Colors.red,
+                ),
               );
+              _isHandlingDeepLink = false;
+              return;
+            }
 
-              if (!authProvider.isLoggedIn) {
-                // Show login screen first
-                final loginResult = await navigator.push(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-                if (loginResult != true) {
-                  return; // User didn't login
-                }
-              }
-
+            try {
               // Track referral if present
+              final refCode = deepLinkRoute.queryParams['ref'];
               if (refCode != null && refCode.isNotEmpty) {
                 try {
                   final referralProvider = Provider.of<ReferralProvider>(
@@ -225,17 +284,41 @@ class _AppInitializerState extends State<AppInitializer> {
                     listen: false,
                   );
                   referralProvider.trackReferralClick(refCode);
+                  print('✅ Referral code tracked: $refCode');
                 } catch (e) {
-                  print('Error tracking referral: $e');
+                  print('⚠️ Error tracking referral: $e');
+                  // Continue even if referral tracking fails
                 }
               }
 
-              // Navigate to checkout
+              // Always pop back to home first to prevent overlapping screens
+              if (navigator.canPop()) {
+                navigator.popUntil((route) => route.isFirst);
+                // Small delay to ensure navigation animation completes
+                await Future.delayed(const Duration(milliseconds: 100));
+              }
+
+              // Navigate to guest checkout screen with token
+              // Guest checkout can be accessed without login
+              print(
+                '✅ Navigating to GuestCheckoutScreen with token: $checkoutToken',
+              );
               navigator.push(
-                MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+                MaterialPageRoute(
+                  builder: (_) =>
+                      GuestCheckoutScreen(checkoutToken: checkoutToken),
+                ),
               );
             } catch (e) {
-              print('Error handling checkout-guest: $e');
+              print('❌ Error handling checkout-guest: $e');
+              if (mounted) {
+                ScaffoldMessenger.of(navContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Error opening checkout: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             }
             break;
           case DeepLinkType.category:
@@ -333,6 +416,7 @@ class _AppInitializerState extends State<AppInitializer> {
       // Initialize services
       ApiService().initialize();
       AuthService().initialize();
+      await TranslationService().initialize();
 
       // Initialize providers
       await context.read<AuthProvider>().initialize();

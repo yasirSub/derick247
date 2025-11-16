@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../config/theme_config.dart';
 import '../../services/api_service.dart';
+import '../../services/translation_service.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/translated_text.dart';
 
 class AddAddressScreen extends StatefulWidget {
   const AddAddressScreen({Key? key}) : super(key: key);
@@ -66,12 +68,33 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     try {
       final response = await _apiService.getCountries();
       if (response.statusCode == 200) {
-        final data = response.data['data'] ?? response.data;
-        final countriesList = data is List ? data : (data['countries'] ?? []);
-        setState(() {
-          _countries = List<Map<String, dynamic>>.from(countriesList);
-          _isLoadingCountries = false;
-        });
+        final responseData = response.data;
+        // Check if response type is countries or if it's a direct list
+        final responseType = responseData['type']?.toString().toLowerCase();
+
+        // Only process if type is 'countries' or if no type field exists (backward compatibility)
+        if (responseType == null || responseType == 'countries') {
+          final data = responseData['data'] ?? responseData;
+          final countriesList = data is List ? data : (data['countries'] ?? []);
+          setState(() {
+            _countries = List<Map<String, dynamic>>.from(countriesList);
+            _isLoadingCountries = false;
+          });
+        } else {
+          // Wrong type returned, show error
+          setState(() {
+            _isLoadingCountries = false;
+            _countries = [];
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Unexpected response type: $responseType'),
+                backgroundColor: AppTheme.errorColor,
+              ),
+            );
+          }
+        }
       } else {
         setState(() {
           _isLoadingCountries = false;
@@ -115,12 +138,25 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     try {
       final response = await _apiService.getStates(countryId);
       if (response.statusCode == 200) {
-        final data = response.data['data'] ?? response.data;
-        final statesList = data is List ? data : (data['states'] ?? []);
-        setState(() {
-          _states = List<Map<String, dynamic>>.from(statesList);
-          _isLoadingStates = false;
-        });
+        final responseData = response.data;
+        // Check if response type is states
+        final responseType = responseData['type']?.toString().toLowerCase();
+
+        // Only process if type is 'states' or if no type field exists (backward compatibility)
+        if (responseType == null || responseType == 'states') {
+          final data = responseData['data'] ?? responseData;
+          final statesList = data is List ? data : (data['states'] ?? []);
+          setState(() {
+            _states = List<Map<String, dynamic>>.from(statesList);
+            _isLoadingStates = false;
+          });
+        } else {
+          // Wrong type returned, show error
+          setState(() {
+            _isLoadingStates = false;
+            _states = [];
+          });
+        }
       } else {
         setState(() {
           _isLoadingStates = false;
@@ -143,12 +179,35 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     try {
       final response = await _apiService.getCities(stateId);
       if (response.statusCode == 200) {
-        final data = response.data['data'] ?? response.data;
-        final citiesList = data is List ? data : (data['cities'] ?? []);
-        setState(() {
-          _cities = List<Map<String, dynamic>>.from(citiesList);
-          _isLoadingCities = false;
-        });
+        final responseData = response.data;
+        // Check if response type is cities
+        final responseType = responseData['type']?.toString().toLowerCase();
+
+        // Only process if type is 'cities' or if no type field exists (backward compatibility)
+        if (responseType == null || responseType == 'cities') {
+          final data = responseData['data'] ?? responseData;
+          final citiesList = data is List ? data : (data['cities'] ?? []);
+          setState(() {
+            _cities = List<Map<String, dynamic>>.from(citiesList);
+            _isLoadingCities = false;
+          });
+        } else {
+          // Wrong type returned (e.g., 'countries' when expecting 'cities')
+          setState(() {
+            _isLoadingCities = false;
+            _cities = [];
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to load cities. Unexpected response type: $responseType',
+                ),
+                backgroundColor: AppTheme.errorColor,
+              ),
+            );
+          }
+        }
       } else {
         setState(() {
           _isLoadingCities = false;
@@ -168,8 +227,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
     if (_countryId == null || _stateId == null || _cityId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select country, state, and city'),
+        SnackBar(
+          content: TranslatedText('checkout.selectLocation'),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -211,7 +270,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
           Navigator.of(context).pop(true); // Return true to indicate success
         }
       } else {
-        final errorMessage = response.data['message']?.toString() ??
+        final errorMessage =
+            response.data['message']?.toString() ??
             'Failed to add shipping address';
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -242,10 +302,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: const CustomAppBar(
-        title: 'Add New Address',
-        isDark: true,
-      ),
+      appBar: const CustomAppBar(title: 'Add New Address', isDark: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.spacingLarge),
         child: Form(
@@ -291,16 +348,16 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
               // Country Dropdown
               DropdownButtonFormField<int>(
                 value: _countryId,
-                decoration: const InputDecoration(
-                  labelText: 'Country',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: TranslationService().translate('checkout.country'),
+                  border: const OutlineInputBorder(),
                 ),
                 items: _isLoadingCountries
                     ? [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('Loading...'),
-                        )
+                          child: TranslatedText('app.loading'),
+                        ),
                       ]
                     : _countries.map((country) {
                         return DropdownMenuItem(
@@ -322,7 +379,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                 },
                 validator: (value) {
                   if (value == null) {
-                    return 'Please select a country';
+                    return TranslationService().translate(
+                      'checkout.countryRequired',
+                    );
                   }
                   return null;
                 },
@@ -332,16 +391,16 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
               // State Dropdown
               DropdownButtonFormField<int>(
                 value: _stateId,
-                decoration: const InputDecoration(
-                  labelText: 'State',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: TranslationService().translate('checkout.state'),
+                  border: const OutlineInputBorder(),
                 ),
                 items: _isLoadingStates
                     ? [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('Loading...'),
-                        )
+                          child: TranslatedText('app.loading'),
+                        ),
                       ]
                     : _states.map((state) {
                         return DropdownMenuItem(
@@ -363,7 +422,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     : null,
                 validator: (value) {
                   if (value == null) {
-                    return 'Please select a state';
+                    return TranslationService().translate(
+                      'checkout.stateRequired',
+                    );
                   }
                   return null;
                 },
@@ -373,16 +434,16 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
               // City Dropdown
               DropdownButtonFormField<int>(
                 value: _cityId,
-                decoration: const InputDecoration(
-                  labelText: 'City',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: TranslationService().translate('checkout.city'),
+                  border: const OutlineInputBorder(),
                 ),
                 items: _isLoadingCities
                     ? [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('Loading...'),
-                        )
+                          child: TranslatedText('app.loading'),
+                        ),
                       ]
                     : _cities.map((city) {
                         return DropdownMenuItem(
@@ -399,7 +460,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     : null,
                 validator: (value) {
                   if (value == null) {
-                    return 'Please select a city';
+                    return TranslationService().translate(
+                      'checkout.cityRequired',
+                    );
                   }
                   return null;
                 },
@@ -463,8 +526,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text(
@@ -484,4 +548,3 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     );
   }
 }
-

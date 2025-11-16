@@ -4,7 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
+import '../../services/translation_service.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/translated_text.dart';
 
 class OrderDetailsScreen extends StatefulWidget {
   final int orderId;
@@ -46,13 +48,15 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         });
       } else {
         setState(() {
-          _error = 'Unexpected API response';
+          _error = TranslationService().translate(
+            'orders.unexpectedApiResponse',
+          );
           _loading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'Failed to load order';
+        _error = TranslationService().translate('orders.failedToLoadOrder');
         _loading = false;
       });
     }
@@ -63,7 +67,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: CustomAppBar(
-        title: 'Order Details',
+        title: TranslationService().translate('orders.orderDetails'),
         isDark: true,
         actions: [], // Remove default profile icon
       ),
@@ -80,7 +84,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              'Loading order details...',
+              TranslationService().translate('orders.loadingOrderDetails'),
               style: TextStyle(color: Colors.grey[600], fontSize: 14),
             ),
           ],
@@ -108,7 +112,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Failed to load order',
+                TranslationService().translate('orders.failedToLoadOrder'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -125,7 +129,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               ElevatedButton.icon(
                 onPressed: _load,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: TranslatedText('orders.retry'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -198,9 +202,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Order Details',
-                            style: TextStyle(
+                          Text(
+                            TranslationService().translate(
+                              'orders.orderDetails',
+                            ),
+                            style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
                               color: Colors.black87,
@@ -208,7 +214,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Order ID: #${d['order_id']}',
+                            TranslationService().translate(
+                              'orders.orderId',
+                              params: {'id': d['order_id'].toString()},
+                            ),
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[600],
@@ -233,7 +242,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Placed on $orderDate',
+                      TranslationService().translate(
+                        'orders.placedOn',
+                        params: {'date': orderDate},
+                      ),
                       style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                     ),
                   ],
@@ -249,23 +261,26 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle('Customer Details', Icons.person_outline),
+                _sectionTitle(
+                  TranslationService().translate('orders.customerDetails'),
+                  Icons.person_outline,
+                ),
                 const SizedBox(height: 16),
                 _infoRow(
                   icon: Icons.person,
-                  label: 'Name',
+                  label: TranslationService().translate('orders.name'),
                   value: (customer['full_name'] ?? '').toString(),
                 ),
                 const SizedBox(height: 12),
                 _infoRow(
                   icon: Icons.email_outlined,
-                  label: 'Email',
+                  label: TranslationService().translate('orders.email'),
                   value: (customer['email'] ?? '').toString(),
                 ),
                 const SizedBox(height: 12),
                 _infoRow(
                   icon: Icons.phone_outlined,
-                  label: 'Phone',
+                  label: TranslationService().translate('orders.phone'),
                   value: (customer['phone'] ?? '').toString(),
                 ),
               ],
@@ -279,12 +294,15 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle('Shipping Address', Icons.location_on_outlined),
+                _sectionTitle(
+                  TranslationService().translate('orders.shippingAddress'),
+                  Icons.location_on_outlined,
+                ),
                 const SizedBox(height: 16),
                 if ((ship['recipient_name'] ?? '').toString().isNotEmpty)
                   _infoRow(
                     icon: Icons.person,
-                    label: 'Recipient',
+                    label: TranslationService().translate('orders.recipient'),
                     value: (ship['recipient_name'] ?? '').toString(),
                   ),
                 if ((ship['recipient_name'] ?? '').toString().isNotEmpty)
@@ -292,14 +310,14 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 if ((ship['phone'] ?? '').toString().isNotEmpty)
                   _infoRow(
                     icon: Icons.phone_outlined,
-                    label: 'Phone',
+                    label: TranslationService().translate('orders.phone'),
                     value: (ship['phone'] ?? '').toString(),
                   ),
                 if ((ship['phone'] ?? '').toString().isNotEmpty)
                   const SizedBox(height: 12),
                 _infoRow(
                   icon: Icons.home_outlined,
-                  label: 'Address',
+                  label: TranslationService().translate('orders.address'),
                   value: (ship['address'] ?? '').toString(),
                   maxLines: 3,
                 ),
@@ -314,11 +332,14 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle('Payment Details', Icons.payment_outlined),
+                _sectionTitle(
+                  TranslationService().translate('orders.paymentDetails'),
+                  Icons.payment_outlined,
+                ),
                 const SizedBox(height: 16),
                 _infoRow(
                   icon: getPaymentIcon(paymentMethod),
-                  label: 'Payment Method',
+                  label: TranslationService().translate('orders.paymentMethod'),
                   value: paymentMethod.replaceAll('_', ' ').toUpperCase(),
                   isBold: true,
                 ),
@@ -328,7 +349,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     Expanded(
                       child: _infoRow(
                         icon: Icons.info_outline,
-                        label: 'Payment Status',
+                        label: TranslationService().translate(
+                          'orders.paymentStatus',
+                        ),
                         value: paymentStatus.toUpperCase(),
                         isBold: true,
                         valueColor: statusColor,
@@ -348,7 +371,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'Transaction ID',
+                                TranslationService().translate(
+                                  'orders.transactionId',
+                                ),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[600],
@@ -390,7 +415,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       color: Colors.grey[700],
                     ),
                     const SizedBox(width: 8),
-                    _sectionTitle('Order Items', Icons.shopping_bag_outlined),
+                    _sectionTitle(
+                      TranslationService().translate('orders.orderItems'),
+                      Icons.shopping_bag_outlined,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -410,7 +438,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       Expanded(
                         flex: 3,
                         child: Text(
-                          'Product',
+                          TranslationService().translate('orders.product'),
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
@@ -421,7 +449,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       Expanded(
                         flex: 1,
                         child: Text(
-                          'Qty',
+                          TranslationService().translate('orders.qty'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
@@ -433,7 +461,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       Expanded(
                         flex: 1,
                         child: Text(
-                          'Price',
+                          TranslationService().translate('orders.price'),
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
@@ -445,7 +473,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       Expanded(
                         flex: 1,
                         child: Text(
-                          'Total',
+                          TranslationService().translate('orders.total'),
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
@@ -568,9 +596,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         size: 24,
                       ),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Total Amount',
-                        style: TextStyle(
+                      Text(
+                        TranslationService().translate('orders.totalAmount'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: Colors.black87,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/referral_provider.dart';
+import '../../widgets/translated_text.dart';
 
 class ReferralDashboard extends StatefulWidget {
   const ReferralDashboard({Key? key}) : super(key: key);
@@ -24,7 +25,7 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Referral Dashboard'),
+        title: const TranslatedText('referral.dashboardTitle'),
         backgroundColor: Colors.white,
         elevation: 0,
       ),
@@ -73,8 +74,8 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
                           color: Colors.white,
                         ),
                         const SizedBox(height: AppTheme.spacingMedium),
-                        const Text(
-                          'Total Earnings',
+                        const TranslatedText(
+                          'referral.totalEarnings',
                           style: TextStyle(
                             fontSize: AppTheme.fontSizeMedium,
                             color: Colors.white70,
@@ -104,25 +105,25 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
                     childAspectRatio: 1.5,
                     children: [
                       _buildStatCard(
-                        'Total Clicks',
+                        'referral.stats.totalClicks',
                         referralProvider.totalClicks.toString(),
                         Icons.mouse,
                         Colors.blue,
                       ),
                       _buildStatCard(
-                        'Purchases',
+                        'referral.stats.purchases',
                         referralProvider.totalPurchases.toString(),
                         Icons.shopping_cart,
                         Colors.green,
                       ),
                       _buildStatCard(
-                        'Commission',
+                        'referral.stats.commission',
                         '\$${referralProvider.totalCommission.toStringAsFixed(2)}',
                         Icons.trending_up,
                         Colors.orange,
                       ),
                       _buildStatCard(
-                        'Conversion',
+                        'referral.stats.conversion',
                         '${referralProvider.conversionRate.toStringAsFixed(1)}%',
                         Icons.percent,
                         Colors.purple,
@@ -152,8 +153,8 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'How Referral System Works',
+                        const TranslatedText(
+                          'referral.howItWorksTitle',
                           style: TextStyle(
                             fontSize: AppTheme.fontSizeXLarge,
                             fontWeight: FontWeight.bold,
@@ -163,26 +164,26 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
                         const SizedBox(height: AppTheme.spacingMedium),
                         _buildStep(
                           '1',
-                          'Share Product',
-                          'Share any product with your unique referral link',
+                          'referral.steps.shareProductTitle',
+                          'referral.steps.shareProductDesc',
                           Icons.share,
                         ),
                         _buildStep(
                           '2',
-                          'Friend Clicks',
-                          'When someone clicks your link, we track it',
+                          'referral.steps.friendClicksTitle',
+                          'referral.steps.friendClicksDesc',
                           Icons.mouse,
                         ),
                         _buildStep(
                           '3',
-                          'Friend Purchases',
-                          'If they buy the product, you earn commission!',
+                          'referral.steps.friendPurchaseTitle',
+                          'referral.steps.friendPurchaseDesc',
                           Icons.monetization_on,
                         ),
                         _buildStep(
                           '4',
-                          'Earn Money',
-                          'Commission is added to your earnings balance',
+                          'referral.steps.earnMoneyTitle',
+                          'referral.steps.earnMoneyDesc',
                           Icons.account_balance_wallet,
                         ),
                       ],
@@ -211,8 +212,8 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Tips to Increase Earnings',
+                        const TranslatedText(
+                          'referral.tipsTitle',
                           style: TextStyle(
                             fontSize: AppTheme.fontSizeXLarge,
                             fontWeight: FontWeight.bold,
@@ -221,23 +222,23 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
                         ),
                         const SizedBox(height: AppTheme.spacingMedium),
                         _buildTip(
-                          'Share on Social Media',
-                          'Post product links on Facebook, Instagram, Twitter',
+                          'referral.tips.shareOnSocialTitle',
+                          'referral.tips.shareOnSocialDesc',
                           Icons.share,
                         ),
                         _buildTip(
-                          'Email Marketing',
-                          'Send product recommendations to friends via email',
+                          'referral.tips.emailTitle',
+                          'referral.tips.emailDesc',
                           Icons.email,
                         ),
                         _buildTip(
-                          'Word of Mouth',
-                          'Tell friends about great products you found',
+                          'referral.tips.wordOfMouthTitle',
+                          'referral.tips.wordOfMouthDesc',
                           Icons.chat,
                         ),
                         _buildTip(
-                          'Quality Products',
-                          'Focus on sharing products you believe in',
+                          'referral.tips.qualityProductsTitle',
+                          'referral.tips.qualityProductsDesc',
                           Icons.star,
                         ),
                       ],
@@ -284,7 +285,7 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
               color: color,
             ),
           ),
-          Text(
+          TranslatedText(
             title,
             style: const TextStyle(
               fontSize: AppTheme.fontSizeSmall,
@@ -329,7 +330,7 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                TranslatedText(
                   title,
                   style: const TextStyle(
                     fontSize: AppTheme.fontSizeMedium,
@@ -337,7 +338,7 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
                     color: AppTheme.textColor,
                   ),
                 ),
-                Text(
+                TranslatedText(
                   description,
                   style: const TextStyle(
                     fontSize: AppTheme.fontSizeSmall,
@@ -372,7 +373,7 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                TranslatedText(
                   title,
                   style: const TextStyle(
                     fontSize: AppTheme.fontSizeMedium,
@@ -380,7 +381,7 @@ class _ReferralDashboardState extends State<ReferralDashboard> {
                     color: AppTheme.textColor,
                   ),
                 ),
-                Text(
+                TranslatedText(
                   description,
                   style: const TextStyle(
                     fontSize: AppTheme.fontSizeSmall,

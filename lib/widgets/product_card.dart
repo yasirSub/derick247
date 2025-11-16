@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import '../models/product_model.dart';
 import '../config/theme_config.dart';
 import '../utils/deep_link_utils.dart';
+import '../utils/share_utils.dart';
 import '../providers/cart_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../screens/auth/login_screen.dart';
+import '../services/translation_service.dart';
+import 'translated_text.dart';
 
 String _formatPriceWithSpace(String value) {
   if (value.isEmpty) return value;
@@ -68,10 +70,15 @@ class ProductCard extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Added ${product.name} to cart'),
+            content: Text(
+              TranslationService().translate(
+                'cart.added',
+                params: {'name': product.name},
+              ),
+            ),
             backgroundColor: AppTheme.successColor,
             action: SnackBarAction(
-              label: 'View Cart',
+              label: TranslationService().translate('cart.viewCart'),
               textColor: Colors.white,
               onPressed: () {
                 // Navigate to cart screen
@@ -88,7 +95,12 @@ class ProductCard extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add to cart: $e'),
+            content: Text(
+              TranslationService().translate(
+                'cart.failedToAdd',
+                params: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -107,31 +119,25 @@ class ProductCard extends StatelessWidget {
       description: product.shortDescription,
     );
 
-    try {
-      await Share.share(
-        shareText,
-        subject: 'Check out ${product.name}',
-      );
+    // Get product image URL if available
+    final productImageUrl = product.firstImage;
 
-      // Show success message
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Product link shared!'),
-            backgroundColor: AppTheme.successColor,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to share: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
+    await ShareUtils.shareLinkWithImage(
+      link: shareText,
+      subject: 'Product Link',
+      productImageUrl: productImageUrl,
+      context: context,
+    );
+
+    // Show success message
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Product link shared!'),
+          backgroundColor: AppTheme.successColor,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -167,13 +173,13 @@ class ProductCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Text(
-                'Login Required',
+              const TranslatedText(
+                'auth.loginRequired',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Please log in to add products to your cart.',
+              const TranslatedText(
+                'auth.loginRequiredAddToCart',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -184,7 +190,7 @@ class ProductCard extends StatelessWidget {
                       onPressed: () {
                         Navigator.of(context).pop();
                       },
-                      child: const Text('Cancel'),
+                      child: const TranslatedText('app.cancel'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -198,7 +204,7 @@ class ProductCard extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Text('Login'),
+                      child: const TranslatedText('app.login'),
                     ),
                   ),
                 ],
@@ -386,8 +392,11 @@ class ProductCard extends StatelessWidget {
                               vertical: 6,
                             ),
                             alignment: Alignment.center,
-                            child: Text(
-                              'Ref & Earn ${product.formattedCommission}',
+                            child: TranslatedText(
+                              'promo.refEarn',
+                              params: {
+                                'commission': product.formattedCommission,
+                              },
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w700,
@@ -480,10 +489,15 @@ class ProductGridCard extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Added ${product.name} to cart'),
+            content: Text(
+              TranslationService().translate(
+                'cart.added',
+                params: {'name': product.name},
+              ),
+            ),
             backgroundColor: AppTheme.successColor,
             action: SnackBarAction(
-              label: 'View Cart',
+              label: TranslationService().translate('cart.viewCart'),
               textColor: Colors.white,
               onPressed: () {
                 // Navigate to cart screen
@@ -500,7 +514,7 @@ class ProductGridCard extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add to cart: $e'),
+            content: Text('${TranslationService().translate('app.error')}: $e'),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -540,13 +554,13 @@ class ProductGridCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Text(
-                'Login Required',
+              const TranslatedText(
+                'auth.loginRequired',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Please log in to add products to your cart.',
+              const TranslatedText(
+                'auth.loginRequiredAddToCart',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -557,7 +571,7 @@ class ProductGridCard extends StatelessWidget {
                       onPressed: () {
                         Navigator.of(context).pop();
                       },
-                      child: const Text('Cancel'),
+                      child: const TranslatedText('app.cancel'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -571,7 +585,7 @@ class ProductGridCard extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Text('Login'),
+                      child: const TranslatedText('app.login'),
                     ),
                   ),
                 ],
@@ -791,8 +805,11 @@ class ProductGridCard extends StatelessWidget {
                                   vertical: 7,
                                   horizontal: 8,
                                 ),
-                                child: Text(
-                                  'Ref & Earn ${product.formattedCommission}',
+                                child: TranslatedText(
+                                  'promo.refEarn',
+                                  params: {
+                                    'commission': product.formattedCommission,
+                                  },
                                   style: const TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w700,

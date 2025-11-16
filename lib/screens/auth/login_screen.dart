@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
+import '../../widgets/translated_text.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
 
@@ -58,8 +59,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (success && mounted) {
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login successful'),
+        SnackBar(
+          content: Text(context.translate('auth.login.success')),
           backgroundColor: Colors.green,
         ),
       );
@@ -69,7 +70,9 @@ class _LoginScreenState extends State<LoginScreen> {
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.error ?? 'Login failed'),
+          content: Text(
+            authProvider.error ?? context.translate('auth.login.failure'),
+          ),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -142,9 +145,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 32),
 
                       // Title
-                      const Text(
-                        'Log in to your account',
-                        style: TextStyle(
+                      Text(
+                        context.translate('auth.login.title'),
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.orange,
@@ -174,9 +177,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 12),
 
                       // Subtitle
-                      const Text(
-                        'Enter your credentials to access your account',
-                        style: TextStyle(
+                      Text(
+                        context.translate('auth.login.subtitle'),
+                        style: const TextStyle(
                           fontSize: 16,
                           color: Color(0xFF6B7280),
                         ),
@@ -188,9 +191,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Email address',
-                            style: TextStyle(
+                          Text(
+                            context.translate('auth.login.emailLabel'),
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                               color: Color(0xFF374151),
@@ -203,17 +206,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: const TextStyle(fontSize: 16),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter your email';
+                                return context.translate(
+                                  'auth.login.emailRequired',
+                                );
                               }
                               if (!RegExp(
                                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                               ).hasMatch(value)) {
-                                return 'Please enter a valid email';
+                                return context.translate(
+                                  'auth.login.emailInvalid',
+                                );
                               }
                               return null;
                             },
                             decoration: InputDecoration(
-                              hintText: 'email@example.com',
+                              hintText: context.translate(
+                                'auth.login.emailHint',
+                              ),
                               hintStyle: const TextStyle(
                                 color: Color(0xFF9CA3AF),
                               ),
@@ -253,9 +262,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Password',
-                            style: TextStyle(
+                          Text(
+                            context.translate('auth.login.passwordLabel'),
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                               color: Color(0xFF374151),
@@ -268,15 +277,21 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: const TextStyle(fontSize: 16),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
+                                return context.translate(
+                                  'auth.login.passwordRequired',
+                                );
                               }
                               if (value.length < 6) {
-                                return 'Password must be at least 6 characters';
+                                return context.translate(
+                                  'auth.login.passwordShort',
+                                );
                               }
                               return null;
                             },
                             decoration: InputDecoration(
-                              hintText: 'Password',
+                              hintText: context.translate(
+                                'auth.login.passwordHint',
+                              ),
                               hintStyle: const TextStyle(
                                 color: Color(0xFF9CA3AF),
                               ),
@@ -340,9 +355,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
-                          const Text(
-                            'Remember me',
-                            style: TextStyle(
+                          Text(
+                            context.translate('auth.login.rememberMe'),
+                            style: const TextStyle(
                               fontSize: 14,
                               color: Color(0xFF374151),
                             ),
@@ -422,9 +437,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                             ),
                                           ),
                                           const SizedBox(width: 12),
-                                          const Text(
-                                            'Logging in...',
-                                            style: TextStyle(
+                                          Text(
+                                            context.translate(
+                                              'auth.login.loggingIn',
+                                            ),
+                                            style: const TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
                                               color: Colors.white,
@@ -432,10 +449,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ),
                                         ],
                                       )
-                                    : const Text(
-                                        'Log in',
-                                        key: ValueKey('text'),
-                                        style: TextStyle(
+                                    : Text(
+                                        context.translate('auth.login.login'),
+                                        key: const ValueKey('text'),
+                                        style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                           color: Colors.white,
@@ -458,11 +475,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: const Color(0xFFE5E7EB),
                             ),
                           ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
-                              'Or continue with',
-                              style: TextStyle(
+                              context.translate('auth.login.orContinueWith'),
+                              style: const TextStyle(
                                 fontSize: 14,
                                 color: Color(0xFF6B7280),
                               ),
@@ -506,7 +523,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
+                                    const Text(
                                       'G',
                                       style: TextStyle(
                                         fontSize: 18,
@@ -514,10 +531,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                         color: Colors.red,
                                       ),
                                     ),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: 8),
                                     Text(
-                                      'Google',
-                                      style: TextStyle(
+                                      context.translate('auth.login.google'),
+                                      style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                         color: Color(0xFF374151),
@@ -556,20 +573,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Container(
                                       width: 20,
                                       height: 20,
-                                      decoration: BoxDecoration(
+                                      decoration: const BoxDecoration(
                                         color: Color(0xFF1877F2),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: Icon(
+                                      child: const Icon(
                                         Icons.facebook,
                                         color: Colors.white,
                                         size: 12,
                                       ),
                                     ),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: 8),
                                     Text(
-                                      'Facebook',
-                                      style: TextStyle(
+                                      context.translate('auth.login.facebook'),
+                                      style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                         color: Color(0xFF374151),
@@ -589,9 +606,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
-                            "Don't have an account? ",
-                            style: TextStyle(
+                          Text(
+                            '${context.translate('auth.login.noAccount')} ',
+                            style: const TextStyle(
                               fontSize: AppTheme.fontSizeMedium,
                               color: AppTheme.textSecondaryColor,
                             ),
@@ -604,9 +621,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               );
                             },
-                            child: const Text(
-                              'Sign up',
-                              style: TextStyle(
+                            child: Text(
+                              context.translate('auth.login.signUp'),
+                              style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.orange,
@@ -627,9 +644,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
-                        child: const Text(
-                          'Home',
-                          style: TextStyle(
+                        child: Text(
+                          context.translate('app.home'),
+                          style: const TextStyle(
                             fontSize: 14,
                             color: Colors.orange,
                             fontWeight: FontWeight.w600,

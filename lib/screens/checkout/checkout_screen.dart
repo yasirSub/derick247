@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/api_service.dart';
+import '../../widgets/translated_text.dart';
+import '../../services/translation_service.dart';
 import 'add_address_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -59,7 +61,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         });
       } else {
         setState(() {
-          _error = response.data['message']?.toString() ??
+          _error =
+              response.data['message']?.toString() ??
               'Failed to load checkout information';
         });
       }
@@ -131,7 +134,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           );
         }
       } else {
-        final errorMessage = response.data['message']?.toString() ??
+        final errorMessage =
+            response.data['message']?.toString() ??
             'Failed to process checkout. Please try again.';
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -160,11 +164,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _addNewShippingAddress() async {
     // Navigate to add address screen
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const AddAddressScreen(),
-      ),
-    );
+    final result = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const AddAddressScreen()));
 
     // If address was added successfully, reload checkout data
     if (result == true) {
@@ -225,10 +227,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _buildErrorState()
-              : _checkoutData == null
-                  ? const Center(child: Text('No checkout data available'))
-                  : _buildCheckoutContent(),
+          ? _buildErrorState()
+          : _checkoutData == null
+          ? const Center(child: Text('No checkout data available'))
+          : _buildCheckoutContent(),
     );
   }
 
@@ -261,8 +263,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _buildCheckoutContent() {
     final cartItems = _checkoutData!['cart_items'] as List? ?? [];
-    final shippingAddresses =
-        _checkoutData!['shipping_address'] as List? ?? [];
+    final shippingAddresses = _checkoutData!['shipping_address'] as List? ?? [];
     final paymentMethods = _checkoutData!['payment_methods'] as Map? ?? {};
 
     return SingleChildScrollView(
@@ -309,7 +310,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ],
             ),
           ),
-          
+
           // Existing Shipping Addresses
           ListView.builder(
             shrinkWrap: true,
@@ -320,10 +321,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               return _buildShippingAddressCard(address);
             },
           ),
-          
+
           // Add New Address Card (dashed border)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingMedium),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacingMedium,
+            ),
             child: GestureDetector(
               onTap: _addNewShippingAddress,
               child: Container(
@@ -411,8 +414,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : const Text(
@@ -466,8 +470,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _buildShippingAddressCard(Map<String, dynamic> address) {
     final isSelected = _selectedShippingAddressId == address['id'];
-    final isDefault = address['is_default'] == true || address['is_default'] == 1;
-    
+    final isDefault =
+        address['is_default'] == true || address['is_default'] == 1;
+
     return Card(
       margin: const EdgeInsets.symmetric(
         horizontal: AppTheme.spacingMedium,
@@ -495,12 +500,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   ),
                   const SizedBox(height: AppTheme.spacingSmall),
-                  
+
                   // Phone
                   if (address['phone'] != null)
                     Row(
                       children: [
-                        Icon(Icons.phone, size: 16, color: AppTheme.textSecondaryColor),
+                        Icon(
+                          Icons.phone,
+                          size: 16,
+                          color: AppTheme.textSecondaryColor,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           address['phone']?.toString() ?? '',
@@ -512,13 +521,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ],
                     ),
                   const SizedBox(height: AppTheme.spacingSmall),
-                  
+
                   // Address
                   if (address['address'] != null)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.location_on, size: 16, color: AppTheme.textSecondaryColor),
+                        Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: AppTheme.textSecondaryColor,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -534,7 +547,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ],
                     ),
                   const SizedBox(height: AppTheme.spacingSmall),
-                  
+
                   // Address Type
                   if (address['address_type'] != null)
                     Text(
@@ -547,7 +560,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                 ],
               ),
-              
+
               // Selection indicator and default badge
               Positioned(
                 top: 0,
@@ -557,7 +570,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   children: [
                     if (isDefault)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
@@ -597,9 +613,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildPaymentMethodCard(String methodKey, Map<String, dynamic> method) {
+  Widget _buildPaymentMethodCard(
+    String methodKey,
+    Map<String, dynamic> method,
+  ) {
     final isSelected = _selectedPaymentMethod == methodKey;
-    
+
     return Card(
       margin: const EdgeInsets.symmetric(
         horizontal: AppTheme.spacingMedium,
@@ -627,10 +646,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     'assets/images/paypal.png',
                     width: 32,
                     height: 32,
-                    errorBuilder: (context, error, stackTrace) => Icon(
-                      Icons.payment,
-                      color: Colors.blue[700],
-                    ),
+                    errorBuilder: (context, error, stackTrace) =>
+                        Icon(Icons.payment, color: Colors.blue[700]),
                   ),
                 )
               else if (methodKey == 'wallet')
@@ -647,7 +664,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
               const SizedBox(width: AppTheme.spacingMedium),
-              
+
               // Payment Details
               Expanded(
                 child: Column(
@@ -679,7 +696,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ],
                 ),
               ),
-              
+
               // Selection indicator
               if (isSelected)
                 Container(
@@ -689,11 +706,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     color: Colors.orange[700],
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.check,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                  child: const Icon(Icons.check, color: Colors.white, size: 16),
                 ),
             ],
           ),
@@ -715,8 +728,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ),
       child: Column(
         children: [
-          const Text(
-            'Order Summary',
+          TranslatedText(
+            'checkout.orderSummary',
             style: TextStyle(
               fontSize: AppTheme.fontSizeLarge,
               fontWeight: FontWeight.bold,
@@ -727,8 +740,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Subtotal:',
+              Text(
+                TranslationService().translate('checkout.subtotal') + ':',
                 style: TextStyle(
                   fontSize: AppTheme.fontSizeMedium,
                   color: Colors.white,
@@ -748,8 +761,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Total:',
+              Text(
+                TranslationService().translate('checkout.total') + ':',
                 style: TextStyle(
                   fontSize: AppTheme.fontSizeLarge,
                   fontWeight: FontWeight.w600,
@@ -771,4 +784,3 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 }
-

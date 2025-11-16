@@ -5,6 +5,8 @@ import '../../config/theme_config.dart';
 import '../../widgets/app_drawer.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
+import '../../services/translation_service.dart';
+import '../../widgets/translated_text.dart';
 import 'vendor_create_product_screen.dart';
 
 class VendorProductsScreen extends StatefulWidget {
@@ -67,7 +69,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Failed to load products';
+        _errorMessage = TranslationService().translate('vendor.failedToLoadProducts');
         _isLoading = false;
       });
     }
@@ -105,7 +107,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
     return Scaffold(
       drawer: const AppDrawer(current: 'vendor'),
       appBar: AppBar(
-        title: const Text('Vendor Products'),
+        title: TranslatedText('vendor.vendorProducts'),
         backgroundColor: AppTheme.darkAppBarColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -119,7 +121,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             onPressed: _showAddProductOptions,
-            tooltip: 'Add Product',
+            tooltip: TranslationService().translate('vendor.addProduct'),
           ),
         ],
       ),
@@ -150,7 +152,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
               const SizedBox(height: AppTheme.spacingLarge),
               ElevatedButton(
                 onPressed: _fetchProducts,
-                child: const Text('Retry'),
+                child: TranslatedText('common.retry'),
               ),
             ],
           ),
@@ -165,7 +167,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: SizedBox(
             height: MediaQuery.of(context).size.height * 0.7,
-            child: const Center(child: Text('No products available')),
+            child: Center(child: TranslatedText('common.noProductsAvailable')),
           ),
         ),
       );
@@ -228,25 +230,22 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                      const Text(
-                        'Delete Product',
-                        style: TextStyle(
+                      TranslatedText(
+                        'common.deleteProduct',
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Are you sure you want to delete this product?',
-                        textAlign: TextAlign.center,
-                      ),
+                      TranslatedText('common.deleteProductConfirm', textAlign: TextAlign.center),
                       const SizedBox(height: 24),
                       Row(
                         children: [
                           Expanded(
                             child: TextButton(
                               onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancel'),
+                              child: TranslatedText('common.cancel'),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -257,7 +256,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                                 foregroundColor: Colors.white,
                               ),
                               onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Delete'),
+                              child: TranslatedText('common.delete'),
                             ),
                           ),
                         ],
@@ -272,14 +271,21 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                   await ApiService().deleteVendorProduct(product.id);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Product deleted')),
+                    SnackBar(content: TranslatedText('common.productDeleted')),
                   );
                   _fetchProducts();
                 } catch (e) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(
                     context,
-                  ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+                  ).showSnackBar(SnackBar(
+                    content: Text(
+                      TranslationService().translate(
+                        'common.deleteFailed',
+                        params: {'error': e.toString()},
+                      ),
+                    ),
+                  ));
                 }
               }
             },
@@ -294,7 +300,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
       controller: _searchController,
       onChanged: _onSearchChanged,
       decoration: InputDecoration(
-        hintText: 'Search products, categories, types...',
+        hintText: TranslationService().translate('search.searchProductsCategoriesTypes'),
         prefixIcon: const Icon(Icons.search),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -319,8 +325,8 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Which product do you want to add?',
+                Text(
+                  TranslationService().translate('vendor.whichProductToAdd'),
                   style: const TextStyle(
                     fontSize: AppTheme.fontSizeLarge,
                     fontWeight: FontWeight.w600,
@@ -329,8 +335,8 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                 const SizedBox(height: AppTheme.spacingMedium),
                 ListTile(
                   leading: const Icon(Icons.person_outline),
-                  title: const Text('Add Product'),
-                  subtitle: const Text('Simple form to add or edit product.'),
+                  title: TranslatedText('vendor.addProduct'),
+                  subtitle: TranslatedText('vendor.simpleFormToAddOrEdit'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.pop(context, 'normal'),
                 ),
@@ -457,12 +463,12 @@ class _VendorListTile extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.blue),
               onPressed: onEdit,
-              tooltip: 'Edit',
+              tooltip: TranslationService().translate('vendor.edit'),
             ),
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: onDelete,
-              tooltip: 'Delete',
+              tooltip: TranslationService().translate('vendor.delete'),
             ),
           ],
         ),

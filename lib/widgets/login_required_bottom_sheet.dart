@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../screens/auth/login_screen.dart';
+import 'translated_text.dart';
 
 class LoginRequiredBottomSheet extends StatelessWidget {
   const LoginRequiredBottomSheet({Key? key}) : super(key: key);
@@ -76,8 +77,8 @@ class LoginRequiredBottomSheet extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // Title
-                  const Text(
-                    'Login Required',
+                  const TranslatedText(
+                    'auth.loginRequired',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -88,8 +89,8 @@ class LoginRequiredBottomSheet extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   // Message
-                  const Text(
-                    'You need to be logged in to share checkout links.',
+                  const TranslatedText(
+                    'auth.loginRequiredShare',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFFB0B0B0), // Light grey text
@@ -114,15 +115,17 @@ class LoginRequiredBottomSheet extends StatelessWidget {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFC107), // Bright yellow
+                        backgroundColor: const Color(
+                          0xFFFFC107,
+                        ), // Bright yellow
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Login Now',
+                      child: const TranslatedText(
+                        'auth.loginNow',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -142,15 +145,17 @@ class LoginRequiredBottomSheet extends StatelessWidget {
                         Navigator.of(context).pop(); // Close bottom sheet
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2D2D2D), // Very dark grey
+                        backgroundColor: const Color(
+                          0xFF2D2D2D,
+                        ), // Very dark grey
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Cancel',
+                      child: const TranslatedText(
+                        'app.cancel',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -169,4 +174,3 @@ class LoginRequiredBottomSheet extends StatelessWidget {
     );
   }
 }
-

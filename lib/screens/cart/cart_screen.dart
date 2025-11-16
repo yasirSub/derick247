@@ -8,6 +8,8 @@ import '../../models/product_model.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/referral_form_popup.dart';
+import '../../widgets/translated_text.dart';
+import '../../services/translation_service.dart';
 import '../auth/login_screen.dart';
 import '../products/product_detail_screen.dart';
 import '../checkout/checkout_screen.dart';
@@ -43,7 +45,7 @@ class _CartScreenState extends State<CartScreen> {
     if (!authProvider.isLoggedIn) {
       setState(() {
         _isLoading = false;
-        _error = 'Please login to view your cart';
+        _error = TranslationService().translate('cart_ui.loginRequiredView');
       });
       return;
     }
@@ -247,13 +249,17 @@ class _CartScreenState extends State<CartScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Text(
-                'Remove Item',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              TranslatedText(
+                'cart_ui.removeItemTitle',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
-              Text(
-                'Are you sure you want to remove "${cartItem.product.name}" from your cart?',
+              TranslatedText(
+                'cart_ui.removeItemConfirm',
+                params: {'name': cartItem.product.name},
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -264,7 +270,7 @@ class _CartScreenState extends State<CartScreen> {
                       onPressed: () {
                         Navigator.of(context).pop(false);
                       },
-                      child: const Text('Cancel'),
+                      child: TranslatedText('app.cancel'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -274,7 +280,7 @@ class _CartScreenState extends State<CartScreen> {
                         Navigator.of(context).pop(true);
                       },
                       style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('Remove'),
+                      child: TranslatedText('app.delete'),
                     ),
                   ),
                 ],
@@ -321,7 +327,12 @@ class _CartScreenState extends State<CartScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${cartItem.product.name} removed from cart'),
+            content: Text(
+              TranslationService().translate(
+                'cart_addons.removed',
+                params: {'name': cartItem.product.name},
+              ),
+            ),
             backgroundColor: AppTheme.successColor,
             duration: const Duration(seconds: 2),
           ),
@@ -372,13 +383,16 @@ class _CartScreenState extends State<CartScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Text(
-                'Clear All Items',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              TranslatedText(
+                'cart_ui.clearAllTitle',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Are you sure you want to remove all items from your cart?',
+              TranslatedText(
+                'cart_ui.clearAllConfirm',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -389,7 +403,7 @@ class _CartScreenState extends State<CartScreen> {
                       onPressed: () {
                         Navigator.of(context).pop(false);
                       },
-                      child: const Text('Cancel'),
+                      child: TranslatedText('app.cancel'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -399,7 +413,7 @@ class _CartScreenState extends State<CartScreen> {
                         Navigator.of(context).pop(true);
                       },
                       style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('Clear All'),
+                      child: TranslatedText('cart_ui.clearAllTitle'),
                     ),
                   ),
                 ],
@@ -444,10 +458,12 @@ class _CartScreenState extends State<CartScreen> {
       // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('All items removed from cart'),
+          SnackBar(
+            content: Text(
+              TranslationService().translate('cart_addons.clearAllSuccess'),
+            ),
             backgroundColor: AppTheme.successColor,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -480,15 +496,11 @@ class _CartScreenState extends State<CartScreen> {
             title: Row(
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Icon(
-                  Icons.shopping_cart,
-                  color: Colors.white,
-                  size: 24,
-                ),
+                Icon(Icons.shopping_cart, color: Colors.white, size: 24),
                 SizedBox(width: 8),
-                Text(
-                  'Shopping Cart',
-                  style: TextStyle(
+                TranslatedText(
+                  'app.cart',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -516,8 +528,9 @@ class _CartScreenState extends State<CartScreen> {
                   color: AppTheme.textSecondaryColor,
                 ),
                 const SizedBox(height: AppTheme.spacingLarge),
-                Text(
-                  'Please log in to view your cart',
+                const SizedBox(height: AppTheme.spacingLarge),
+                TranslatedText(
+                  'cart_ui.loginRequiredView',
                   style: TextStyle(
                     fontSize: AppTheme.fontSizeLarge,
                     fontWeight: FontWeight.w500,
@@ -533,7 +546,7 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     );
                   },
-                  child: const Text('Login'),
+                  child: TranslatedText('app.login'),
                 ),
               ],
             ),
@@ -552,16 +565,12 @@ class _CartScreenState extends State<CartScreen> {
         appBar: CustomAppBar(
           titleWidget: Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(
-                Icons.shopping_cart,
-                color: Colors.white,
-                size: 24,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Shopping Cart',
-                style: TextStyle(
+            children: [
+              Icon(Icons.shopping_cart, color: Colors.white, size: 24),
+              const SizedBox(width: 8),
+              TranslatedText(
+                'app.cart',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -580,7 +589,9 @@ class _CartScreenState extends State<CartScreen> {
                   onPressed: () {
                     _showClearAllConfirmation();
                   },
-                  tooltip: 'Clear all items',
+                  tooltip: TranslationService().translate(
+                    'cart_ui.clearAllTitle',
+                  ),
                 );
               },
             ),
@@ -613,7 +624,8 @@ class _CartScreenState extends State<CartScreen> {
                               left: AppTheme.spacingMedium,
                               right: AppTheme.spacingMedium,
                               top: AppTheme.spacingMedium,
-                              bottom: AppTheme.spacingMedium +
+                              bottom:
+                                  AppTheme.spacingMedium +
                                   MediaQuery.of(context).padding.bottom,
                             ),
                             itemCount: cartProvider.cartItems.length,
@@ -720,8 +732,8 @@ class _CartScreenState extends State<CartScreen> {
             color: AppTheme.textSecondaryColor,
           ),
           const SizedBox(height: AppTheme.spacingLarge),
-          Text(
-            'Your cart is empty',
+          TranslatedText(
+            'app.emptyCart',
             style: TextStyle(
               fontSize: AppTheme.fontSizeLarge,
               fontWeight: FontWeight.w500,
@@ -729,8 +741,8 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           const SizedBox(height: AppTheme.spacingSmall),
-          Text(
-            'Add some products to get started',
+          TranslatedText(
+            'cart_addons.addSomeProducts',
             style: TextStyle(
               fontSize: AppTheme.fontSizeMedium,
               color: AppTheme.textSecondaryColor,
@@ -854,7 +866,7 @@ class _CartScreenState extends State<CartScreen> {
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: () {
-                    _removeCartItem(cartItem);
+                    _showDeleteConfirmation(cartItem);
                   },
                 ),
               ],
@@ -869,8 +881,10 @@ class _CartScreenState extends State<CartScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please log in to proceed with checkout'),
+        SnackBar(
+          content: Text(
+            TranslationService().translate('cart_addons.loginRequiredProceed'),
+          ),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -879,8 +893,8 @@ class _CartScreenState extends State<CartScreen> {
 
     if (cartProvider.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Your cart is empty'),
+        SnackBar(
+          content: Text(TranslationService().translate('app.emptyCart')),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -922,8 +936,8 @@ class _CartScreenState extends State<CartScreen> {
             ),
             child: Column(
               children: [
-                const Text(
-                  'Order Summary',
+                TranslatedText(
+                  'checkout.orderSummary',
                   style: TextStyle(
                     fontSize: AppTheme.fontSizeLarge,
                     fontWeight: FontWeight.bold,
@@ -934,8 +948,8 @@ class _CartScreenState extends State<CartScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Subtotal:',
+                    Text(
+                      TranslationService().translate('checkout.subtotal') + ':',
                       style: TextStyle(
                         fontSize: AppTheme.fontSizeMedium,
                         color: Colors.white,
@@ -955,8 +969,8 @@ class _CartScreenState extends State<CartScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Total:',
+                    Text(
+                      TranslationService().translate('checkout.total') + ':',
                       style: TextStyle(
                         fontSize: AppTheme.fontSizeLarge,
                         fontWeight: FontWeight.w600,
@@ -980,7 +994,6 @@ class _CartScreenState extends State<CartScreen> {
           // Checkout and Refer a Friend buttons side by side
           Row(
             children: [
-              // Checkout button (white background, blue text)
               Expanded(
                 child: OutlinedButton(
                   onPressed: () async {
@@ -995,8 +1008,8 @@ class _CartScreenState extends State<CartScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text(
-                    'Checkout',
+                  child: TranslatedText(
+                    'app.checkout',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: AppTheme.fontSizeMedium,
@@ -1004,8 +1017,9 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(width: AppTheme.spacingMedium),
-              // Refer a Friend button (grey background, grey text)
+
               Expanded(
                 child: OutlinedButton(
                   onPressed: () {
@@ -1020,8 +1034,8 @@ class _CartScreenState extends State<CartScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text(
-                    'Refer a Friend',
+                  child: TranslatedText(
+                    'cart_ui.referAFriend',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: AppTheme.fontSizeMedium,
@@ -1046,9 +1060,9 @@ class _CartScreenState extends State<CartScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
-                'PROCEED TO CHECKOUT',
-                style: TextStyle(
+              child: TranslatedText(
+                'cart_ui.proceedToCheckout',
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: AppTheme.fontSizeMedium,
@@ -1079,8 +1093,10 @@ class _CartScreenState extends State<CartScreen> {
     // Check if cart has items
     if (cartProvider.cartItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Your cart is empty. Add items to refer friends!'),
+        SnackBar(
+          content: Text(
+            TranslationService().translate('cart_addons.addSomeProducts'),
+          ),
           backgroundColor: AppTheme.errorColor,
         ),
       );

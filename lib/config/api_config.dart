@@ -1,7 +1,7 @@
 class ApiConfig {
   // Base URL for the API
   // static const String baseUrl = 'https://comisionista247.com/api/';
-  static const String baseUrl = 'https://derick247.com/api';
+  static const String baseUrl = 'https://derick247.com/api/';
 
   // API Key for authentication
   static const String apiKey = 'gcs##2022##';

@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/translated_text.dart';
+import '../../services/translation_service.dart';
 import '../../config/theme_config.dart';
 import 'order_details_screen.dart';
 
@@ -42,9 +44,9 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
       if (body is Map<String, dynamic> && body['success'] == true) {
         List<dynamic> orders = [];
         final data = body['data'];
-        
+
         print('Orders API response structure: ${data.runtimeType}');
-        
+
         if (data is Map<String, dynamic> && data['data'] is List) {
           // API returns { success: true, data: { data: [...], ... } }
           orders = data['data'] as List;
@@ -64,13 +66,18 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
       } else {
         print('API response missing success or unexpected format: $body');
         setState(() {
-          _error = 'Unexpected API response';
+          _error = TranslationService().translate(
+            'orders.unexpectedApiResponse',
+          );
           _loading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'Failed to load orders: ${e.toString()}';
+        _error = TranslationService().translate(
+          'orders.failedToLoadOrders',
+          params: {'error': e.toString()},
+        );
         _loading = false;
       });
       print('Error loading orders: $e');
@@ -90,14 +97,10 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
         titleWidget: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(
-              Icons.receipt_long,
-              color: Colors.white,
-              size: 24,
-            ),
+            Icon(Icons.receipt_long, color: Colors.white, size: 24),
             SizedBox(width: 8),
-            Text(
-              'Orders',
+            TranslatedText(
+              'orders.orders',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -122,7 +125,7 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              'Loading orders...',
+              TranslationService().translate('orders.loadingOrders'),
               style: TextStyle(color: Colors.grey[600], fontSize: 14),
             ),
           ],
@@ -142,12 +145,20 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                   color: Colors.red.shade50,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+                child: Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: Colors.red.shade400,
+                ),
               ),
               const SizedBox(height: 20),
               Text(
-                'Oops! Something went wrong',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                TranslationService().translate('orders.somethingWentWrong'),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -159,10 +170,15 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
               ElevatedButton.icon(
                 onPressed: _loadOrders,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: TranslatedText('common.retry'),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ],
@@ -187,26 +203,41 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                       color: Colors.grey.shade100,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[400]),
+                    child: Icon(
+                      Icons.receipt_long_outlined,
+                      size: 64,
+                      color: Colors.grey[400],
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'No orders yet',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                    TranslationService().translate('orders.noOrdersYet'),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your orders will appear here',
+                    TranslationService().translate(
+                      'orders.ordersWillAppearHere',
+                    ),
                     style: TextStyle(color: Colors.grey[600], fontSize: 14),
                   ),
                   const SizedBox(height: 24),
                   OutlinedButton.icon(
                     onPressed: _loadOrders,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
+                    label: TranslatedText('common.refresh'),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ],
@@ -228,10 +259,14 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
             color: Colors.white,
             child: Row(
               children: [
-                Icon(Icons.receipt_long_outlined, size: 20, color: Colors.grey[700]),
+                Icon(
+                  Icons.receipt_long_outlined,
+                  size: 20,
+                  color: Colors.grey[700],
+                ),
                 const SizedBox(width: 8),
                 Text(
-                  '${_orders.length} ${_orders.length == 1 ? 'order' : 'orders'}',
+                  '${_orders.length} ${_orders.length == 1 ? TranslationService().translate('orders.order') : TranslationService().translate('orders.ordersPlural')}',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -258,10 +293,16 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
 
   Widget _buildOrderCard(Map<String, dynamic> order) {
     final orderId = order['order_id'] ?? order['id'] ?? 0;
-    final orderDate = (order['order_date'] ?? order['created_at'] ?? '').toString();
-    final paymentStatus = (order['payment_status'] ?? 'pending').toString().toLowerCase();
-    final orderStatus = (order['order_status'] ?? 'pending').toString().toLowerCase();
-    final totalAmount = (order['total_amount'] ?? order['total'] ?? '0').toString();
+    final orderDate = (order['order_date'] ?? order['created_at'] ?? '')
+        .toString();
+    final paymentStatus = (order['payment_status'] ?? 'pending')
+        .toString()
+        .toLowerCase();
+    final orderStatus = (order['order_status'] ?? 'pending')
+        .toString()
+        .toLowerCase();
+    final totalAmount = (order['total_amount'] ?? order['total'] ?? '0')
+        .toString();
     final currency = (order['currency_symbol'] ?? '\$').toString();
     final itemCount = order['order_items'] ?? 0;
 
@@ -269,7 +310,7 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
     Color paymentColor;
     Color orderColor;
     IconData paymentIcon;
-    
+
     if (paymentStatus == 'success') {
       paymentColor = const Color(0xFF16A34A);
       paymentIcon = Icons.check_circle;
@@ -277,7 +318,7 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
       paymentColor = const Color(0xFFF59E0B);
       paymentIcon = Icons.pending;
     }
-    
+
     if (orderStatus == 'shipped' || orderStatus == 'completed') {
       orderColor = const Color(0xFF3B82F6);
     } else if (orderStatus == 'processing') {
@@ -327,7 +368,11 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                         color: Colors.orange.shade50,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.receipt_long, color: Colors.orange.shade700, size: 24),
+                      child: Icon(
+                        Icons.receipt_long,
+                        color: Colors.orange.shade700,
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     // Order info
@@ -346,7 +391,11 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
+                              Icon(
+                                Icons.calendar_today,
+                                size: 12,
+                                color: Colors.grey[600],
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 _formatDate(orderDate),
@@ -381,11 +430,11 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 16),
                 const Divider(height: 1),
                 const SizedBox(height: 16),
-                
+
                 // Footer row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -393,10 +442,14 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                     // Item count
                     Row(
                       children: [
-                        Icon(Icons.shopping_bag_outlined, size: 16, color: Colors.grey[600]),
+                        Icon(
+                          Icons.shopping_bag_outlined,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
                         const SizedBox(width: 6),
                         Text(
-                          '$itemCount ${itemCount == 1 ? 'item' : 'items'}',
+                          '$itemCount ${itemCount == 1 ? TranslationService().translate('orders.item') : TranslationService().translate('orders.items')}',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey[700],
@@ -409,7 +462,7 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                     Row(
                       children: [
                         Text(
-                          'Total: ',
+                          '${TranslationService().translate('orders.total')}: ',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey[600],
@@ -427,14 +480,14 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 8),
                 // View details hint
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      'View details',
+                      TranslationService().translate('orders.viewDetails'),
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.orange.shade700,
@@ -442,7 +495,11 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios, size: 12, color: Colors.orange.shade700),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 12,
+                      color: Colors.orange.shade700,
+                    ),
                   ],
                 ),
               ],
@@ -453,7 +510,12 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
     );
   }
 
-  Widget _buildStatusBadge(String status, Color color, IconData icon, {bool isOrder = false}) {
+  Widget _buildStatusBadge(
+    String status,
+    Color color,
+    IconData icon, {
+    bool isOrder = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -481,7 +543,8 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
   }
 
   String _formatDate(String dateStr) {
-    if (dateStr.isEmpty) return 'Date not available';
+    if (dateStr.isEmpty)
+      return TranslationService().translate('orders.dateNotAvailable');
     try {
       // Handle format like "2025-10-21" or "2025-10-21/13:56:22"
       final parts = dateStr.split('/');
@@ -499,4 +562,3 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
     }
   }
 }
-

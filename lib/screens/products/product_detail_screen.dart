@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
+import '../../services/translation_service.dart';
+import '../../widgets/translated_text.dart';
 import '../../config/theme_config.dart';
 import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
@@ -9,6 +10,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/deep_link_utils.dart';
+import '../../utils/share_utils.dart';
 import '../../widgets/referral_popup.dart';
 import '../auth/login_screen.dart';
 import '../cart/cart_screen.dart';
@@ -118,9 +120,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
+        print('❌ Error in _loadProductDetail: $e');
+        print('   - productId: ${widget.productId}');
+        print('   - productSlug: ${widget.productSlug}');
         setState(() {
           _isLoading = false;
-          _error = e.toString();
+          // Extract better error message
+          if (e.toString().contains('500')) {
+            _error = 'Server error: Unable to load product. Please try again.';
+          } else if (e.toString().contains('404')) {
+            _error = 'Product not found. The link may be invalid.';
+          } else {
+            _error = 'Failed to load product: ${e.toString()}';
+          }
         });
       }
     }
@@ -176,13 +188,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Text(
-                'Login Required',
+              const TranslatedText(
+                'auth.loginRequired',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Please log in to access referral features and earn commissions.',
+              const TranslatedText(
+                'refer.loginRequiredRefer',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -193,7 +205,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       onPressed: () {
                         Navigator.of(context).pop();
                       },
-                      child: const Text('Cancel'),
+                      child: const TranslatedText('app.cancel'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -207,7 +219,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                         );
                       },
-                      child: const Text('Login'),
+                      child: const TranslatedText('auth.login'),
                     ),
                   ),
                 ],
@@ -233,28 +245,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       description: _product!.shortDescription,
     );
 
-    try {
-      await Share.share(shareText, subject: 'Check out ${_product!.name}');
+    // Get product image URL if available
+    final productImageUrl = _product!.firstImage;
 
-      // Optional: Show success message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Product link shared!'),
-            backgroundColor: AppTheme.successColor,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to share: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
+    await ShareUtils.shareLinkWithImage(
+      link: shareText,
+      subject: 'Product Link',
+      productImageUrl: productImageUrl,
+      context: context,
+    );
+
+    // Show success message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(TranslationService().translate('app.success')),
+          backgroundColor: AppTheme.successColor,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -283,10 +292,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Added ${_quantity}x ${_product!.name} to cart'),
+            content: Text(
+              TranslationService().translate(
+                'cart.addedQty',
+                params: {'qty': _quantity.toString(), 'name': _product!.name},
+              ),
+            ),
             backgroundColor: AppTheme.successColor,
             action: SnackBarAction(
-              label: 'VIEW CART',
+              label: TranslationService().translate('cart.viewCart'),
               textColor: Colors.white,
               onPressed: () {
                 // Navigate to cart screen
@@ -302,7 +316,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add to cart: $e'),
+            content: Text(
+              TranslationService().translate(
+                'cart.failedToAdd',
+                params: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -400,8 +419,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: true,
-      title: const Text(
-        'Product Details',
+      title: const TranslatedText(
+        'product.productDetails',
         style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,
@@ -480,9 +499,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     size: 16,
                                   ),
                                   SizedBox(width: 4),
-                                  Text(
-                                    'Shipping',
-                                    style: TextStyle(
+                                  TranslatedText(
+                                    'product.shipping',
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 12,
@@ -568,9 +587,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 color: Colors.black54,
                               ),
                               SizedBox(width: 6),
-                              Text(
-                                'Description',
-                                style: TextStyle(
+                              TranslatedText(
+                                'product.description',
+                                style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.black87,
@@ -603,8 +622,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                       // Shipping Information
                       if (_product!.shippingAvailable.isNotEmpty) ...[
-                        const Text(
-                          'Shipping Information',
+                        const TranslatedText(
+                          'product.shippingInformation',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -678,7 +697,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Minimum buying quantity: ${_product!.minBuyingQty}',
+                                  TranslationService().translate(
+                                    'product.minimumBuyingQuantity',
+                                    params: {
+                                      'quantity': _product!.minBuyingQty
+                                          .toString(),
+                                    },
+                                  ),
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.orange.shade900,
@@ -697,7 +722,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Refer & Earn ${_product!.currencySymbol}${commission.toStringAsFixed(0)}',
+                            TranslationService().translate(
+                              'promo.refEarn',
+                              params: {
+                                'commission':
+                                    '${_product!.currencySymbol}${commission.toStringAsFixed(0)}',
+                              },
+                            ),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -757,8 +788,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   elevation: 2,
                 ),
-                child: const Text(
-                  'Refer & Earn',
+                child: const TranslatedText(
+                  'refer.referAndEarn',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -778,8 +809,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   elevation: 2,
                 ),
-                child: const Text(
-                  'Add to Cart',
+                child: const TranslatedText(
+                  'app.addToCart',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),

@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import 'referral_form_popup.dart';
 import 'share_link_popup.dart';
 import '../screens/auth/login_screen.dart';
+import 'translated_text.dart';
+import '../services/translation_service.dart';
 
 class ReferralPopup extends StatefulWidget {
   final Product product;
@@ -72,13 +74,18 @@ class _ReferralPopupState extends State<ReferralPopup>
         });
       } else {
         setState(() {
-          _error = 'Failed to load referral information';
+          _error = TranslationService().translate(
+            'referral.error.failedToLoad',
+          );
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'Error loading referral info: $e';
+        _error = TranslationService().translate(
+          'referral.error.loadingError',
+          params: {'error': e.toString()},
+        );
         _isLoading = false;
       });
     }
@@ -125,22 +132,25 @@ class _ReferralPopupState extends State<ReferralPopup>
                   children: [
                     GestureDetector(
                       onTap: () => Navigator.of(context).pop(),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(Icons.arrow_back, color: Colors.white, size: 24),
                           SizedBox(width: 8),
-                          Text(
-                            'Back',
-                            style: TextStyle(fontSize: 16, color: Colors.white),
+                          TranslatedText(
+                            'app.back',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     const Spacer(),
-                    const Expanded(
-                      child: Text(
-                        'Refer and Earn',
-                        style: TextStyle(
+                    Expanded(
+                      child: TranslatedText(
+                        'refer.referAndEarn',
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -191,8 +201,8 @@ class _ReferralPopupState extends State<ReferralPopup>
                     ),
                     const SizedBox(height: 20),
                     // Authentication Needed Title
-                    const Text(
-                      'Authentication Needed',
+                    const TranslatedText(
+                      'refer.authenticationNeeded',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -201,8 +211,8 @@ class _ReferralPopupState extends State<ReferralPopup>
                     ),
                     const SizedBox(height: 12),
                     // Descriptive Text
-                    const Text(
-                      'Complete the step below to invite your friend',
+                    const TranslatedText(
+                      'refer.loginRequiredRefer',
                       style: TextStyle(fontSize: 14, color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
@@ -226,8 +236,8 @@ class _ReferralPopupState extends State<ReferralPopup>
                     ),
                     const SizedBox(height: 20),
                     // Login Required Text
-                    const Text(
-                      'Login Required',
+                    const TranslatedText(
+                      'auth.loginRequired',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -236,8 +246,8 @@ class _ReferralPopupState extends State<ReferralPopup>
                     ),
                     const SizedBox(height: 12),
                     // Description
-                    const Text(
-                      'You need to be logged in to refer friends using this method.',
+                    const TranslatedText(
+                      'refer.loginRequiredRefer',
                       style: TextStyle(fontSize: 14, color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
@@ -263,8 +273,8 @@ class _ReferralPopupState extends State<ReferralPopup>
                           ),
                           elevation: 0,
                         ),
-                        child: const Text(
-                          'Login Now',
+                        child: const TranslatedText(
+                          'auth.loginNow',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -287,8 +297,8 @@ class _ReferralPopupState extends State<ReferralPopup>
                           ),
                           elevation: 0,
                         ),
-                        child: const Text(
-                          'Cancel',
+                        child: const TranslatedText(
+                          'app.cancel',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -333,14 +343,15 @@ class _ReferralPopupState extends State<ReferralPopup>
                     padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
                     child: Row(
                       children: [
-                        const Expanded(
-                          child: Text(
-                            'Refer and Earn',
+                        Expanded(
+                          child: const TranslatedText(
+                            'refer.referAndEarn',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                         IconButton(
@@ -385,8 +396,8 @@ class _ReferralPopupState extends State<ReferralPopup>
                         ),
                         const SizedBox(height: 20),
                         // Invite Friends Title
-                        const Text(
-                          'Invite Friends',
+                        const TranslatedText(
+                          'refer.inviteFriends',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -397,12 +408,12 @@ class _ReferralPopupState extends State<ReferralPopup>
                         // Descriptive Text with highlighted amount
                         if (_referralInfo != null)
                           _buildHighlightedText(
-                            'Choose your preferred way to invite friends and earn rewards $earnAmount',
+                            '${TranslationService().translate('refer.choosePreferredWay')} $earnAmount',
                             earnAmount,
                           )
                         else
                           _buildHighlightedText(
-                            'Choose your preferred way to invite friends and earn rewards $earnAmount',
+                            '${TranslationService().translate('refer.choosePreferredWay')} $earnAmount',
                             earnAmount,
                           ),
                         const SizedBox(height: 16),
@@ -426,8 +437,9 @@ class _ReferralPopupState extends State<ReferralPopup>
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Text(
-                                    'Please log in to start earning $earnAmount per referral.',
+                                  child: TranslatedText(
+                                    'referral.loginStartEarning',
+                                    params: {'earnAmount': earnAmount},
                                     style: const TextStyle(
                                       fontSize: 14,
                                       color: Colors.red,
@@ -462,9 +474,9 @@ class _ReferralPopupState extends State<ReferralPopup>
                                 ),
                                 elevation: 0,
                               ),
-                              child: const Text(
-                                'Login Now',
-                                style: TextStyle(
+                              child: TranslatedText(
+                                'auth.loginNow',
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -492,7 +504,10 @@ class _ReferralPopupState extends State<ReferralPopup>
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: _buildHighlightedText(
-                                    'You\'re logged in! You can earn $earnAmount for every friend you refer.',
+                                    TranslationService().translate(
+                                      'refer.loggedInEarnMessage',
+                                      params: {'earnAmount': earnAmount},
+                                    ),
                                     earnAmount,
                                   ),
                                 ),
@@ -559,36 +574,41 @@ class _ReferralPopupState extends State<ReferralPopup>
                                       color: const Color(0xFFFFC107), // Yellow
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(
-                                          Icons.person_add,
-                                          color: Colors.black87,
-                                          size: 32,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        const Text(
-                                          'Refer via Form',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
+                                    child: SingleChildScrollView(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.person_add,
                                             color: Colors.black87,
+                                            size: 32,
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Fill out details and we\'ll contact them',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.black87.withOpacity(
-                                              0.7,
+                                          const SizedBox(height: 6),
+                                          const TranslatedText(
+                                            'refer.referViaForm',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
                                             ),
                                           ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
+                                          const SizedBox(height: 2),
+                                          TranslatedText(
+                                            'refer.fillOutDetailsContact',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.black87.withOpacity(
+                                                0.7,
+                                              ),
+                                            ),
+                                            textAlign: TextAlign.center,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -630,36 +650,41 @@ class _ReferralPopupState extends State<ReferralPopup>
                                         width: 1,
                                       ),
                                     ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(
-                                          Icons.link,
-                                          color: Colors.white,
-                                          size: 32,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        const Text(
-                                          'Share a Link',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
+                                    child: SingleChildScrollView(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.link,
                                             color: Colors.white,
+                                            size: 32,
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Send your unique referral link',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.white.withOpacity(
-                                              0.7,
+                                          const SizedBox(height: 6),
+                                          const TranslatedText(
+                                            'refer.shareLink',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
                                             ),
                                           ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
+                                          const SizedBox(height: 2),
+                                          TranslatedText(
+                                            'refer.sendUniqueReferralLink',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.white.withOpacity(
+                                                0.7,
+                                              ),
+                                            ),
+                                            textAlign: TextAlign.center,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -682,8 +707,8 @@ class _ReferralPopupState extends State<ReferralPopup>
                               ),
                               elevation: 0,
                             ),
-                            child: const Text(
-                              'Cancel',
+                            child: const TranslatedText(
+                              'app.cancel',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,

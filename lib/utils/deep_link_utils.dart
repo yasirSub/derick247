@@ -72,6 +72,7 @@ class DeepLinkUtils {
   }
 
   /// Generate shareable text with product information and deep link
+  /// Returns only the link without product name, price, or description
   static String generateProductShareText({
     required String productName,
     required String price,
@@ -80,18 +81,12 @@ class DeepLinkUtils {
     String? description,
     String? refCode,
   }) {
-    final link = generateProductLink(
+    // Return only the link - no product name, price, or description
+    return generateProductLink(
       productId: productId,
       productSlug: productSlug,
       productName: productName,
       refCode: refCode,
     );
-    final shareText = 'Check out $productName - $price\n\n$link';
-
-    if (description != null && description.isNotEmpty) {
-      return '$shareText\n\n$description';
-    }
-
-    return shareText;
   }
 }

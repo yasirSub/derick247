@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../screens/profile/dropshipping_products_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/dashboard_screen.dart';
@@ -10,6 +9,9 @@ import '../screens/home/home_screen.dart';
 import '../screens/wallet/wallet_screen.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_model.dart';
+import '../services/storage_service.dart';
+import '../providers/locale_provider.dart';
+import '../services/translation_service.dart';
 
 class AppDrawer extends StatelessWidget {
   final String current; // e.g., 'profile', 'pointer'
@@ -35,6 +37,16 @@ class AppDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
+    // Listen to TranslationService for updates when language changes
+    // Also listen to LocaleProvider to ensure rebuild when locale changes
+    Provider.of<LocaleProvider>(
+      context,
+      listen: true,
+    ); // Force rebuild on locale change
+    final translationService = Provider.of<TranslationService>(
+      context,
+      listen: true,
+    );
 
     return Drawer(
       elevation: 0,
@@ -74,7 +86,9 @@ class AppDrawer extends StatelessWidget {
                     const SizedBox(height: 16),
                     // User Name
                     Text(
-                      user.fullName.isNotEmpty ? user.fullName : 'System user',
+                      user.fullName.isNotEmpty
+                          ? user.fullName
+                          : translationService.translate('app.systemUser'),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -125,9 +139,9 @@ class AppDrawer extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Guest User',
-                      style: TextStyle(
+                    Text(
+                      translationService.translate('app.guestUser'),
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -135,7 +149,7 @@ class AppDrawer extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Not logged in',
+                      translationService.translate('app.notLoggedIn'),
                       style: TextStyle(fontSize: 14, color: Colors.grey[400]),
                     ),
                   ],
@@ -157,7 +171,7 @@ class AppDrawer extends StatelessWidget {
                   _tile(
                     context,
                     icon: Icons.home_outlined,
-                    label: 'Home',
+                    label: translationService.translate('app.home'),
                     selected: _is('home'),
                     onTap: () {
                       if (_is('home')) {
@@ -174,7 +188,7 @@ class AppDrawer extends StatelessWidget {
                   _tile(
                     context,
                     icon: Icons.dashboard_outlined,
-                    label: 'Dashboard',
+                    label: translationService.translate('app.dashboard'),
                     selected: _is('dashboard'),
                     onTap: () {
                       Navigator.pop(context);
@@ -189,7 +203,7 @@ class AppDrawer extends StatelessWidget {
                   _tile(
                     context,
                     icon: Icons.inventory_2_outlined,
-                    label: 'Products',
+                    label: translationService.translate('app.products'),
                     selected: _is('vendor'),
                     onTap: () {
                       Navigator.pop(context);
@@ -204,7 +218,7 @@ class AppDrawer extends StatelessWidget {
                   _tile(
                     context,
                     icon: Icons.inventory_2_outlined,
-                    label: 'MINES',
+                    label: translationService.translate('app.mines'),
                     selected: _is('pointer'),
                     onTap: () {
                       Navigator.pop(context);
@@ -219,7 +233,7 @@ class AppDrawer extends StatelessWidget {
                   _tile(
                     context,
                     icon: Icons.receipt_long_outlined,
-                    label: 'Orders',
+                    label: translationService.translate('app.orders'),
                     selected: _is('orders'),
                     onTap: () {
                       Navigator.pop(context);
@@ -234,7 +248,7 @@ class AppDrawer extends StatelessWidget {
                   _tile(
                     context,
                     icon: Icons.person_outline,
-                    label: 'Profile',
+                    label: translationService.translate('app.profile'),
                     selected: _is('profile'),
                     onTap: () {
                       Navigator.pop(context);
@@ -249,7 +263,7 @@ class AppDrawer extends StatelessWidget {
                   _tile(
                     context,
                     icon: Icons.account_balance_wallet_outlined,
-                    label: 'Wallet',
+                    label: translationService.translate('app.wallet'),
                     selected: false,
                     onTap: () {
                       Navigator.pop(context);
@@ -257,6 +271,16 @@ class AppDrawer extends StatelessWidget {
                         context,
                         MaterialPageRoute(builder: (_) => const WalletScreen()),
                       );
+                    },
+                  ),
+                  _tile(
+                    context,
+                    icon: Icons.language_outlined,
+                    label: translationService.translate('app.language'),
+                    selected: _is('language'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showLanguageDialog(context);
                     },
                   ),
                 ],
@@ -268,15 +292,18 @@ class AppDrawer extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 child: ElevatedButton(
                   onPressed: () async {
+                    final navigator = Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    );
                     Navigator.pop(context);
                     await authProvider.logout();
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomeScreen()),
-                        (route) => false,
-                      );
-                    }
+                    navigator.pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => HomeScreen(forceRefresh: true),
+                      ),
+                      (_) => false,
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFF8C00), // Orange
@@ -289,12 +316,12 @@ class AppDrawer extends StatelessWidget {
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.arrow_forward, size: 20),
-                      SizedBox(width: 8),
+                    children: [
+                      const Icon(Icons.arrow_forward, size: 20),
+                      const SizedBox(width: 8),
                       Text(
-                        'Logout',
-                        style: TextStyle(
+                        translationService.translate('app.logout'),
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -340,6 +367,155 @@ class AppDrawer extends StatelessWidget {
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context) async {
+    final languages = ['English', 'Spanish'];
+    final storageService = StorageService();
+    final currentLanguage =
+        await storageService.getUserPreference<String>('language') ?? 'English';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (dialogContext) => _LanguageDialogContent(
+        languages: languages,
+        currentLanguage: currentLanguage,
+        storageService: storageService,
+      ),
+    );
+  }
+}
+
+class _LanguageDialogContent extends StatefulWidget {
+  final List<String> languages;
+  final String currentLanguage;
+  final StorageService storageService;
+
+  const _LanguageDialogContent({
+    Key? key,
+    required this.languages,
+    required this.currentLanguage,
+    required this.storageService,
+  }) : super(key: key);
+
+  @override
+  State<_LanguageDialogContent> createState() => _LanguageDialogContentState();
+}
+
+class _LanguageDialogContentState extends State<_LanguageDialogContent> {
+  late String _selectedLanguage;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedLanguage = widget.currentLanguage;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1D24),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 20,
+        right: 20,
+        top: 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.grey[600],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Consumer<TranslationService>(
+            builder: (context, translationService, child) {
+              return Text(
+                translationService.translate('app.selectLanguage'),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          ...widget.languages
+              .map(
+                (language) => Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: RadioListTile<String>(
+                    title: Text(
+                      language,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    value: language,
+                    groupValue: _selectedLanguage,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      final localeProvider = Provider.of<LocaleProvider>(
+                        context,
+                        listen: false,
+                      );
+                      WidgetsBinding.instance.addPostFrameCallback((_) async {
+                        await localeProvider.setLanguage(value);
+                        if (!mounted) return;
+                        setState(() {
+                          _selectedLanguage = value;
+                        });
+                        Navigator.pop(context);
+                        final translationService =
+                            Provider.of<TranslationService>(
+                              context,
+                              listen: false,
+                            );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '${translationService.translate('app.languageChanged')} $value',
+                            ),
+                            backgroundColor: Colors.orange,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                        // Navigate to home and refresh
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                          (route) => false,
+                        );
+                      });
+                    },
+                    activeColor: Colors.orange,
+                    selectedTileColor: Colors.orange.withOpacity(0.1),
+                  ),
+                ),
+              )
+              .toList(),
+          const SizedBox(height: 10),
+        ],
       ),
     );
   }

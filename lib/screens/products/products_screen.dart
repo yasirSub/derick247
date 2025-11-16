@@ -7,6 +7,8 @@ import '../../providers/product_provider.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/referral_popup.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/translated_text.dart';
+import '../../services/translation_service.dart';
 import '../auth/login_screen.dart';
 import 'product_detail_screen.dart';
 
@@ -27,12 +29,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _debounceTimer;
   bool _showClearButton = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    
+    _scrollController.addListener(_onScroll);
+
     // Load products when screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final productProvider = Provider.of<ProductProvider>(
@@ -57,25 +61,41 @@ class _ProductsScreenState extends State<ProductsScreen> {
     });
   }
 
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      // Load more products when user scrolls within 200 pixels of the bottom
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+      if (!productProvider.isLoading && productProvider.hasMore) {
+        productProvider.loadProducts();
+      }
+    }
+  }
+
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
+    _scrollController.removeListener(_onScroll);
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _scrollController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
 
   void _onSearchChanged() {
     final query = _searchController.text.trim();
-    
+
     setState(() {
       _showClearButton = query.isNotEmpty;
     });
-    
+
     // Debounce search API calls
     _debounceTimer?.cancel();
-    
+
     if (query.isEmpty) {
       // Clear search when empty
       final productProvider = Provider.of<ProductProvider>(
@@ -157,13 +177,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Text(
-                'Login Required',
+              const TranslatedText(
+                'auth.loginRequired',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Please log in to access referral features and earn commissions.',
+              Text(
+                TranslationService().translate('refer.authenticationNeeded'),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -174,7 +194,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       onPressed: () {
                         Navigator.of(context).pop();
                       },
-                      child: const Text('Cancel'),
+                      child: const TranslatedText('app.cancel'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -188,7 +208,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           ),
                         );
                       },
-                      child: const Text('Login'),
+                      child: const TranslatedText('auth.loginNow'),
                     ),
                   ),
                 ],
@@ -206,7 +226,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: CustomAppBar(
-        title: widget.categoryName ?? 'Explore Products',
+        title:
+            widget.categoryName ??
+            TranslationService().translate('search.exploreProducts'),
         isDark: true,
         actions: [
           IconButton(
@@ -247,11 +269,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
               controller: _searchController,
               focusNode: _searchFocusNode,
               decoration: InputDecoration(
-                hintText: 'Search products...',
-                hintStyle: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 14,
+                hintText: TranslationService().translate(
+                  'search.searchProducts',
                 ),
+                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
                 prefixIcon: Icon(
                   Icons.search,
                   color: Colors.grey[600],
@@ -308,176 +329,212 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 // Show error if exists
                 if (productProvider.error != null &&
                     productProvider.products.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.spacingLarge),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: AppTheme.errorColor,
-                    ),
-                    const SizedBox(height: AppTheme.spacingMedium),
-                    Text(
-                      'Error loading products',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontSizeLarge,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.errorColor,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spacingSmall),
-                    Text(
-                      productProvider.error!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: AppTheme.fontSizeMedium,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spacingLarge),
-                    ElevatedButton(
-                      onPressed: () {
-                        productProvider.loadProducts(refresh: true);
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          if (productProvider.isLoading && productProvider.products.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (productProvider.products.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.spacingLarge),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.inventory_2_outlined,
-                      size: 64,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                    const SizedBox(height: AppTheme.spacingMedium),
-                    Text(
-                      'No products found',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontSizeLarge,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textColor,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spacingSmall),
-                    Text(
-                      productProvider.searchQuery != null
-                          ? 'Try a different search term'
-                          : 'Products will appear here',
-                      style: TextStyle(color: AppTheme.textSecondaryColor),
-                    ),
-                    const SizedBox(height: AppTheme.spacingLarge),
-                    ElevatedButton(
-                      onPressed: () {
-                        productProvider.loadProducts(refresh: true);
-                      },
-                      child: const Text('Refresh'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              await productProvider.loadProducts(refresh: true);
-            },
-            child: _isGridView
-                ? GridView.builder(
-                    padding: const EdgeInsets.all(AppTheme.spacingMedium),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio:
-                              0.60, // Flexible aspect ratio to prevent overflow
-                          crossAxisSpacing: 6,
-                          mainAxisSpacing: 10,
-                        ),
-                    itemCount: productProvider.products.length,
-                    itemBuilder: (context, index) {
-                      final product = productProvider.products[index];
-                      return ProductGridCard(
-                        product: product,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => ProductDetailScreen(
-                                productId: product.id,
-                                product: product,
-                              ),
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTheme.spacingLarge),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: AppTheme.errorColor,
+                          ),
+                          const SizedBox(height: AppTheme.spacingMedium),
+                          Text(
+                            TranslationService().translate(
+                              'search.errorLoadingProducts',
                             ),
-                          );
-                        },
-                        onShare: () {
-                          // TODO: Share product
-                        },
-                        onRefer: () {
-                          _showReferralPopup(context, product);
-                        },
-                      );
-                    },
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppTheme.spacingMedium,
-                      AppTheme.spacingSmall,
-                      AppTheme.spacingMedium,
-                      AppTheme.spacingMedium,
+                            style: TextStyle(
+                              fontSize: AppTheme.fontSizeLarge,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.errorColor,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingSmall),
+                          Text(
+                            productProvider.error!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: AppTheme.fontSizeMedium,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingLarge),
+                          ElevatedButton(
+                            onPressed: () {
+                              productProvider.loadProducts(refresh: true);
+                            },
+                            child: TranslatedText('common.retry'),
+                          ),
+                        ],
+                      ),
                     ),
-                    itemCount: productProvider.products.length,
-                    itemBuilder: (context, index) {
-                      final product = productProvider.products[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: ProductCard(
-                          product: product,
-                          priceAsPill: true,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => ProductDetailScreen(
-                                  productId: product.id,
-                                  product: product,
+                  );
+                }
+
+                if (productProvider.isLoading &&
+                    productProvider.products.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (productProvider.products.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTheme.spacingLarge),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 64,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                          const SizedBox(height: AppTheme.spacingMedium),
+                          Text(
+                            TranslationService().translate(
+                              'search.noProductsFound',
+                            ),
+                            style: TextStyle(
+                              fontSize: AppTheme.fontSizeLarge,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textColor,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingSmall),
+                          Text(
+                            productProvider.searchQuery != null
+                                ? TranslationService().translate(
+                                    'search.tryDifferentSearchTerm',
+                                  )
+                                : TranslationService().translate(
+                                    'search.productsWillAppearHere',
+                                  ),
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingLarge),
+                          ElevatedButton(
+                            onPressed: () {
+                              productProvider.loadProducts(refresh: true);
+                            },
+                            child: TranslatedText('common.refresh'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    await productProvider.loadProducts(refresh: true);
+                  },
+                  child: _isGridView
+                      ? GridView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(AppTheme.spacingMedium),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio:
+                                    0.60, // Flexible aspect ratio to prevent overflow
+                                crossAxisSpacing: 6,
+                                mainAxisSpacing: 10,
+                              ),
+                          itemCount:
+                              productProvider.products.length +
+                              (productProvider.hasMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            // Show loading indicator at the bottom
+                            if (index >= productProvider.products.length) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: CircularProgressIndicator(),
                                 ),
+                              );
+                            }
+                            final product = productProvider.products[index];
+                            return ProductGridCard(
+                              product: product,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => ProductDetailScreen(
+                                      productId: product.id,
+                                      product: product,
+                                    ),
+                                  ),
+                                );
+                              },
+                              onShare: () {
+                                // TODO: Share product
+                              },
+                              onRefer: () {
+                                _showReferralPopup(context, product);
+                              },
+                            );
+                          },
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(
+                            AppTheme.spacingMedium,
+                            AppTheme.spacingSmall,
+                            AppTheme.spacingMedium,
+                            AppTheme.spacingMedium,
+                          ),
+                          itemCount:
+                              productProvider.products.length +
+                              (productProvider.hasMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            // Show loading indicator at the bottom
+                            if (index >= productProvider.products.length) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+                            final product = productProvider.products[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: ProductCard(
+                                product: product,
+                                priceAsPill: true,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => ProductDetailScreen(
+                                        productId: product.id,
+                                        product: product,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                onShare: () {
+                                  // TODO: Share product
+                                },
+                                onRefer: () {
+                                  final authProvider =
+                                      Provider.of<AuthProvider>(
+                                        context,
+                                        listen: false,
+                                      );
+                                  if (authProvider.isLoggedIn) {
+                                    _showReferralPopup(context, product);
+                                  } else {
+                                    _showLoginPrompt(context);
+                                  }
+                                },
                               ),
                             );
                           },
-                          onShare: () {
-                            // TODO: Share product
-                          },
-                          onRefer: () {
-                            final authProvider = Provider.of<AuthProvider>(
-                              context,
-                              listen: false,
-                            );
-                            if (authProvider.isLoggedIn) {
-                              _showReferralPopup(context, product);
-                            } else {
-                              _showLoginPrompt(context);
-                            }
-                          },
                         ),
-                      );
-                    },
-                  ),
-            );
+                );
               },
             ),
           ),

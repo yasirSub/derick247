@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../config/theme_config.dart';
 import '../models/product_model.dart';
 import '../models/referral_info_model.dart';
 import '../providers/auth_provider.dart';
+import '../services/translation_service.dart';
+import '../utils/share_utils.dart';
+import 'translated_text.dart';
 import '../screens/auth/login_screen.dart';
 
 class ShareLinkPopup extends StatefulWidget {
@@ -88,15 +90,8 @@ class _ShareLinkPopupState extends State<ShareLinkPopup>
   }
 
   Future<void> _shareViaWhatsApp() async {
-    final shareText =
-        '''
-Check out this amazing product: ${widget.product.name}
-
-🎁 Get it for ${widget.product.formattedPrice}
-💰 Earn ${widget.referralInfo.formattedEarnAmount} commission when someone buys through your link!
-
-$_currentLink
-    ''';
+    // Share only the link without product name
+    final shareText = _currentLink;
 
     try {
       // Try to open WhatsApp directly
@@ -108,24 +103,25 @@ $_currentLink
         await launchUrl(uri);
       } else {
         // Fallback to general share if WhatsApp is not installed
-        await Share.share(shareText);
+        await ShareUtils.shareLinkWithImage(
+          link: shareText,
+          productImageUrl: widget.product.firstImage,
+          context: context,
+        );
       }
     } catch (e) {
       // Fallback to general share
-      await Share.share(shareText);
+      await ShareUtils.shareLinkWithImage(
+        link: shareText,
+        productImageUrl: widget.product.firstImage,
+        context: context,
+      );
     }
   }
 
   Future<void> _shareViaFacebook() async {
-    final shareText =
-        '''
-Check out this amazing product: ${widget.product.name}
-
-🎁 Get it for ${widget.product.formattedPrice}
-💰 Earn ${widget.referralInfo.formattedEarnAmount} commission when someone buys through your link!
-
-$_currentLink
-    ''';
+    // Share only the link without product name
+    final shareText = _currentLink;
 
     try {
       // Try to open Facebook directly
@@ -137,11 +133,19 @@ $_currentLink
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         // Fallback to general share if Facebook app is not available
-        await Share.share(shareText);
+        await ShareUtils.shareLinkWithImage(
+          link: shareText,
+          productImageUrl: widget.product.firstImage,
+          context: context,
+        );
       }
     } catch (e) {
       // Fallback to general share
-      await Share.share(shareText);
+      await ShareUtils.shareLinkWithImage(
+        link: shareText,
+        productImageUrl: widget.product.firstImage,
+        context: context,
+      );
     }
   }
 
@@ -224,8 +228,8 @@ $_currentLink
                     child: Row(
                       children: [
                         const Expanded(
-                          child: Text(
-                            'Refer and Earn',
+                          child: TranslatedText(
+                            'refer.referAndEarn',
                             style: TextStyle(
                               fontSize: AppTheme.fontSizeXLarge,
                               fontWeight: FontWeight.bold,
@@ -265,8 +269,8 @@ $_currentLink
                         const SizedBox(height: AppTheme.spacingLarge),
 
                         // Title
-                        const Text(
-                          'Share Your Link',
+                        const TranslatedText(
+                          'refer.shareYourLink',
                           style: TextStyle(
                             fontSize: AppTheme.fontSizeXLarge,
                             fontWeight: FontWeight.bold,
@@ -277,8 +281,8 @@ $_currentLink
                         const SizedBox(height: AppTheme.spacingMedium),
 
                         // Instructions
-                        const Text(
-                          'Complete the step below to invite your friend',
+                        const TranslatedText(
+                          'refer.completeStep',
                           style: TextStyle(
                             fontSize: AppTheme.fontSizeMedium,
                             color: Colors.white70,
@@ -314,7 +318,7 @@ $_currentLink
                                     ),
                                   ),
                                   child: Text(
-                                    'Share Product Link',
+                                    TranslationService().translate('refer.shareProductLink'),
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: AppTheme.fontSizeMedium,
@@ -355,7 +359,7 @@ $_currentLink
                                     ),
                                   ),
                                   child: Text(
-                                    'Share Checkout Link',
+                                    TranslationService().translate('refer.shareCheckoutLink'),
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: AppTheme.fontSizeMedium,
@@ -402,8 +406,8 @@ $_currentLink
                                   ),
                                 ),
                                 const SizedBox(height: AppTheme.spacingLarge),
-                                const Text(
-                                  'Login Required',
+                                const TranslatedText(
+                                  'auth.loginRequired',
                                   style: TextStyle(
                                     fontSize: AppTheme.fontSizeLarge,
                                     fontWeight: FontWeight.bold,
@@ -411,8 +415,8 @@ $_currentLink
                                   ),
                                 ),
                                 const SizedBox(height: AppTheme.spacingSmall),
-                                const Text(
-                                  'You need to be logged in to share checkout links.',
+                                const TranslatedText(
+                                  'auth.loginRequiredShare',
                                   style: TextStyle(
                                     fontSize: AppTheme.fontSizeSmall,
                                     color: Colors.white70,
@@ -445,8 +449,8 @@ $_currentLink
                                         ),
                                       ),
                                     ),
-                                    child: const Text(
-                                      'Login Now',
+                                    child: const TranslatedText(
+                                      'auth.loginNow',
                                       style: TextStyle(
                                         fontSize: AppTheme.fontSizeMedium,
                                         fontWeight: FontWeight.bold,
@@ -495,9 +499,9 @@ $_currentLink
                                           ),
                                         ),
                                         const SizedBox(height: 4),
-                                        const Text(
-                                          'Share via WhatsApp',
-                                          style: TextStyle(
+                                        Text(
+                                          TranslationService().translate('refer.shareViaWhatsApp'),
+                                          style: const TextStyle(
                                             fontSize: AppTheme.fontSizeSmall,
                                             color: Colors.white70,
                                           ),
@@ -548,9 +552,9 @@ $_currentLink
                                           ),
                                         ),
                                         const SizedBox(height: 4),
-                                        const Text(
-                                          'Share on Facebook',
-                                          style: TextStyle(
+                                        Text(
+                                          TranslationService().translate('refer.shareOnFacebook'),
+                                          style: const TextStyle(
                                             fontSize: AppTheme.fontSizeSmall,
                                             color: Colors.white70,
                                           ),
@@ -595,7 +599,9 @@ $_currentLink
                                           height: AppTheme.spacingSmall,
                                         ),
                                         Text(
-                                          _linkCopied ? 'Copied!' : 'Copy Link',
+                                          _linkCopied 
+                                              ? TranslationService().translate('refer.copied')
+                                              : TranslationService().translate('refer.copyLink'),
                                           style: const TextStyle(
                                             fontSize: AppTheme.fontSizeMedium,
                                             fontWeight: FontWeight.bold,
@@ -605,8 +611,8 @@ $_currentLink
                                         const SizedBox(height: 4),
                                         Text(
                                           _linkCopied
-                                              ? 'Link copied successfully'
-                                              : 'Copy referral link',
+                                              ? TranslationService().translate('refer.linkCopiedSuccessfully')
+                                              : TranslationService().translate('refer.copyReferralLink'),
                                           style: const TextStyle(
                                             fontSize: AppTheme.fontSizeSmall,
                                             color: Colors.white70,

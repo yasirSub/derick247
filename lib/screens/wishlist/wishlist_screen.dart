@@ -5,6 +5,8 @@ import '../../providers/black_board_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/referral_popup.dart';
+import '../../services/translation_service.dart';
+import '../../widgets/translated_text.dart';
 
 class WishlistScreen extends StatefulWidget {
   const WishlistScreen({Key? key}) : super(key: key);
@@ -37,7 +39,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF10131A),
       appBar: CustomAppBar(
-        title: 'Top Commission Board',
+        title: TranslationService().translate('leaderboard.title'),
         isDark: true,
         actions: const [],
         leadingWidth: 0,
@@ -47,8 +49,8 @@ class _WishlistScreenState extends State<WishlistScreen> {
           children: [
             const Icon(Icons.emoji_events, color: Colors.amber, size: 22),
             const SizedBox(width: 8),
-            Text(
-              'Top Commission Board',
+            TranslatedText(
+              'leaderboard.title',
               style: theme.textTheme.titleMedium?.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -171,23 +173,8 @@ class _WishlistScreenState extends State<WishlistScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: const [
-              Icon(Icons.workspace_premium, color: Colors.amber, size: 24),
-              SizedBox(width: 8),
-              Text(
-                'Top Commission Board',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Who earned the most? Check the leaderboard below!',
+          const TranslatedText(
+            'leaderboard.subtitle',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 20),
@@ -202,22 +189,16 @@ class _WishlistScreenState extends State<WishlistScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.amber,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.amber, width: 1),
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _searchController,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: Colors.black, fontSize: 14),
               decoration: InputDecoration(
-                hintText: 'Search products or category',
+                hintText: TranslationService().translate('search.searchProductsOrCategory'),
                 hintStyle: const TextStyle(color: Colors.grey),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
@@ -246,19 +227,19 @@ class _WishlistScreenState extends State<WishlistScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.amber,
                 foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 0,
+                ),
                 minimumSize: const Size(0, 48), // Same height
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 elevation: 0,
               ),
-              child: const Text(
-                'Search',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
+              child: Text(
+                TranslationService().translate('search.search'),
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
             ),
           ),
@@ -300,11 +281,11 @@ class _WishlistScreenState extends State<WishlistScreen> {
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
+          children: [
             Icon(Icons.leaderboard_outlined, color: Colors.white30, size: 64),
             SizedBox(height: 16),
-            Text(
-              'No leaderboard entries yet',
+            const TranslatedText(
+              'leaderboard.noEntries',
               style: TextStyle(color: Colors.white70, fontSize: 16),
             ),
           ],
@@ -435,7 +416,9 @@ class _TopCommissionCard extends StatelessWidget {
                               color: Color(0xFF5F6D8B),
                             ),
                             children: [
-                              const TextSpan(text: 'Category: '),
+                              TextSpan(
+                                text: '${TranslationService().translate('app.category')}: ',
+                              ),
                               TextSpan(
                                 text: entry.category,
                                 style: const TextStyle(
@@ -454,8 +437,10 @@ class _TopCommissionCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                           children: [
-                            const TextSpan(
-                              text: 'Referrer Commission: ',
+                            TextSpan(
+                              text: TranslationService().translate(
+                                'leaderboard.referrerLabel',
+                              ),
                               style: TextStyle(color: Color(0xFF22304B)),
                             ),
                             TextSpan(
@@ -527,8 +512,8 @@ class _TopCommissionCard extends StatelessWidget {
             ),
           ],
         ),
-        child: const Text(
-          'Refer Now',
+        child: const TranslatedText(
+          'leaderboard.referNow',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
       ),

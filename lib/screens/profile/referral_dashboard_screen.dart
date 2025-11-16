@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/theme_config.dart';
 import '../../services/referral_service.dart';
 import '../../widgets/referral_popup.dart';
+import '../../widgets/translated_text.dart';
 import '../../models/product_model.dart';
 
 class ReferralDashboardScreen extends StatefulWidget {
@@ -50,7 +51,7 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Referral Dashboard'),
+        title: const TranslatedText('referral.dashboardTitle'),
         backgroundColor: AppTheme.darkAppBarColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -106,8 +107,8 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Referral Overview',
+          const TranslatedText(
+            'referral.overviewTitle',
             style: TextStyle(
               fontSize: AppTheme.fontSizeXLarge,
               fontWeight: FontWeight.bold,
@@ -119,7 +120,7 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
             children: [
               Expanded(
                 child: _buildStatCard(
-                  'Total Earnings',
+                  'referral.totalEarnings',
                   '\$${totalEarnings.toStringAsFixed(2)}',
                   Icons.monetization_on,
                   Colors.green,
@@ -128,7 +129,7 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
               const SizedBox(width: AppTheme.spacingMedium),
               Expanded(
                 child: _buildStatCard(
-                  'Total Clicks',
+                  'referral.stats.totalClicks',
                   totalClicks.toString(),
                   Icons.touch_app,
                   Colors.blue,
@@ -141,7 +142,7 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
             children: [
               Expanded(
                 child: _buildStatCard(
-                  'Purchases',
+                  'referral.stats.purchases',
                   totalPurchases.toString(),
                   Icons.shopping_cart,
                   Colors.orange,
@@ -150,7 +151,7 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
               const SizedBox(width: AppTheme.spacingMedium),
               Expanded(
                 child: _buildStatCard(
-                  'Conversion Rate',
+                  'referral.stats.conversion',
                   '${conversionRate.toStringAsFixed(1)}%',
                   Icons.trending_up,
                   Colors.purple,
@@ -189,7 +190,7 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
             ),
           ),
           const SizedBox(height: AppTheme.spacingXSmall),
-          Text(
+          TranslatedText(
             title,
             style: TextStyle(fontSize: AppTheme.fontSizeSmall, color: color),
             textAlign: TextAlign.center,
@@ -216,8 +217,8 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Quick Actions',
+          const TranslatedText(
+            'referral.quickActions',
             style: TextStyle(
               fontSize: AppTheme.fontSizeLarge,
               fontWeight: FontWeight.bold,
@@ -229,7 +230,7 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
             children: [
               Expanded(
                 child: _buildActionButton(
-                  'Generate Link',
+                  'referral.actions.generateLink',
                   Icons.link,
                   Colors.blue,
                   () {
@@ -247,7 +248,7 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
               const SizedBox(width: AppTheme.spacingMedium),
               Expanded(
                 child: _buildActionButton(
-                  'Share Products',
+                  'referral.actions.shareProducts',
                   Icons.share,
                   Colors.green,
                   () {
@@ -321,8 +322,8 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Recent Activity',
+          const TranslatedText(
+            'referral.recentActivity',
             style: TextStyle(
               fontSize: AppTheme.fontSizeLarge,
               fontWeight: FontWeight.bold,
@@ -347,16 +348,16 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
                       children: [
                         Icon(Icons.history, size: 50, color: Colors.grey),
                         SizedBox(height: AppTheme.spacingMedium),
-                        Text(
-                          'No referral activity yet',
+                        const TranslatedText(
+                          'referral.emptyActivityTitle',
                           style: TextStyle(
                             fontSize: AppTheme.fontSizeMedium,
                             color: Colors.grey,
                           ),
                         ),
                         SizedBox(height: AppTheme.spacingSmall),
-                        Text(
-                          'Start referring products to see your activity here',
+                        const TranslatedText(
+                          'referral.emptyActivityDesc',
                           style: TextStyle(
                             fontSize: AppTheme.fontSizeSmall,
                             color: Colors.grey,
@@ -428,8 +429,8 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Top Earning Products',
+          const TranslatedText(
+            'referral.topEarningProducts',
             style: TextStyle(
               fontSize: AppTheme.fontSizeLarge,
               fontWeight: FontWeight.bold,
@@ -437,8 +438,8 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
             ),
           ),
           const SizedBox(height: AppTheme.spacingMedium),
-          const Text(
-            'These products offer the highest referral commissions:',
+          const TranslatedText(
+            'referral.topEarningProductsDesc',
             style: TextStyle(
               fontSize: AppTheme.fontSizeMedium,
               color: AppTheme.textSecondaryColor,
@@ -543,7 +544,7 @@ class _ReferralDashboardScreenState extends State<ReferralDashboardScreen> {
                   vertical: 8,
                 ),
               ),
-              child: const Text('Refer'),
+              child: const TranslatedText('referral.referButton'),
             ),
           ),
         );

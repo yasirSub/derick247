@@ -4,6 +4,8 @@ import '../../config/theme_config.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/translation_service.dart';
+import '../../widgets/translated_text.dart';
 import '../../models/user_model.dart';
 import '../home/home_screen.dart';
 import 'edit_profile_screen.dart';
@@ -32,9 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (!didPop) {
           // Navigate to Home screen when back button is pressed
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => const HomeScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
             (route) => false, // Remove all previous routes
           );
         }
@@ -43,7 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: AppTheme.backgroundColor,
         drawer: const AppDrawer(current: 'profile'),
         appBar: CustomAppBar(
-          title: 'Profile',
+          title: TranslationService().translate('profile.profile'),
           isDark: true,
         ),
         body: Consumer<AuthProvider>(
@@ -67,7 +67,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   left: AppTheme.spacingMedium,
                   right: AppTheme.spacingMedium,
                   top: AppTheme.spacingMedium,
-                  bottom: AppTheme.spacingMedium +
+                  bottom:
+                      AppTheme.spacingMedium +
                       MediaQuery.of(context).padding.bottom,
                 ),
                 child: Column(
@@ -100,8 +101,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Icon(Icons.person_outline, size: 80, color: Colors.grey[400]),
             const SizedBox(height: AppTheme.spacingLarge),
-            const Text(
-              'Please log in to view your profile',
+            Text(
+              TranslationService().translate('app.loginPrompt'),
               style: TextStyle(
                 fontSize: AppTheme.fontSizeLarge,
                 fontWeight: FontWeight.w500,
@@ -125,7 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   vertical: AppTheme.spacingMedium,
                 ),
               ),
-              child: const Text('Login'),
+              child: TranslatedText('profile.login'),
             ),
           ],
         ),
@@ -238,30 +239,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Profile Information',
-            style: TextStyle(
+          Text(
+            TranslationService().translate('profile.profileInformation'),
+            style: const TextStyle(
               fontSize: AppTheme.fontSizeLarge,
               fontWeight: FontWeight.bold,
               color: AppTheme.textColor,
             ),
           ),
           const SizedBox(height: AppTheme.spacingMedium),
-          _buildInfoRow('Username', user.username),
-          _buildInfoRow('Email', user.email),
+          _buildInfoRow(
+            TranslationService().translate('profile.username'),
+            user.username,
+          ),
+          _buildInfoRow(
+            TranslationService().translate('profile.email'),
+            user.email,
+          ),
           if (user.phone != null)
             _buildInfoRow(
-              'Phone',
+              TranslationService().translate('profile.phone'),
               '${user.phoneCountryCode ?? ''} ${user.phone}',
             ),
           if (user.whatsapp != null)
             _buildInfoRow(
-              'WhatsApp',
+              TranslationService().translate('profile.whatsapp'),
               '${user.whatsappCountryCode ?? ''} ${user.whatsapp}',
             ),
-          if (user.address != null) _buildInfoRow('Address', user.address!),
-          _buildInfoRow('Currency', user.currency),
-          _buildInfoRow('Status', user.status.toUpperCase()),
+          if (user.address != null)
+            _buildInfoRow(
+              TranslationService().translate('profile.address'),
+              user.address!,
+            ),
+          _buildInfoRow(
+            TranslationService().translate('profile.currency'),
+            user.currency,
+          ),
+          _buildInfoRow(
+            TranslationService().translate('profile.status'),
+            user.status.toUpperCase(),
+          ),
         ],
       ),
     );
@@ -301,68 +318,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildMenuItems(User user) {
     final menuItems = [
       _MenuItem(
-        title: 'Wishlist',
+        title: TranslationService().translate('profile.wishlist'),
         icon: Icons.favorite,
         onTap: () {
           // TODO: Navigate to wishlist screen
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Wishlist screen coming soon!')),
+            SnackBar(content: TranslatedText('profile.wishlistComingSoon')),
           );
         },
       ),
       _MenuItem(
-        title: 'Notifications',
+        title: TranslationService().translate('profile.notifications'),
         icon: Icons.notifications,
         onTap: () {
           // TODO: Navigate to notifications screen
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Notifications screen coming soon!')),
+            SnackBar(
+              content: TranslatedText('profile.notificationsComingSoon'),
+            ),
           );
         },
       ),
       if (user.isVendor) ...[
         _MenuItem(
-          title: 'Vendor Dashboard',
+          title: TranslationService().translate('profile.vendorDashboard'),
           icon: Icons.store,
           onTap: () {
             // TODO: Navigate to vendor dashboard
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Vendor dashboard coming soon!')),
+              SnackBar(
+                content: TranslatedText('profile.vendorDashboardComingSoon'),
+              ),
             );
           },
         ),
       ],
       if (user.isAdmin) ...[
         _MenuItem(
-          title: 'Admin Panel',
+          title: TranslationService().translate('profile.adminPanel'),
           icon: Icons.admin_panel_settings,
           onTap: () {
             // TODO: Navigate to admin panel
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Admin panel coming soon!')),
+              SnackBar(content: TranslatedText('profile.adminPanelComingSoon')),
             );
           },
         ),
       ],
       _MenuItem(
-        title: 'Settings',
+        title: TranslationService().translate('profile.settings'),
         icon: Icons.settings,
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const SettingsScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const SettingsScreen()),
           );
         },
       ),
       _MenuItem(
-        title: 'Help & Support',
+        title: TranslationService().translate('profile.helpSupport'),
         icon: Icons.help,
         onTap: () {
           // TODO: Navigate to help screen
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Help & Support coming soon!')),
+            SnackBar(content: TranslatedText('profile.helpSupportComingSoon')),
           );
         },
       ),
@@ -441,30 +460,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const Text(
-                    'Logout',
-                    style: TextStyle(
+                  TranslatedText(
+                    'profile.logout',
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Are you sure you want to logout?'),
+                  TranslatedText('profile.logoutConfirm'),
                   const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
                         child: TextButton(
                           onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Cancel'),
+                          child: TranslatedText('common.cancel'),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: TextButton(
                           onPressed: () => Navigator.pop(context, true),
-                          style: TextButton.styleFrom(foregroundColor: Colors.red),
-                          child: const Text('Logout'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          child: TranslatedText('profile.logout'),
                         ),
                       ),
                     ],
@@ -477,9 +498,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           if (shouldLogout == true && mounted) {
             await authProvider.logout();
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (context) => HomeScreen(forceRefresh: true),
+              ),
+              (_) => false,
             );
           }
         },
@@ -491,9 +514,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           ),
         ),
-        child: const Text(
-          'Logout',
-          style: TextStyle(
+        child: TranslatedText(
+          'profile.logout',
+          style: const TextStyle(
             fontSize: AppTheme.fontSizeLarge,
             fontWeight: FontWeight.w600,
           ),

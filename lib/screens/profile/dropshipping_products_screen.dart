@@ -5,6 +5,8 @@ import '../../config/theme_config.dart';
 import '../../widgets/app_drawer.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
+import '../../services/translation_service.dart';
+import '../../widgets/translated_text.dart';
 import 'dropshipping_product_detail_screen.dart';
 import 'add_web_dropshipping_product_screen.dart';
 import '../home/home_screen.dart';
@@ -114,7 +116,9 @@ class _DropshippingProductsScreenState
         if (_products.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No dropshipping products returned by API'),
+              content: TranslatedText(
+                'dropshipping.noDropshippingProductsReturned',
+              ),
             ),
           );
         }
@@ -166,9 +170,7 @@ class _DropshippingProductsScreenState
         if (!didPop) {
           // Go to HomeScreen instead of exiting app
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => const HomeScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
             (route) => false,
           );
         }
@@ -176,7 +178,9 @@ class _DropshippingProductsScreenState
       child: Scaffold(
         drawer: const AppDrawer(current: 'pointer'),
         appBar: CustomAppBar(
-          title: 'Dropshipping Products',
+          title: TranslationService().translate(
+            'dropshipping.dropshippingProducts',
+          ),
           isDark: true,
           actions: [
             IconButton(
@@ -213,7 +217,7 @@ class _DropshippingProductsScreenState
               const SizedBox(height: AppTheme.spacingLarge),
               ElevatedButton(
                 onPressed: _fetchProducts,
-                child: const Text('Retry'),
+                child: TranslatedText('orders.retry'),
               ),
             ],
           ),
@@ -228,7 +232,7 @@ class _DropshippingProductsScreenState
           physics: const AlwaysScrollableScrollPhysics(),
           child: SizedBox(
             height: MediaQuery.of(context).size.height * 0.7,
-            child: const Center(child: Text('No products available')),
+            child: Center(child: TranslatedText('common.noProductsAvailable')),
           ),
         ),
       );
@@ -242,104 +246,109 @@ class _DropshippingProductsScreenState
         separatorBuilder: (_, __) =>
             const SizedBox(height: AppTheme.spacingSmall),
         itemBuilder: (context, index) {
-        if (index == 0) {
-          return _buildSearchField();
-        }
-        final product = _filtered[index - 1];
-        return _DropshippingListTile(
-          product: product,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    DropshippingProductDetailScreen(productId: product.id),
-              ),
-            );
-          },
-          onEdit: () async {
-            final created = await Navigator.push<bool>(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    AddWebDropshippingProductScreen(productId: product.id),
-              ),
-            );
-            if (created == true) {
-              _fetchProducts();
-            }
-          },
-          onDelete: () async {
-            final confirm = await showModalBottomSheet<bool>(
-              context: context,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              builder: (ctx) {
-                return SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppTheme.spacingMedium),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Delete Product',
-                          style: TextStyle(
-                            fontSize: AppTheme.fontSizeLarge,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: AppTheme.spacingSmall),
-                        const Text(
-                          'Are you sure you want to delete this product?',
-                        ),
-                        const SizedBox(height: AppTheme.spacingMedium),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancel'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
-                                ),
-                                child: const Text('Delete'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-            if (confirm == true) {
-              try {
-                await ApiService().deleteDropshippingProduct(product.id);
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Product deleted')),
-                );
+          if (index == 0) {
+            return _buildSearchField();
+          }
+          final product = _filtered[index - 1];
+          return _DropshippingListTile(
+            product: product,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      DropshippingProductDetailScreen(productId: product.id),
+                ),
+              );
+            },
+            onEdit: () async {
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      AddWebDropshippingProductScreen(productId: product.id),
+                ),
+              );
+              if (created == true) {
                 _fetchProducts();
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
               }
-            }
-          },
-        );
-      },
+            },
+            onDelete: () async {
+              final confirm = await showModalBottomSheet<bool>(
+                context: context,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                builder: (ctx) {
+                  return SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTheme.spacingMedium),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TranslatedText(
+                            'common.deleteProduct',
+                            style: const TextStyle(
+                              fontSize: AppTheme.fontSizeLarge,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingSmall),
+                          TranslatedText('common.deleteProductConfirm'),
+                          const SizedBox(height: AppTheme.spacingMedium),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: TranslatedText('common.cancel'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: TranslatedText('common.delete'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+              if (confirm == true) {
+                try {
+                  await ApiService().deleteDropshippingProduct(product.id);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: TranslatedText('common.productDeleted')),
+                  );
+                  _fetchProducts();
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        TranslationService().translate(
+                          'common.deleteFailed',
+                          params: {'error': e.toString()},
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+          );
+        },
       ),
     );
   }
@@ -349,7 +358,9 @@ class _DropshippingProductsScreenState
       controller: _searchController,
       onChanged: _onSearchChanged,
       decoration: InputDecoration(
-        hintText: 'Search products, categories, types...',
+        hintText: TranslationService().translate(
+          'search.searchProductsCategoriesTypes',
+        ),
         prefixIcon: const Icon(Icons.search),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -374,9 +385,11 @@ class _DropshippingProductsScreenState
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Which product do you want to add?',
-                  style: TextStyle(
+                Text(
+                  TranslationService().translate(
+                    'dropshipping.whichProductToAdd',
+                  ),
+                  style: const TextStyle(
                     fontSize: AppTheme.fontSizeLarge,
                     fontWeight: FontWeight.w600,
                   ),
@@ -384,18 +397,16 @@ class _DropshippingProductsScreenState
                 const SizedBox(height: AppTheme.spacingMedium),
                 ListTile(
                   leading: const Icon(Icons.link),
-                  title: const Text('Add Web Product'),
-                  subtitle: const Text(
-                    'Requires a product link as a referral.',
-                  ),
+                  title: TranslatedText('dropshipping.addWebProduct'),
+                  subtitle: TranslatedText('dropshipping.addWebProductDesc'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.pop(context, 'web'),
                 ),
                 const SizedBox(height: 4),
                 ListTile(
                   leading: const Icon(Icons.person_outline),
-                  title: const Text('Add Normal Product'),
-                  subtitle: const Text('Requires owner name and phone number.'),
+                  title: TranslatedText('dropshipping.addNormalProduct'),
+                  subtitle: TranslatedText('dropshipping.addNormalProductDesc'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.pop(context, 'normal'),
                 ),

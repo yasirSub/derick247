@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../config/theme_config.dart';
 import '../../widgets/custom_app_bar.dart';
-import '../auth/login_screen.dart';
 import '../home/home_screen.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/locale_provider.dart';
+import '../../services/translation_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -28,18 +29,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => const HomeScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
           );
         }
       },
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
-        appBar: CustomAppBar(
-          title: 'Settings',
-          isDark: true,
-        ),
+        appBar: CustomAppBar(title: 'Settings', isDark: true),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(AppTheme.spacingMedium),
           child: Column(
@@ -179,13 +175,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             activeColor: AppTheme.secondaryColor,
           ),
           ListTile(
-            title: const Text('Currency'),
+            title: Text(TranslationService().translate('profile.currency')),
             subtitle: Text(_selectedCurrency),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () => _showCurrencyDialog(),
           ),
           ListTile(
-            title: const Text('Language'),
+            title: Text(TranslationService().translate('app.language')),
             subtitle: Text(_selectedLanguage),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () => _showLanguageDialog(),
@@ -236,22 +232,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.shield_outlined, color: AppTheme.secondaryColor),
+            leading: const Icon(
+              Icons.shield_outlined,
+              color: AppTheme.secondaryColor,
+            ),
             title: const Text('Two-Factor Authentication'),
             subtitle: const Text('Add an extra layer of security'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('2FA coming soon!')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('2FA coming soon!')));
             },
           ),
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.delete, color: Colors.red),
-            title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+            title: const Text(
+              'Delete Account',
+              style: TextStyle(color: Colors.red),
+            ),
             subtitle: const Text('Permanently delete your account'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.red),
+            trailing: const Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.red,
+            ),
             onTap: () => _showDeleteAccountDialog(),
           ),
         ],
@@ -278,7 +284,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(height: 1),
           ListTile(
-            leading: const Icon(Icons.help_outline, color: AppTheme.secondaryColor),
+            leading: const Icon(
+              Icons.help_outline,
+              color: AppTheme.secondaryColor,
+            ),
             title: const Text('Help Center'),
             subtitle: const Text('Get help and support'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -289,7 +298,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.feedback_outlined, color: AppTheme.secondaryColor),
+            leading: const Icon(
+              Icons.feedback_outlined,
+              color: AppTheme.secondaryColor,
+            ),
             title: const Text('Send Feedback'),
             subtitle: const Text('Share your feedback with us'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -300,18 +312,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.description_outlined, color: AppTheme.secondaryColor),
+            leading: const Icon(
+              Icons.description_outlined,
+              color: AppTheme.secondaryColor,
+            ),
             title: const Text('Terms & Conditions'),
             subtitle: const Text('Read our terms of service'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Terms & Conditions coming soon!')),
+                const SnackBar(
+                  content: Text('Terms & Conditions coming soon!'),
+                ),
               );
             },
           ),
           ListTile(
-            leading: const Icon(Icons.privacy_tip_outlined, color: AppTheme.secondaryColor),
+            leading: const Icon(
+              Icons.privacy_tip_outlined,
+              color: AppTheme.secondaryColor,
+            ),
             title: const Text('Privacy Policy'),
             subtitle: const Text('Read our privacy policy'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -322,7 +342,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.info_outline, color: AppTheme.secondaryColor),
+            leading: const Icon(
+              Icons.info_outline,
+              color: AppTheme.secondaryColor,
+            ),
             title: const Text('About'),
             subtitle: const Text('App version and information'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -366,12 +389,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Text(
-              'Select Currency',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+            Text(
+              TranslationService().translate('currency.selectCurrency'),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             ...currencies
@@ -431,10 +451,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Text(
               'Select Language',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             ...languages
@@ -443,11 +460,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: Text(language),
                     value: language,
                     groupValue: _selectedLanguage,
-                    onChanged: (value) {
+                    onChanged: (value) async {
+                      if (value == null) return;
                       setState(() {
-                        _selectedLanguage = value!;
+                        _selectedLanguage = value;
                       });
                       Navigator.pop(context);
+                      final localeProvider = Provider.of<LocaleProvider>(
+                        context,
+                        listen: false,
+                      );
+                      await localeProvider.setLanguage(value);
+                      if (!mounted) return;
+                      final translationService =
+                          Provider.of<TranslationService>(
+                            context,
+                            listen: false,
+                          );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${translationService.translate('app.languageChanged')} $value',
+                          ),
+                          backgroundColor: Colors.orange,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                      // Navigate to home and refresh
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        (route) => false,
+                      );
                     },
                   ),
                 )
@@ -492,10 +535,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Text(
               'Delete Account',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -518,7 +558,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Navigator.pop(context);
                       // TODO: Implement account deletion
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Account deletion coming soon!')),
+                        const SnackBar(
+                          content: Text('Account deletion coming soon!'),
+                        ),
                       );
                     },
                     style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -573,23 +615,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: Colors.orange,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.shopping_bag, color: Colors.white, size: 30),
+                child: const Icon(
+                  Icons.shopping_bag,
+                  color: Colors.white,
+                  size: 30,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'Derick247',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               const Text(
                 'Version 1.0.0',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -597,7 +637,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              const Text('Features:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Features:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               const Text('• Product browsing and purchasing'),
               const Text('• Referral system with commissions'),
@@ -675,7 +718,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Expanded(
                             child: TextButton(
                               onPressed: () => Navigator.pop(context, true),
-                              style: TextButton.styleFrom(foregroundColor: Colors.red),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red,
+                              ),
                               child: const Text('Logout'),
                             ),
                           ),
@@ -689,17 +734,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               if (shouldLogout == true && mounted) {
                 await authProvider.logout();
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
+                Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (context) => HomeScreen(forceRefresh: true),
+                  ),
+                  (_) => false,
                 );
               }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingMedium),
+              padding: const EdgeInsets.symmetric(
+                vertical: AppTheme.spacingMedium,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),

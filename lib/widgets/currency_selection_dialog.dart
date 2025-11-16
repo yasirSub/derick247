@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:country_flags/country_flags.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import '../services/translation_service.dart';
 import '../config/theme_config.dart';
 
 class CurrencySelectionDialog extends StatefulWidget {
@@ -81,7 +82,8 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
     final first = runes[0] - base;
     final second = runes[1] - base;
     if (first < 0 || first > 25 || second < 0 || second > 25) return null;
-    final code = String.fromCharCode(0x41 + first) + String.fromCharCode(0x41 + second);
+    final code =
+        String.fromCharCode(0x41 + first) + String.fromCharCode(0x41 + second);
     return code;
   }
 
@@ -120,10 +122,13 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
                 country['currency_code'].toString().isNotEmpty) {
               // Avoid duplicates
               final currencyCode = country['currency_code'].toString();
-              if (!currenciesList.any((c) => c['currency_code'] == currencyCode)) {
+              if (!currenciesList.any(
+                (c) => c['currency_code'] == currencyCode,
+              )) {
                 currenciesList.add({
                   'currency_code': currencyCode,
-                  'country_name': country['name'] ?? country['country_name'] ?? '',
+                  'country_name':
+                      country['name'] ?? country['country_name'] ?? '',
                   'flag': country['flag'] ?? '',
                 });
               }
@@ -135,10 +140,13 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
                 country['currency_code'] != null &&
                 country['currency_code'].toString().isNotEmpty) {
               final currencyCode = country['currency_code'].toString();
-              if (!currenciesList.any((c) => c['currency_code'] == currencyCode)) {
+              if (!currenciesList.any(
+                (c) => c['currency_code'] == currencyCode,
+              )) {
                 currenciesList.add({
                   'currency_code': currencyCode,
-                  'country_name': country['name'] ?? country['country_name'] ?? '',
+                  'country_name':
+                      country['name'] ?? country['country_name'] ?? '',
                   'flag': country['flag'] ?? '',
                 });
               }
@@ -157,7 +165,9 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
           setState(() {
             _isLoading = false;
           });
-          _showError('Failed to load currencies');
+          _showError(
+            TranslationService().translate('currency.failedToLoadCurrencies'),
+          );
         }
       }
     } catch (e) {
@@ -165,7 +175,12 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
         setState(() {
           _isLoading = false;
         });
-        _showError('Error loading currencies: $e');
+        _showError(
+          TranslationService().translate(
+            'currency.errorLoadingCurrencies',
+            params: {'error': e.toString()},
+          ),
+        );
       }
     }
   }
@@ -209,7 +224,10 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                response.data['message'] ?? 'Currency set successfully!',
+                response.data['message'] ??
+                    TranslationService().translate(
+                      'currency.currencySetSuccessfully',
+                    ),
               ),
               backgroundColor: AppTheme.successColor,
               duration: const Duration(seconds: 2),
@@ -224,7 +242,8 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
             _isSettingCurrency = false;
           });
           _showError(
-            response.data?['message'] ?? 'Failed to set currency',
+            response.data?['message'] ??
+                TranslationService().translate('currency.failedToSetCurrency'),
           );
         }
       }
@@ -233,7 +252,12 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
         setState(() {
           _isSettingCurrency = false;
         });
-        _showError('Error setting currency: $e');
+        _showError(
+          TranslationService().translate(
+            'currency.errorSettingCurrency',
+            params: {'error': e.toString()},
+          ),
+        );
       }
     }
   }
@@ -255,269 +279,279 @@ class _CurrencySelectionDialogState extends State<CurrencySelectionDialog> {
         maxHeight: MediaQuery.of(context).size.height * 0.6,
       ),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: Color(0xFF1A1D24),
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
         ),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 20,
+        right: 20,
+        top: 20,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Handle bar
           Container(
-            margin: const EdgeInsets.only(top: 12),
             width: 40,
             height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: Colors.grey[600],
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
-          // Compact header
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            child: Row(
-              children: [
-                const Text(
-                  'Select Currency',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () => Navigator.of(context).pop(),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
+
+          // Title
+          Text(
+            TranslationService().translate('currency.selectCurrency'),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
-          
-          const Divider(height: 1),
-          
+          const SizedBox(height: 16),
+
           // Content
           Flexible(
             child: _isLoading
                 ? const Padding(
                     padding: EdgeInsets.all(40),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(
+                      child: CircularProgressIndicator(color: Colors.orange),
+                    ),
                   )
                 : _currencies.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              size: 48,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'No currencies available',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _loadCurrencies,
-                              child: const Text('Retry'),
-                            ),
-                          ],
+                ? Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.grey,
                         ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: _currencies.length,
-                        itemBuilder: (context, index) {
-                          final currency = _currencies[index];
-                          final currencyCode = currency['currency_code'] as String;
-                          final isSelected = _selectedCurrency == currencyCode;
-                          final isSetting = _isSettingCurrency &&
-                              _selectedCurrency == currencyCode;
+                        const SizedBox(height: 16),
+                        Text(
+                          TranslationService().translate(
+                            'currency.noCurrenciesAvailable',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadCurrencies,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                          ),
+                          child: Text(
+                            TranslationService().translate('app.retry'),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _currencies.length,
+                    itemBuilder: (context, index) {
+                      final currency = _currencies[index];
+                      final currencyCode = currency['currency_code'] as String;
+                      final isSelected = _selectedCurrency == currencyCode;
+                      final isSetting =
+                          _isSettingCurrency &&
+                          _selectedCurrency == currencyCode;
 
-                          return InkWell(
-                            onTap: isSetting
-                                ? null
-                                : () {
-                                    _setCurrency(currencyCode);
-                                  },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              color: isSelected
-                                  ? AppTheme.primaryColor.withOpacity(0.1)
-                                  : Colors.transparent,
-                              child: Row(
-                                children: [
-                                  // Flag display: prefer local asset flags via package, fallback to emoji, then API URL, then placeholder
-                                  Builder(builder: (context) {
-                                    final countryCode = _countryCodeForCurrency(currencyCode);
-                                    if (countryCode != null && countryCode != 'EU') {
-                                      return Container(
-                                        width: 32,
-                                        height: 24,
-                                        margin: const EdgeInsets.only(right: 12),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                            width: 0.5,
-                                          ),
-                                        ),
-                                        clipBehavior: Clip.antiAlias,
-                                        child: CountryFlag.fromCountryCode(
-                                          countryCode,
-                                          height: 24,
-                                          width: 32,
-                                        ),
-                                      );
-                                    }
-
-                                    // Emoji fallback (e.g., EUR)
-                                    final fallbackEmoji = _emojiFlagForCurrency(currencyCode);
-                                    if (fallbackEmoji.isNotEmpty) {
-                                      return Container(
-                                        width: 32,
-                                        height: 24,
-                                        margin: const EdgeInsets.only(right: 12),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                            width: 0.5,
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            fallbackEmoji,
-                                            style: const TextStyle(fontSize: 20),
-                                          ),
-                                        ),
-                                      );
-                                    }
-
-                                    final raw = currency['flag']?.toString() ?? '';
-                                    // If API provides an emoji flag, convert to ISO code and use local asset
-                                    final emojiIso = _countryCodeFromEmoji(raw);
-                                    if (emojiIso != null) {
-                                      return Container(
-                                        width: 32,
-                                        height: 24,
-                                        margin: const EdgeInsets.only(right: 12),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                            width: 0.5,
-                                          ),
-                                        ),
-                                        clipBehavior: Clip.antiAlias,
-                                        child: CountryFlag.fromCountryCode(
-                                          emojiIso,
-                                          height: 24,
-                                          width: 32,
-                                        ),
-                                      );
-                                    }
-                                    if (raw.isNotEmpty && (raw.startsWith('http') || raw.startsWith('https')))
-                                    {
-                                      return Container(
-                                        width: 32,
-                                        height: 24,
-                                        margin: const EdgeInsets.only(right: 12),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                            width: 0.5,
-                                          ),
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(4),
-                                          child: Image.network(
-                                            raw,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Container(
-                                                color: Colors.grey[200],
-                                                child: const Icon(
-                                                  Icons.flag,
-                                                  size: 16,
-                                                  color: Colors.grey,
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      );
-                                    }
-
+                      return Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[800],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: RadioListTile<String>(
+                          value: currencyCode,
+                          groupValue: _selectedCurrency,
+                          onChanged: isSetting
+                              ? null
+                              : (value) {
+                                  if (value != null) {
+                                    _setCurrency(value);
+                                  }
+                                },
+                          activeColor: Colors.orange,
+                          selectedTileColor: Colors.orange.withOpacity(0.1),
+                          title: Row(
+                            children: [
+                              // Flag display
+                              Builder(
+                                builder: (context) {
+                                  final countryCode = _countryCodeForCurrency(
+                                    currencyCode,
+                                  );
+                                  if (countryCode != null &&
+                                      countryCode != 'EU') {
                                     return Container(
                                       width: 32,
                                       height: 24,
                                       margin: const EdgeInsets.only(right: 12),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey[200],
                                         borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: Colors.grey[600]!,
+                                          width: 0.5,
+                                        ),
                                       ),
-                                      child: const Icon(
-                                        Icons.flag,
-                                        size: 16,
-                                        color: Colors.grey,
+                                      clipBehavior: Clip.antiAlias,
+                                      child: CountryFlag.fromCountryCode(
+                                        countryCode,
+                                        height: 24,
+                                        width: 32,
                                       ),
                                     );
-                                  }),
-                                  Expanded(
-                                    child: Text(
-                                      currencyCode,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                        color: isSelected
-                                            ? AppTheme.primaryColor
-                                            : AppTheme.textColor,
+                                  }
+
+                                  // Emoji fallback (e.g., EUR)
+                                  final fallbackEmoji = _emojiFlagForCurrency(
+                                    currencyCode,
+                                  );
+                                  if (fallbackEmoji.isNotEmpty) {
+                                    return Container(
+                                      width: 32,
+                                      height: 24,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: Colors.grey[600]!,
+                                          width: 0.5,
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                  if (isSetting)
-                                    const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                                      child: Center(
+                                        child: Text(
+                                          fallbackEmoji,
+                                          style: const TextStyle(fontSize: 20),
+                                        ),
                                       ),
-                                    )
-                                  else if (isSelected)
-                                    Icon(
-                                      Icons.check_circle,
-                                      color: AppTheme.primaryColor,
-                                      size: 20,
+                                    );
+                                  }
+
+                                  final raw =
+                                      currency['flag']?.toString() ?? '';
+                                  // If API provides an emoji flag, convert to ISO code and use local asset
+                                  final emojiIso = _countryCodeFromEmoji(raw);
+                                  if (emojiIso != null) {
+                                    return Container(
+                                      width: 32,
+                                      height: 24,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: Colors.grey[600]!,
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: CountryFlag.fromCountryCode(
+                                        emojiIso,
+                                        height: 24,
+                                        width: 32,
+                                      ),
+                                    );
+                                  }
+                                  if (raw.isNotEmpty &&
+                                      (raw.startsWith('http') ||
+                                          raw.startsWith('https'))) {
+                                    return Container(
+                                      width: 32,
+                                      height: 24,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: Colors.grey[600]!,
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Image.network(
+                                          raw,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                return Container(
+                                                  color: Colors.grey[700],
+                                                  child: const Icon(
+                                                    Icons.flag,
+                                                    size: 16,
+                                                    color: Colors.grey,
+                                                  ),
+                                                );
+                                              },
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  return Container(
+                                    width: 32,
+                                    height: 24,
+                                    margin: const EdgeInsets.only(right: 12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[700],
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
-                                ],
+                                    child: const Icon(
+                                      Icons.flag,
+                                      size: 16,
+                                      color: Colors.grey,
+                                    ),
+                                  );
+                                },
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                              Text(
+                                currencyCode,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                              if (isSetting) ...[
+                                const SizedBox(width: 8),
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
+          const SizedBox(height: 10),
         ],
       ),
     );

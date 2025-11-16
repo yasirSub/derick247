@@ -10,6 +10,7 @@ import '../screens/products/products_screen.dart';
 import '../screens/products/product_detail_screen.dart';
 import '../models/product_model.dart';
 import '../services/api_service.dart';
+import '../services/translation_service.dart';
 
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String? title;
@@ -236,7 +237,9 @@ class _CustomAppBarState extends State<CustomAppBar> {
                   ? Padding(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        'No products found',
+                        TranslationService().translate(
+                          'search.noProductsFound',
+                        ),
                         style: TextStyle(
                           color: AppTheme.textSecondaryColor,
                           fontSize: 14,
@@ -350,9 +353,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
       foregroundColor: foregroundColor,
       elevation: 0,
       toolbarHeight: 52,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       leadingWidth: widget.leadingWidth,
       leading: widget.leading,
       titleSpacing: widget.showSearchBar ? 0 : null,
@@ -411,7 +412,11 @@ class _CustomAppBarState extends State<CustomAppBar> {
                           controller: _searchController,
                           focusNode: _searchFocusNode,
                           decoration: InputDecoration(
-                            hintText: widget.searchHint ?? 'Search products...',
+                            hintText:
+                                widget.searchHint ??
+                                TranslationService().translate(
+                                  'search.searchProducts',
+                                ),
                             hintStyle: TextStyle(
                               color: Colors.grey[500],
                               fontSize: 14,
@@ -499,7 +504,11 @@ class _CustomAppBarState extends State<CustomAppBar> {
           );
           productProvider.searchProducts(query);
 
-          return ProductsScreen(categoryName: 'Search Results');
+          return ProductsScreen(
+            categoryName: TranslationService().translate(
+              'search.searchResults',
+            ),
+          );
         },
       ),
     );

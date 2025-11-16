@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../utils/share_utils.dart';
 
 import '../../config/theme_config.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/translated_text.dart';
+import '../../services/translation_service.dart';
 import '../../providers/auth_provider.dart';
+
 import '../../providers/dashboard_provider.dart';
 import '../home/home_screen.dart';
 import '../auth/login_screen.dart';
@@ -23,6 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final PageController _statsController = PageController();
   int _currentStatsIndex = 0;
   bool _isStatsListView = false; // false = slider, true = list
+  Timer? _autoScrollTimer;
 
   @override
   void initState() {
@@ -38,7 +43,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _statsController.dispose();
+    _autoScrollTimer?.cancel();
     super.dispose();
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted && !_isStatsListView) {
+        if (_currentStatsIndex < 3) {
+          _statsController.nextPage(
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        } else {
+          // Reset to first page
+          _statsController.animateToPage(
+            0,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
   }
 
   Future<bool> _onWillPop(BuildContext context) async {
@@ -52,14 +84,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _copyToClipboard(String text) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Link copied to clipboard')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(TranslationService().translate('share.linkCopied')),
+        ),
+      );
     }
   }
 
   Future<void> _shareLink(String link) async {
-    await Share.share(link);
+    await ShareUtils.shareLinkWithImage(
+      link: link,
+      subject: 'Comisionista247 - Referral Link',
+      context: context,
+    );
   }
 
   Future<void> _openWhatsApp(String link) async {
@@ -88,8 +126,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: AppTheme.textSecondaryColor,
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Login Required',
+                const TranslatedText(
+                  'auth.loginRequired',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -98,7 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Please login to access your dashboard',
+                  TranslationService().translate('auth.loginRequiredDashboard'),
                   style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.textSecondaryColor,
@@ -111,7 +149,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
                     );
                   },
-                  child: const Text('Login'),
+                  child: TranslatedText('auth.login'),
                 ),
               ],
             ),
@@ -125,7 +163,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         drawer: const AppDrawer(current: 'dashboard'),
         appBar: CustomAppBar(
-          title: 'Dashboard',
+          title: TranslationService().translate('dashboard.title'),
           isDark: true,
           actions: [], // Remove profile icon from top bar
         ),
@@ -151,9 +189,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   children: [
                     // Header Section
-                    const Text(
-                      'Referral Dashboard',
-                      style: TextStyle(
+                    Text(
+                      TranslationService().translate(
+                        'dashboard.referralDashboard',
+                      ),
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textColor,
@@ -166,7 +206,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Monitor your referral performance and earnings.',
+                            TranslationService().translate(
+                              'dashboard.monitorSubtitle',
+                            ),
                             style: TextStyle(
                               fontSize: 14,
                               color: AppTheme.textSecondaryColor,
@@ -179,6 +221,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             setState(() {
                               _isStatsListView = !_isStatsListView;
                             });
+                            if (_isStatsListView) {
+                              _stopAutoScroll();
+                            } else {
+                              _startAutoScroll();
+                            }
                           },
                           child: Icon(
                             _isStatsListView ? Icons.view_carousel : Icons.list,
@@ -294,6 +341,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStatsSliderView(DashboardProvider dash) {
+    // Start auto-scroll when slider view is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startAutoScroll();
+    });
+
     return Column(
       children: [
         SizedBox(
@@ -304,28 +356,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
               setState(() {
                 _currentStatsIndex = index;
               });
+              // Restart timer when page changes (user interaction)
+              _startAutoScroll();
             },
             itemCount: 4,
             itemBuilder: (context, index) {
               switch (index) {
                 case 0:
                   return _buildInfoCard(
-                    title: 'Total Earnings',
+                    title: TranslationService().translate(
+                      'referral.totalEarnings',
+                    ),
                     icon: Icons.people,
                     iconPosition: 'right',
                     children: [
                       _buildInfoRow(
-                        'Point A Referer',
+                        TranslationService().translate(
+                          'referral.stats.pointAReferrer',
+                        ),
                         dash.totalPointAReferer.toString(),
                         Icons.person,
                       ),
                       _buildInfoRow(
-                        'Point A Vendor',
+                        TranslationService().translate(
+                          'referral.stats.pointAVendor',
+                        ),
                         dash.totalPointAVendor.toString(),
                         Icons.store,
                       ),
                       _buildInfoRow(
-                        'Refer Product',
+                        TranslationService().translate(
+                          'referral.stats.referProduct',
+                        ),
                         dash.totalReferProduct.toString(),
                         Icons.card_giftcard,
                       ),
@@ -333,24 +395,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   );
                 case 1:
                   return _buildInfoCard(
-                    title: 'Commissions',
+                    title: TranslationService().translate(
+                      'referral.commissions',
+                    ),
                     icon: Icons.attach_money,
                     iconPosition: 'right',
                     children: [
                       _buildInfoRow(
-                        'Converted Commissions',
+                        TranslationService().translate(
+                          'referral.stats.convertedCommissions',
+                        ),
                         '\$${dash.convertedCommission}',
                         Icons.check_circle,
                         color: Colors.green,
                       ),
                       _buildInfoRow(
-                        'Pending Commissions',
+                        TranslationService().translate(
+                          'referral.stats.pendingCommissions',
+                        ),
                         '\$${dash.pendingCommission}',
                         Icons.access_time,
                         color: Colors.orange,
                       ),
                       _buildInfoRow(
-                        'Possible Commissions',
+                        TranslationService().translate(
+                          'referral.stats.possibleCommissions',
+                        ),
                         '\$${dash.possibleCommission}',
                         Icons.star,
                         color: Colors.blue,
@@ -359,22 +429,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   );
                 case 2:
                   return _buildInfoCard(
-                    title: 'Products',
+                    title: TranslationService().translate(
+                      'referral.productsTitle',
+                    ),
                     icon: Icons.inventory_2,
                     iconPosition: 'right',
                     children: [
                       _buildInfoRow(
-                        'Point Web Products',
+                        TranslationService().translate(
+                          'referral.stats.pointWebProducts',
+                        ),
                         dash.pointWebProduct.toString(),
                         Icons.language,
                       ),
                       _buildInfoRow(
-                        'Vendor Products',
+                        TranslationService().translate(
+                          'referral.stats.vendorProducts',
+                        ),
                         dash.vendorProduct.toString(),
                         Icons.store,
                       ),
                       _buildInfoRow(
-                        'Point Regular Products',
+                        TranslationService().translate(
+                          'referral.stats.pointRegularProducts',
+                        ),
                         dash.pointRegularProduct.toString(),
                         Icons.shopping_bag,
                       ),
@@ -382,22 +460,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   );
                 case 3:
                   return _buildInfoCard(
-                    title: 'Loan Summary',
+                    title: TranslationService().translate(
+                      'referral.loanSummary',
+                    ),
                     icon: Icons.account_balance_wallet,
                     iconPosition: 'right',
                     children: [
                       _buildInfoRow(
-                        'Total Possible Loan',
+                        TranslationService().translate(
+                          'referral.totalPossibleLoan',
+                        ),
                         '\$${dash.totalPossibleLoan}',
                         Icons.attach_money,
                       ),
                       _buildInfoRow(
-                        'Total Interest',
+                        TranslationService().translate(
+                          'referral.totalInterest',
+                        ),
                         '\$${dash.totalInterest}',
                         Icons.percent,
                       ),
                       _buildInfoRow(
-                        'Loan Taken',
+                        TranslationService().translate('referral.loanTaken'),
                         '\$${dash.loanTaken}',
                         Icons.attach_money,
                       ),
@@ -436,22 +520,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         // Total Earnings Card
         _buildInfoCard(
-          title: 'Total Earnings',
+          title: TranslationService().translate('referral.totalEarnings'),
           icon: Icons.people,
           iconPosition: 'right',
           children: [
             _buildInfoRow(
-              'Point A Referer',
+              TranslationService().translate('referral.stats.pointAReferrer'),
               dash.totalPointAReferer.toString(),
               Icons.person,
             ),
             _buildInfoRow(
-              'Point A Vendor',
+              TranslationService().translate('referral.stats.pointAVendor'),
               dash.totalPointAVendor.toString(),
               Icons.store,
             ),
             _buildInfoRow(
-              'Refer Product',
+              TranslationService().translate('referral.stats.referProduct'),
               dash.totalReferProduct.toString(),
               Icons.card_giftcard,
             ),
@@ -460,24 +544,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: AppTheme.spacingMedium),
         // Commissions Card
         _buildInfoCard(
-          title: 'Commissions',
+          title: TranslationService().translate('referral.commissions'),
           icon: Icons.attach_money,
           iconPosition: 'right',
           children: [
             _buildInfoRow(
-              'Converted Commissions',
+              TranslationService().translate(
+                'referral.stats.convertedCommissions',
+              ),
               '\$${dash.convertedCommission}',
               Icons.check_circle,
               color: Colors.green,
             ),
             _buildInfoRow(
-              'Pending Commissions',
+              TranslationService().translate(
+                'referral.stats.pendingCommissions',
+              ),
               '\$${dash.pendingCommission}',
               Icons.access_time,
               color: Colors.orange,
             ),
             _buildInfoRow(
-              'Possible Commissions',
+              TranslationService().translate(
+                'referral.stats.possibleCommissions',
+              ),
               '\$${dash.possibleCommission}',
               Icons.star,
               color: Colors.blue,
@@ -487,22 +577,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: AppTheme.spacingMedium),
         // Products Card
         _buildInfoCard(
-          title: 'Products',
+          title: TranslationService().translate('referral.productsTitle'),
           icon: Icons.inventory_2,
           iconPosition: 'right',
           children: [
             _buildInfoRow(
-              'Point Web Products',
+              TranslationService().translate('referral.stats.pointWebProducts'),
               dash.pointWebProduct.toString(),
               Icons.language,
             ),
             _buildInfoRow(
-              'Vendor Products',
+              TranslationService().translate('referral.stats.vendorProducts'),
               dash.vendorProduct.toString(),
               Icons.store,
             ),
             _buildInfoRow(
-              'Point Regular Products',
+              TranslationService().translate(
+                'referral.stats.pointRegularProducts',
+              ),
               dash.pointRegularProduct.toString(),
               Icons.shopping_bag,
             ),
@@ -511,22 +603,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: AppTheme.spacingMedium),
         // Loan Summary Card
         _buildInfoCard(
-          title: 'Loan Summary',
+          title: TranslationService().translate('referral.loanSummary'),
           icon: Icons.account_balance_wallet,
           iconPosition: 'right',
           children: [
             _buildInfoRow(
-              'Total Possible Loan',
+              TranslationService().translate('referral.totalPossibleLoan'),
               '\$${dash.totalPossibleLoan}',
               Icons.attach_money,
             ),
             _buildInfoRow(
-              'Total Interest',
+              TranslationService().translate('referral.totalInterest'),
               '\$${dash.totalInterest}',
               Icons.percent,
             ),
             _buildInfoRow(
-              'Loan Taken',
+              TranslationService().translate('referral.loanTaken'),
               '\$${dash.loanTaken}',
               Icons.attach_money,
             ),
@@ -549,8 +641,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Possible Loan Amount',
+          const TranslatedText(
+            'referral.possibleLoanTitle',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -567,9 +659,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Calculated as 10% of your possible total commissions.',
-            style: TextStyle(fontSize: 12, color: Colors.white70),
+          Text(
+            TranslationService().translate('referral.loanCalculatedDesc'),
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
           ),
           const SizedBox(height: 12),
           Row(
@@ -582,8 +674,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 4),
               Text(
                 canGetLoan
-                    ? 'You are eligible for a loan.'
-                    : 'You are not eligible for a loan.',
+                    ? TranslationService().translate('referral.loanEligible')
+                    : TranslationService().translate(
+                        'referral.loanNotEligible',
+                      ),
                 style: TextStyle(
                   fontSize: 12,
                   color: canGetLoan ? Colors.green : Colors.red,
@@ -599,14 +693,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (canGetLoan) {
                   // TODO: Implement loan request
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Loan request feature coming soon'),
+                    SnackBar(
+                      content: Text(
+                        TranslationService().translate(
+                          'referral.loanRequestComingSoon',
+                        ),
+                      ),
                     ),
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('You are not eligible for a loan'),
+                    SnackBar(
+                      content: Text(
+                        TranslationService().translate(
+                          'referral.loanNotEligible',
+                        ),
+                      ),
                     ),
                   );
                 }
@@ -620,8 +722,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
-                'Get Loan',
+              child: const TranslatedText(
+                'referral.getLoan',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
@@ -648,8 +750,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Your Referral Link',
+          const TranslatedText(
+            'referral.yourLinkTitle',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -657,16 +759,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Share this link with your friends to earn commissions.',
+          const TranslatedText(
+            'referral.yourLinkDesc',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
           ),
           const SizedBox(height: 16),
           // Point A Vendor Link
-          _buildReferralLinkItem('Point A Vendor', dash.pointAVendor ?? ''),
+          _buildReferralLinkItem(
+            TranslationService().translate('pointOptions.pointAVendor.title'),
+            dash.pointAVendor ?? '',
+          ),
           const SizedBox(height: 16),
           // Point A Referer Link
-          _buildReferralLinkItem('Point A Referer', dash.pointAReferer ?? ''),
+          _buildReferralLinkItem(
+            TranslationService().translate('pointOptions.pointAReferrer.title'),
+            dash.pointAReferer ?? '',
+          ),
         ],
       ),
     );
@@ -696,7 +804,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Expanded(
                 child: Text(
-                  url.isEmpty ? 'No link available' : url,
+                  url.isEmpty
+                      ? TranslationService().translate(
+                          'referral.noLinkAvailable',
+                        )
+                      : url,
                   style: TextStyle(
                     fontSize: 12,
                     color: url.isEmpty
@@ -750,21 +862,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Recent Referral Activity',
-            style: TextStyle(
+          Text(
+            TranslationService().translate('referral.recentReferralActivity'),
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: AppTheme.textColor,
             ),
           ),
           const SizedBox(height: 16),
-          const Center(
+          Center(
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
+              padding: const EdgeInsets.symmetric(vertical: 20),
               child: Text(
-                'No recent referrals.',
-                style: TextStyle(
+                TranslationService().translate('referral.noRecentReferrals'),
+                style: const TextStyle(
                   fontSize: 14,
                   color: AppTheme.textSecondaryColor,
                 ),
@@ -777,13 +889,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               TextButton(
                 onPressed: null,
                 child: Text(
-                  'Previous',
+                  TranslationService().translate('referral.previous'),
                   style: TextStyle(color: Colors.grey[400]),
                 ),
               ),
               TextButton(
                 onPressed: null,
-                child: Text('Next', style: TextStyle(color: Colors.grey[400])),
+                child: Text(
+                  TranslationService().translate('referral.next'),
+                  style: TextStyle(color: Colors.grey[400]),
+                ),
               ),
             ],
           ),

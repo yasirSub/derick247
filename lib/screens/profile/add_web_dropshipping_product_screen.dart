@@ -6,7 +6,12 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../config/theme_config.dart';
 import '../../services/api_service.dart';
+import '../../services/translation_service.dart';
+import '../../services/storage_service.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/translated_text.dart';
+import '../../widgets/currency_selection_dialog.dart';
+import 'package:country_flags/country_flags.dart';
 
 class AddWebDropshippingProductScreen extends StatefulWidget {
   final int? productId; // when present, treat as edit
@@ -44,6 +49,13 @@ class _State extends State<AddWebDropshippingProductScreen> {
   String? _selectedCategoryName;
   final TextEditingController _categorySearchCtrl = TextEditingController();
 
+  // Subcategories
+  bool _loadingSubcategories = false;
+  List<Map<String, dynamic>> _subcategories = const [];
+  String? _selectedSubcategoryId;
+  String? _selectedSubcategoryName;
+  final TextEditingController _subcategorySearchCtrl = TextEditingController();
+
   // Media
   File? _thumbnail;
   final List<File> _gallery = [];
@@ -51,13 +63,40 @@ class _State extends State<AddWebDropshippingProductScreen> {
   final List<String> _existingGalleryUrls = [];
   int _step = 0; // 0: Basic Info, 1: Media
 
+  // Currency
+  String _currencyCode = 'USD';
+  String? _selectedCountryCode; // for showing flag next to currency
+
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _loadDefaultCurrencyFromPrefs();
     if (widget.productId != null) {
       _loadExistingProduct(widget.productId!);
     }
+  }
+
+  Future<void> _loadDefaultCurrencyFromPrefs() async {
+    try {
+      final storage = StorageService();
+      String? saved = await storage.getSelectedCurrency();
+      final String? legacy = await storage.getUserPreference<String>(
+        'currency',
+      );
+      saved ??= legacy;
+      if (saved != null && saved.isNotEmpty && mounted) {
+        setState(() {
+          _currencyCode = saved!;
+        });
+      }
+      final savedIso = await storage.getSelectedCountryCode();
+      if (mounted) {
+        setState(() {
+          _selectedCountryCode = savedIso;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadExistingProduct(int id) async {
@@ -118,6 +157,26 @@ class _State extends State<AddWebDropshippingProductScreen> {
           }
         }
         _categorySearchCtrl.text = _selectedCategoryName ?? '';
+
+        // Subcategory mapping by id, otherwise by name
+        final incomingSubcategoryId = obj['subcategory_id']?.toString();
+        final incomingSubcategoryName =
+            obj['subcategory_name'] ?? obj['subcategory'];
+        if (incomingSubcategoryId != null && incomingSubcategoryId.isNotEmpty) {
+          _selectedSubcategoryId = incomingSubcategoryId;
+        }
+        if (incomingSubcategoryName != null) {
+          _selectedSubcategoryName = incomingSubcategoryName.toString();
+        }
+        _subcategorySearchCtrl.text = _selectedSubcategoryName ?? '';
+
+        // If we have a category ID, fetch subcategories
+        if (_selectedCategoryId != null && _selectedCategoryId!.isNotEmpty) {
+          final categoryIdInt = int.tryParse(_selectedCategoryId!);
+          if (categoryIdInt != null) {
+            _fetchSubcategories(categoryIdInt);
+          }
+        }
 
         // Existing media (for preview)
         final thumb = obj['thumbnail'] ?? obj['thumb'] ?? obj['image'];
@@ -226,7 +285,11 @@ class _State extends State<AddWebDropshippingProductScreen> {
         'type': widget.isNormal ? 'point_regular_product' : 'point_web_product',
         'name': _nameCtrl.text.trim(),
         'category_id': _selectedCategoryId ?? '',
+        if (_selectedSubcategoryId != null &&
+            _selectedSubcategoryId!.isNotEmpty)
+          'subcategory_id': _selectedSubcategoryId,
         'price': _priceCtrl.text.trim(),
+        'currency': _currencyCode,
         'quantity': _quantityCtrl.text.trim(),
         'min_buying_qty': _minQtyCtrl.text.trim(),
         'short_summary': _shortSummaryCtrl.text.trim().isEmpty
@@ -283,19 +346,37 @@ class _State extends State<AddWebDropshippingProductScreen> {
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product submitted for processing')),
+          SnackBar(
+            content: TranslatedText(
+              'dropshipping.productSubmittedForProcessing',
+            ),
+          ),
         );
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: ${res.statusCode}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              TranslationService().translate(
+                'dropshipping.failed',
+                params: {'code': res.statusCode.toString()},
+              ),
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            TranslationService().translate(
+              'dropshipping.error',
+              params: {'error': e.toString()},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -305,7 +386,7 @@ class _State extends State<AddWebDropshippingProductScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Create Product',
+        title: TranslationService().translate('dropshipping.createProduct'),
         isDark: true,
       ),
       backgroundColor: AppTheme.backgroundColor,
@@ -323,32 +404,48 @@ class _State extends State<AddWebDropshippingProductScreen> {
               if (_step == 0) ...[
                 if (!widget.isNormal)
                   _buildText(
-                    'Product Link',
+                    TranslationService().translate('dropshipping.productLink'),
                     _productLinkCtrl,
-                    hint: 'https://example.com/product',
+                    hint: TranslationService().translate(
+                      'dropshipping.productLinkHint',
+                    ),
                     requiredField: true,
                   ),
                 const SizedBox(height: AppTheme.spacingSmall),
-                _buildSectionTitle('Basic Information'),
+                _buildSectionTitle(
+                  TranslationService().translate(
+                    'dropshipping.basicInformation',
+                  ),
+                ),
                 if (widget.isNormal) ...[
-                  _subSectionBar('OWNER DETAILS'),
+                  _subSectionBar(
+                    TranslationService().translate('dropshipping.ownerDetails'),
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: _buildText(
-                          'Owner Name',
+                          TranslationService().translate(
+                            'dropshipping.ownerName',
+                          ),
                           _ownerNameCtrl,
-                          hint: 'e.g., John Doe',
+                          hint: TranslationService().translate(
+                            'dropshipping.ownerNameHint',
+                          ),
                           requiredField: true,
                         ),
                       ),
                       const SizedBox(width: AppTheme.spacingSmall),
                       Expanded(
                         child: _buildText(
-                          'Owner Phone',
+                          TranslationService().translate(
+                            'dropshipping.ownerPhone',
+                          ),
                           _ownerPhoneCtrl,
-                          hint: 'e.g., 01700000000',
+                          hint: TranslationService().translate(
+                            'dropshipping.ownerPhoneHint',
+                          ),
                           requiredField: true,
                           keyboard: TextInputType.phone,
                         ),
@@ -356,15 +453,26 @@ class _State extends State<AddWebDropshippingProductScreen> {
                     ],
                   ),
                   _buildText(
-                    'Comments',
+                    TranslationService().translate('dropshipping.comments'),
                     _ownerCommentsCtrl,
-                    hint: 'e.g., Write your about owner...',
+                    hint: TranslationService().translate(
+                      'dropshipping.commentsHint',
+                    ),
                     maxLines: 3,
                   ),
-                  _subSectionBar('PRODUCT DETAILS'),
+                  _subSectionBar(
+                    TranslationService().translate(
+                      'dropshipping.productDetails',
+                    ),
+                  ),
                 ],
-                _buildText('Product Title', _nameCtrl, requiredField: true),
+                _buildText(
+                  TranslationService().translate('vendor.productTitle'),
+                  _nameCtrl,
+                  requiredField: true,
+                ),
                 _buildCategoryField(),
+                _buildSubcategoryField(),
                 // Make fields more readable on mobile: price in its own row,
                 // then two wide inputs for quantity and minimum order.
                 _buildPriceField(),
@@ -373,31 +481,41 @@ class _State extends State<AddWebDropshippingProductScreen> {
                   children: [
                     Expanded(
                       child: _buildNumberField(
-                        'Product Quantity',
+                        TranslationService().translate(
+                          'dropshipping.productQuantity',
+                        ),
                         _quantityCtrl,
                       ),
                     ),
                     const SizedBox(width: AppTheme.spacingSmall),
                     Expanded(
                       child: _buildNumberField(
-                        'Minimum Order Quantity',
+                        TranslationService().translate(
+                          'dropshipping.minimumOrderQuantity',
+                        ),
                         _minQtyCtrl,
                       ),
                     ),
                   ],
                 ),
                 _buildText(
-                  'Product Short Summary',
+                  TranslationService().translate(
+                    'dropshipping.productShortSummary',
+                  ),
                   _shortSummaryCtrl,
                   maxLines: 3,
                 ),
                 _buildText(
-                  'Product Description',
+                  TranslationService().translate(
+                    'dropshipping.productDescription',
+                  ),
                   _descriptionCtrl,
                   maxLines: 6,
                 ),
               ] else ...[
-                _buildSectionTitle('Media'),
+                _buildSectionTitle(
+                  TranslationService().translate('dropshipping.media'),
+                ),
                 _buildMediaPickers(),
               ],
               const SizedBox(height: AppTheme.spacingLarge),
@@ -411,7 +529,7 @@ class _State extends State<AddWebDropshippingProductScreen> {
                           onPressed: _submitting
                               ? null
                               : () => setState(() => _step = 0),
-                          child: const Text('Back'),
+                          child: TranslatedText('dropshipping.back'),
                         ),
                       ),
                     if (_step == 1) const SizedBox(width: 8),
@@ -438,7 +556,15 @@ class _State extends State<AddWebDropshippingProductScreen> {
                                     const Icon(Icons.upload_file, size: 18),
                                     const SizedBox(width: 6),
                                   ],
-                                  Text(_step == 0 ? 'Next' : 'Upload Product'),
+                                  Text(
+                                    _step == 0
+                                        ? TranslationService().translate(
+                                            'dropshipping.next',
+                                          )
+                                        : TranslationService().translate(
+                                            'dropshipping.uploadProduct',
+                                          ),
+                                  ),
                                 ],
                               ),
                       ),
@@ -475,7 +601,7 @@ class _State extends State<AddWebDropshippingProductScreen> {
         ),
         validator: (v) {
           if (requiredField && (v == null || v.trim().isEmpty)) {
-            return 'Required';
+            return TranslationService().translate('dropshipping.required');
           }
           return null;
         },
@@ -501,7 +627,7 @@ class _State extends State<AddWebDropshippingProductScreen> {
             const SizedBox(height: 8),
             OutlinedButton(
               onPressed: _loadCategories,
-              child: const Text('Retry'),
+              child: TranslatedText('dropshipping.retry'),
             ),
           ],
         ),
@@ -513,11 +639,11 @@ class _State extends State<AddWebDropshippingProductScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 6),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
             child: Text(
-              'Choose Categories',
-              style: TextStyle(fontWeight: FontWeight.w600),
+              TranslationService().translate('dropshipping.chooseCategories'),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
           TextFormField(
@@ -526,11 +652,15 @@ class _State extends State<AddWebDropshippingProductScreen> {
             onTap: _openCategoryPicker,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search),
-              hintText: _selectedCategoryName ?? 'Search category...',
+              hintText:
+                  _selectedCategoryName ??
+                  TranslationService().translate('dropshipping.searchCategory'),
               border: const OutlineInputBorder(),
               isDense: true,
             ),
-            validator: (_) => (_selectedCategoryId == null) ? 'Required' : null,
+            validator: (_) => (_selectedCategoryId == null)
+                ? TranslationService().translate('dropshipping.required')
+                : null,
           ),
         ],
       ),
@@ -573,10 +703,12 @@ class _State extends State<AddWebDropshippingProductScreen> {
                         .toList();
                     (context as Element).markNeedsBuild();
                   },
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Search category...',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    hintText: TranslationService().translate(
+                      'dropshipping.searchCategory',
+                    ),
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                 ),
@@ -595,8 +727,20 @@ class _State extends State<AddWebDropshippingProductScreen> {
                             _selectedCategoryId = item['id'].toString();
                             _selectedCategoryName = (item['name'] ?? '')
                                 .toString();
-                            // keep last filtered set only for picker scope
+                            _categorySearchCtrl.text = _selectedCategoryName!;
+                            // Clear subcategory when category changes
+                            _selectedSubcategoryId = null;
+                            _selectedSubcategoryName = null;
+                            _subcategorySearchCtrl.clear();
+                            _subcategories = const [];
                           });
+                          // Fetch subcategories for selected category
+                          final categoryIdInt = int.tryParse(
+                            _selectedCategoryId!,
+                          );
+                          if (categoryIdInt != null) {
+                            _fetchSubcategories(categoryIdInt);
+                          }
                           Navigator.pop(context);
                         },
                       );
@@ -611,12 +755,204 @@ class _State extends State<AddWebDropshippingProductScreen> {
     );
   }
 
+  Future<void> _fetchSubcategories(int categoryId) async {
+    setState(() {
+      _loadingSubcategories = true;
+      _subcategories = const [];
+    });
+
+    try {
+      final res = await ApiService().getSubcategories(categoryId);
+      final data = res.data;
+
+      List<dynamic> items = const [];
+      if (data is Map<String, dynamic>) {
+        final root = data['data'];
+        if (root is Map<String, dynamic> && root['data'] is List) {
+          items = root['data'] as List;
+        } else if (data['data'] is List) {
+          items = data['data'] as List;
+        } else if (root is List) {
+          items = root;
+        }
+      } else if (data is List) {
+        items = data;
+      }
+
+      final subs = items
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (e) => {
+              'id': (e['id'] ?? e['subcategory_id']).toString(),
+              'name': (e['name'] ?? e['title'] ?? '').toString(),
+            },
+          )
+          .where((e) => e['name']!.isNotEmpty)
+          .toList();
+
+      setState(() {
+        _subcategories = subs;
+        _loadingSubcategories = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loadingSubcategories = false;
+        _subcategories = const [];
+      });
+    }
+  }
+
+  Widget _buildSubcategoryField() {
+    final enabled =
+        _selectedCategoryId != null && _selectedCategoryId!.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spacingMedium),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Product Subcategory',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextFormField(
+            controller: _subcategorySearchCtrl,
+            readOnly: true,
+            enabled: enabled && !_loadingSubcategories,
+            onTap: enabled && !_loadingSubcategories
+                ? _openSubcategoryPicker
+                : null,
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.subdirectory_arrow_right_outlined),
+              hintText: _loadingSubcategories
+                  ? 'Loading subcategories...'
+                  : (enabled
+                        ? (_subcategorySearchCtrl.text.isEmpty
+                              ? 'Select subcategory...'
+                              : null)
+                        : 'Select category first...'),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openSubcategoryPicker() {
+    if (_loadingSubcategories || _subcategories.isEmpty) return;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        List<Map<String, dynamic>> filtered = List.from(_subcategories);
+        final controller = TextEditingController();
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: AppTheme.spacingMedium,
+                  right: AppTheme.spacingMedium,
+                  top: AppTheme.spacingMedium,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      onChanged: (q) {
+                        final query = q.toLowerCase();
+                        setModalState(() {
+                          filtered = _subcategories
+                              .where(
+                                (e) => (e['name'] ?? '')
+                                    .toString()
+                                    .toLowerCase()
+                                    .contains(query),
+                              )
+                              .toList();
+                        });
+                      },
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search),
+                        hintText: TranslationService().translate(
+                          'dropshipping.searchSubcategory',
+                        ),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Flexible(
+                      child: filtered.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: TranslatedText(
+                                'dropshipping.noSubcategoriesFound',
+                              ),
+                            )
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final item = filtered[index];
+                                return ListTile(
+                                  leading: const Icon(
+                                    Icons.label_important_outline,
+                                  ),
+                                  title: Text(item['name'] ?? item['id']),
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedSubcategoryId = item['id']
+                                          .toString();
+                                      _selectedSubcategoryName =
+                                          (item['name'] ?? '').toString();
+                                      _subcategorySearchCtrl.text =
+                                          _selectedSubcategoryName!;
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildStepperTabs() {
     return Row(
       children: [
-        _buildStepChip(1, 'Basic Info', active: _step == 0),
+        _buildStepChip(
+          1,
+          TranslationService().translate('dropshipping.basicInfo'),
+          active: _step == 0,
+        ),
         const SizedBox(width: AppTheme.spacingMedium),
-        _buildStepChip(2, 'Media', active: _step == 1),
+        _buildStepChip(
+          2,
+          TranslationService().translate('dropshipping.media'),
+          active: _step == 1,
+        ),
       ],
     );
   }
@@ -697,32 +1033,120 @@ class _State extends State<AddWebDropshippingProductScreen> {
   Widget _buildPriceField() {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppTheme.spacingSmall),
-      child: TextFormField(
-        controller: _priceCtrl,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: 'Product Price',
-          prefixIcon: Container(
-            alignment: Alignment.center,
-            width: 48,
-            child: const Text('HNL'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            TranslationService().translate('dropshipping.productPrice'),
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
-          border: const OutlineInputBorder(),
-          isDense: false,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spacingMedium,
-            vertical: AppTheme.spacingMedium,
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: _openCurrencyPicker,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_selectedCountryCode != null &&
+                          _selectedCountryCode!.isNotEmpty)
+                        Container(
+                          width: 24,
+                          height: 16,
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                              color: Colors.grey.shade300,
+                              width: .5,
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: CountryFlag.fromCountryCode(
+                            _selectedCountryCode!,
+                            height: 16,
+                            width: 24,
+                          ),
+                        ),
+                      Text(_currencyCode),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_drop_down, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _priceCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.radiusMedium,
+                      ),
+                    ),
+                    isDense: false,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spacingMedium,
+                      vertical: AppTheme.spacingMedium,
+                    ),
+                  ),
+                  validator: (v) {
+                    final txt = (v ?? '').trim();
+                    if (txt.isEmpty)
+                      return TranslationService().translate(
+                        'dropshipping.required',
+                      );
+                    final numVal = num.tryParse(txt);
+                    if (numVal == null || numVal <= 0)
+                      return TranslationService().translate(
+                        'dropshipping.enterValidAmount',
+                      );
+                    return null;
+                  },
+                ),
+              ),
+            ],
           ),
-        ),
-        validator: (v) {
-          final txt = (v ?? '').trim();
-          if (txt.isEmpty) return 'Required';
-          final numVal = num.tryParse(txt);
-          if (numVal == null || numVal <= 0) return 'Enter a valid amount';
-          return null;
-        },
+        ],
       ),
     );
+  }
+
+  void _openCurrencyPicker() {
+    showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const CurrencySelectionDialog(),
+    ).then((selected) {
+      if (selected != null && selected.isNotEmpty && mounted) {
+        setState(() {
+          _currencyCode = selected;
+        });
+        // Also refresh stored country code for flag
+        StorageService().getSelectedCountryCode().then((iso) {
+          if (mounted) {
+            setState(() {
+              _selectedCountryCode = iso;
+            });
+          }
+        });
+      }
+    });
   }
 
   Widget _buildNumberField(String label, TextEditingController c) {
@@ -740,9 +1164,11 @@ class _State extends State<AddWebDropshippingProductScreen> {
       ),
       validator: (v) {
         final txt = (v ?? '').trim();
-        if (txt.isEmpty) return 'Required';
+        if (txt.isEmpty)
+          return TranslationService().translate('dropshipping.required');
         final intVal = int.tryParse(txt);
-        if (intVal == null || intVal < 1) return 'Must be 1 or more';
+        if (intVal == null || intVal < 1)
+          return TranslationService().translate('dropshipping.mustBeOneOrMore');
         return null;
       },
     );
@@ -752,7 +1178,9 @@ class _State extends State<AddWebDropshippingProductScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _mediaSectionTitle('ADD PRODUCT THUMBNAIL'),
+        _mediaSectionTitle(
+          TranslationService().translate('vendor.addProductThumbnail'),
+        ),
         const SizedBox(height: 6),
         _uploadZone(
           height: 160,
@@ -764,7 +1192,9 @@ class _State extends State<AddWebDropshippingProductScreen> {
           child: _buildThumbnailPreview(),
         ),
         const SizedBox(height: AppTheme.spacingMedium),
-        _mediaSectionTitle('ADD PRODUCT GALLERY IMAGES'),
+        _mediaSectionTitle(
+          TranslationService().translate('vendor.addProductGallery'),
+        ),
         const SizedBox(height: 6),
         _uploadZone(
           height: 160,
@@ -826,16 +1256,18 @@ class _State extends State<AddWebDropshippingProductScreen> {
   Widget _uploadHint() {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: const [
-        Icon(
+      children: [
+        const Icon(
           Icons.cloud_upload_outlined,
           size: 28,
           color: AppTheme.textSecondaryColor,
         ),
-        SizedBox(height: 8),
-        Text('Drag & drop image or click to upload'),
-        SizedBox(height: 4),
+        const SizedBox(height: 8),
         Text(
+          TranslationService().translate('dropshipping.dragDropImageOrClick'),
+        ),
+        const SizedBox(height: 4),
+        const Text(
           'Max size: 5MB per file',
           style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
         ),

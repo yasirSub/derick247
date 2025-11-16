@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/translation_service.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/translated_text.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({Key? key}) : super(key: key);
@@ -63,7 +65,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: CustomAppBar(
-        title: 'Edit Profile',
+        title: TranslationService().translate('profile.editProfile'),
         isDark: true,
         actions: [
           if (_isLoading)
@@ -78,9 +80,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           else
             TextButton(
               onPressed: _saveProfile,
-              child: const Text(
-                'Save',
-                style: TextStyle(
+              child: TranslatedText(
+                'profile.save',
+                style: const TextStyle(
                   color: Colors.orange,
                   fontWeight: FontWeight.w600,
                 ),
@@ -165,7 +167,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           const SizedBox(height: AppTheme.spacingMedium),
           Text(
-            'Tap to change profile picture',
+            TranslationService().translate('profile.tapToChangeProfilePicture'),
             style: TextStyle(
               fontSize: AppTheme.fontSizeSmall,
               color: Colors.grey[600],
@@ -193,9 +195,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Personal Information',
-            style: TextStyle(
+          Text(
+            TranslationService().translate('profile.personalInformation'),
+            style: const TextStyle(
               fontSize: AppTheme.fontSizeLarge,
               fontWeight: FontWeight.bold,
               color: AppTheme.textColor,
@@ -207,13 +209,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Expanded(
                 child: TextFormField(
                   controller: _firstNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'First Name',
-                    hintText: 'Enter your first name',
+                  decoration: InputDecoration(
+                    labelText: TranslationService().translate(
+                      'auth.register.firstName',
+                    ),
+                    hintText: TranslationService().translate(
+                      'auth.register.firstNamePlaceholder',
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your first name';
+                      return TranslationService().translate(
+                        'auth.register.firstNameRequired',
+                      );
                     }
                     return null;
                   },
@@ -223,9 +231,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Expanded(
                 child: TextFormField(
                   controller: _lastNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Last Name',
-                    hintText: 'Enter your last name',
+                  decoration: InputDecoration(
+                    labelText: TranslationService().translate(
+                      'auth.register.lastName',
+                    ),
+                    hintText: TranslationService().translate(
+                      'auth.register.lastNamePlaceholder',
+                    ),
                   ),
                 ),
               ),
@@ -235,18 +247,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email Address',
-              hintText: 'Enter your email address',
+            decoration: InputDecoration(
+              labelText: TranslationService().translate(
+                'auth.login.emailLabel',
+              ),
+              hintText: TranslationService().translate('auth.login.emailHint'),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter your email address';
+                return TranslationService().translate(
+                  'auth.login.emailRequired',
+                );
               }
               if (!RegExp(
                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
               ).hasMatch(value)) {
-                return 'Please enter a valid email address';
+                return TranslationService().translate('profile.pleaseEnterValidEmail');
               }
               return null;
             },
@@ -273,9 +289,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Contact Information',
-            style: TextStyle(
+          Text(
+            TranslationService().translate('profile.contactInformation'),
+            style: const TextStyle(
               fontSize: AppTheme.fontSizeLarge,
               fontWeight: FontWeight.bold,
               color: AppTheme.textColor,
@@ -288,9 +304,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 width: 100,
                 child: DropdownButtonFormField<String>(
                   value: _selectedCountryCode,
-                  decoration: const InputDecoration(
-                    labelText: 'Code',
-                    contentPadding: EdgeInsets.symmetric(
+                  decoration: InputDecoration(
+                    labelText: TranslationService().translate('profile.code'),
+                    contentPadding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 16,
                     ),
@@ -313,9 +329,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone Number',
-                    hintText: 'Enter your phone number',
+                  decoration: InputDecoration(
+                    labelText: TranslationService().translate('profile.phoneNumber'),
+                    hintText: TranslationService().translate('profile.enterPhoneNumber'),
                   ),
                 ),
               ),
@@ -328,9 +344,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 width: 100,
                 child: DropdownButtonFormField<String>(
                   value: _selectedWhatsappCountryCode,
-                  decoration: const InputDecoration(
-                    labelText: 'Code',
-                    contentPadding: EdgeInsets.symmetric(
+                  decoration: InputDecoration(
+                    labelText: TranslationService().translate('profile.code'),
+                    contentPadding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 16,
                     ),
@@ -353,9 +369,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: TextFormField(
                   controller: _whatsappController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'WhatsApp Number',
-                    hintText: 'Enter your WhatsApp number',
+                  decoration: InputDecoration(
+                    labelText: TranslationService().translate('profile.whatsappNumber'),
+                    hintText: TranslationService().translate('profile.enterWhatsAppNumber'),
                   ),
                 ),
               ),
@@ -383,9 +399,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Address Information',
-            style: TextStyle(
+          Text(
+            TranslationService().translate('profile.addressInformation'),
+            style: const TextStyle(
               fontSize: AppTheme.fontSizeLarge,
               fontWeight: FontWeight.bold,
               color: AppTheme.textColor,
@@ -395,9 +411,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           TextFormField(
             controller: _addressController,
             maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Address',
-              hintText: 'Enter your full address',
+            decoration: InputDecoration(
+              labelText: TranslationService().translate('profile.address'),
+              hintText: TranslationService().translate('profile.enterFullAddress'),
             ),
           ),
         ],
@@ -427,9 +443,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Text(
-                'Save Changes',
-                style: TextStyle(
+            : TranslatedText(
+                'profile.saveChanges',
+                style: const TextStyle(
                   fontSize: AppTheme.fontSizeLarge,
                   fontWeight: FontWeight.w600,
                 ),
@@ -446,9 +462,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Change Profile Picture',
-              style: TextStyle(
+            TranslatedText(
+              'profile.changeProfilePicture',
+              style: const TextStyle(
                 fontSize: AppTheme.fontSizeLarge,
                 fontWeight: FontWeight.bold,
               ),
@@ -456,26 +472,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: AppTheme.spacingMedium),
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('Take Photo'),
+              title: TranslatedText('profile.takePhoto'),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: Implement camera functionality
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Camera functionality coming soon!'),
+                  SnackBar(
+                    content: TranslatedText('profile.cameraComingSoon'),
                   ),
                 );
               },
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
+              title: TranslatedText('profile.chooseFromGallery'),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: Implement gallery functionality
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Gallery functionality coming soon!'),
+                  SnackBar(
+                    content: TranslatedText('profile.galleryComingSoon'),
                   ),
                 );
               },
@@ -500,8 +516,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
+          SnackBar(
+            content: TranslatedText('profile.profileUpdatedSuccessfully'),
             backgroundColor: Colors.green,
           ),
         );
@@ -511,7 +527,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating profile: $e'),
+            content: Text(
+              TranslationService().translate(
+                'profile.errorUpdatingProfile',
+                params: {'error': e.toString()},
+              ),
+            ),
             backgroundColor: Colors.red,
           ),
         );

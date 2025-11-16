@@ -19,15 +19,19 @@ import '../../widgets/custom_app_bar.dart';
 import '../../widgets/currency_selection_dialog.dart';
 import '../../widgets/login_required_bottom_sheet.dart';
 import '../../widgets/point_options_bottom_sheet.dart';
+import '../../widgets/translated_text.dart';
 import '../../services/storage_service.dart';
 import '../../services/api_service.dart';
+import '../../services/translation_service.dart';
 import '../profile/dashboard_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:country_flags/country_flags.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({Key? key, this.forceRefresh = false}) : super(key: key);
+
+  final bool forceRefresh;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -50,8 +54,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ProductProvider>(context, listen: false).loadProducts();
-      Provider.of<ProductProvider>(context, listen: false).loadCategories();
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+
+      productProvider.loadProducts(refresh: widget.forceRefresh);
+      productProvider.loadCategories();
+
+      if (widget.forceRefresh) {
+        Provider.of<BlackBoardProvider>(
+          context,
+          listen: false,
+        ).loadEntries(refresh: true);
+      }
     });
   }
 
@@ -517,57 +533,61 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                   ),
                                 ]
                               : _banners.isEmpty
-                                  ? [
-                                      // Fallback if no banners
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          AppTheme.radiusMedium,
-                                        ),
-                                        child: Container(
-                                          color: Colors.white,
-                                          width: double.infinity,
-                                          height: double.infinity,
-                                          child: const Center(
-                                            child: Icon(
-                                              Icons.image_not_supported,
-                                              size: 48,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
+                              ? [
+                                  // Fallback if no banners
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusMedium,
+                                    ),
+                                    child: Container(
+                                      color: Colors.white,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.image_not_supported,
+                                          size: 48,
+                                          color: Colors.grey,
                                         ),
                                       ),
-                                    ]
-                                  : _banners.map((banner) {
-                                      final imageUrl = banner['image'] as String?;
-                                      return GestureDetector(
-                                        onTap: () => _openUrl(
-                                            'https://comisionista247.com/'),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            AppTheme.radiusMedium,
-                                          ),
-                                          child: Container(
-                                            color: Colors.white,
-                                            width: double.infinity,
-                                            height: double.infinity,
-                                            child: imageUrl != null
-                                                ? CachedNetworkImage(
-                                                    imageUrl: imageUrl,
-                                                    fit: BoxFit.contain,
-                                                    alignment: Alignment.center,
-                                                    width: double.infinity,
-                                                    height: double.infinity,
-                                                    placeholder: (context, url) =>
-                                                        Container(
+                                    ),
+                                  ),
+                                ]
+                              : _banners.map((banner) {
+                                  final imageUrl = banner['image'] as String?;
+                                  return GestureDetector(
+                                    onTap: () => _openUrl(
+                                      'https://comisionista247.com/',
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusMedium,
+                                      ),
+                                      child: Container(
+                                        color: Colors.white,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        child: imageUrl != null
+                                            ? CachedNetworkImage(
+                                                imageUrl: imageUrl,
+                                                fit: BoxFit.contain,
+                                                alignment: Alignment.center,
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                                placeholder: (context, url) =>
+                                                    Container(
                                                       color: Colors.white,
                                                       child: const Center(
                                                         child:
                                                             CircularProgressIndicator(),
                                                       ),
                                                     ),
-                                                    errorWidget: (context, url,
-                                                            error) =>
-                                                        Container(
+                                                errorWidget:
+                                                    (
+                                                      context,
+                                                      url,
+                                                      error,
+                                                    ) => Container(
                                                       color: Colors.white,
                                                       child: const Center(
                                                         child: Icon(
@@ -577,21 +597,20 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                                         ),
                                                       ),
                                                     ),
-                                                  )
-                                                : Container(
-                                                    color: Colors.white,
-                                                    child: const Center(
-                                                      child: Icon(
-                                                        Icons
-                                                            .image_not_supported,
-                                                        color: Colors.grey,
-                                                      ),
-                                                    ),
+                                              )
+                                            : Container(
+                                                color: Colors.white,
+                                                child: const Center(
+                                                  child: Icon(
+                                                    Icons.image_not_supported,
+                                                    color: Colors.grey,
                                                   ),
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
                         ),
                         // Page Indicators
                         Positioned(
@@ -632,8 +651,8 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Shop by Category',
+                        const TranslatedText(
+                          'home.shopByCategory',
                           style: TextStyle(
                             fontSize: AppTheme.fontSizeLarge,
                             fontWeight: FontWeight.bold,
@@ -650,7 +669,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                               ),
                             );
                           },
-                          child: const Text('See More'),
+                          child: const TranslatedText('app.seeMore'),
                         ),
                       ],
                     ),
@@ -812,8 +831,8 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Featured Products',
+                        const TranslatedText(
+                          'home.featuredProducts',
                           style: TextStyle(
                             fontSize: AppTheme.fontSizeLarge,
                             fontWeight: FontWeight.bold,
@@ -832,7 +851,13 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                   _isGridView = !_isGridView;
                                 });
                               },
-                              tooltip: _isGridView ? 'List View' : 'Grid View',
+                              tooltip: _isGridView
+                                  ? TranslationService().translate(
+                                      'home.listView',
+                                    )
+                                  : TranslationService().translate(
+                                      'home.gridView',
+                                    ),
                             ),
                             TextButton(
                               onPressed: () {
@@ -845,7 +870,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                   ),
                                 );
                               },
-                              child: const Text('See More'),
+                              child: const TranslatedText('app.seeMore'),
                             ),
                           ],
                         ),
@@ -863,10 +888,10 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                       ),
                     )
                   else if (productProvider.products.isEmpty)
-                    const Center(
+                    Center(
                       child: Padding(
                         padding: EdgeInsets.all(AppTheme.spacingLarge),
-                        child: Text('No products available'),
+                        child: TranslatedText('home.noProducts'),
                       ),
                     )
                   else
@@ -922,9 +947,11 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                             size: 20,
                                           ),
                                           const SizedBox(width: 8),
-                                          const Expanded(
+                                          Expanded(
                                             child: Text(
-                                              'Added to cart! Tap to view cart.',
+                                              TranslationService().translate(
+                                                'cart.addedTapToView',
+                                              ),
                                               style: TextStyle(
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.w500,
@@ -1008,7 +1035,9 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                         backgroundColor: AppTheme.successColor,
                                         duration: const Duration(seconds: 3),
                                         action: SnackBarAction(
-                                          label: 'VIEW CART',
+                                          label: TranslationService().translate(
+                                            'cart.viewCart',
+                                          ),
                                           textColor: Colors.white,
                                           onPressed: () {
                                             // Navigate to cart screen
@@ -1100,15 +1129,15 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                     PointOptionsBottomSheet.show(context);
                   }
                 },
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  width: 64,
-                  height: 64,
+                  width: 48,
+                  height: 48,
                   alignment: Alignment.center,
                   child: const Icon(
-                    Icons.add_rounded,
+                    Icons.podcasts,
                     color: Colors.white,
-                    size: 32,
+                    size: 24,
                   ),
                 ),
               ),

@@ -8,53 +8,100 @@ class DeepLinkService {
 
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSubscription;
-  StreamSubscription<Uri>? _uriLinkSubscription;
 
   // Callback function to handle deep links
   Function(Uri)? onLinkReceived;
 
+  // Store pending links until callback is set
+  Uri? _pendingLink;
+
   /// Initialize deep link listening
   void initialize() {
-    // Handle links when app is already open
+    print('🔧 Initializing deep link service...');
+
+    // Handle links when app is already open or in background
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (Uri uri) {
+        print('📱 Deep link from stream: $uri');
         _handleDeepLink(uri);
       },
       onError: (Object err) {
-        print('Deep link error: $err');
+        print('❌ Deep link stream error: $err');
       },
     );
 
     // Handle initial link when app is opened from a deep link
-    _appLinks.getInitialLink().then((Uri? uri) {
-      if (uri != null) {
-        _handleDeepLink(uri);
-      }
-    });
+    // This might be called before the callback is set, so we store it
+    _appLinks
+        .getInitialLink()
+        .timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            print('⏱️ Timeout getting initial link');
+            return null;
+          },
+        )
+        .then((Uri? uri) {
+          if (uri != null) {
+            print('🚀 Initial deep link received: $uri');
+            // Store pending link if callback not set yet
+            if (onLinkReceived == null) {
+              print('⏳ Callback not set yet, storing pending link');
+              _pendingLink = uri;
+              // Try again after a delay
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (_pendingLink != null && onLinkReceived != null) {
+                  print('✅ Processing pending link: $_pendingLink');
+                  final link = _pendingLink;
+                  _pendingLink = null;
+                  _handleDeepLink(link!);
+                }
+              });
+            } else {
+              _handleDeepLink(uri);
+            }
+          } else {
+            print('ℹ️ No initial deep link');
+          }
+        })
+        .catchError((err) {
+          print('❌ Error getting initial link: $err');
+        });
+  }
 
-    // Handle links when app is in background and opened
-    _uriLinkSubscription = _appLinks.uriLinkStream.listen(
-      (Uri uri) {
-        _handleDeepLink(uri);
-      },
-      onError: (Object err) {
-        print('Deep link error: $err');
-      },
-    );
+  /// Set the callback and process any pending links
+  void setCallback(Function(Uri) callback) {
+    onLinkReceived = callback;
+    if (_pendingLink != null) {
+      print('✅ Callback set, processing pending link: $_pendingLink');
+      final link = _pendingLink;
+      _pendingLink = null;
+      _handleDeepLink(link!);
+    }
   }
 
   /// Handle incoming deep link
   void _handleDeepLink(Uri uri) {
-    print('Deep link received: $uri');
+    print('🔗 Deep link received in service: $uri');
     if (onLinkReceived != null) {
       onLinkReceived!(uri);
+    } else {
+      print(
+        '⚠️ Warning: Deep link received but onLinkReceived callback is null!',
+      );
+      // Retry after a short delay in case callback is being set
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (onLinkReceived != null) {
+          print('✅ Retrying deep link handling...');
+          onLinkReceived!(uri);
+        }
+      });
     }
   }
 
   /// Dispose resources
   void dispose() {
     _linkSubscription?.cancel();
-    _uriLinkSubscription?.cancel();
   }
 
   /// Parse deep link and extract route information
@@ -64,6 +111,7 @@ class DeepLinkService {
     final queryParams = uri.queryParameters;
 
     print('🔍 Parsing deep link: path=$path, queryParams=$queryParams');
+    print('   - Full URI: $uri');
 
     // Handle different deep link patterns
     if (path.startsWith('/product/') || path.contains('/product/')) {
@@ -71,11 +119,23 @@ class DeepLinkService {
       // Format: /product/{slug} or /product/{id}
       final productMatch = RegExp(r'/product/([^/?]+)').firstMatch(path);
       if (productMatch != null) {
-        final productIdentifier = productMatch.group(1)!;
+        // Decode URL-encoded characters (e.g., %20 -> space, %2F -> /)
+        final rawIdentifier = productMatch.group(1)!;
+        final productIdentifier = Uri.decodeComponent(rawIdentifier);
+
+        print('🔍 Extracted product identifier from URL:');
+        print('   - Raw: "$rawIdentifier"');
+        print('   - Decoded: "$productIdentifier"');
+
+        // Check for referral code
+        if (queryParams.containsKey('ref')) {
+          print('   - Referral code found: ${queryParams['ref']}');
+        }
 
         // Try to parse as numeric ID first
         final productId = int.tryParse(productIdentifier);
         if (productId != null) {
+          print('✅ Product identifier is numeric ID: $productId');
           return DeepLinkRoute(
             type: DeepLinkType.product,
             productId: productId,
@@ -86,6 +146,7 @@ class DeepLinkService {
         } else {
           // It's a slug or non-numeric ID (e.g., "laptop-BJt35c")
           // Store it as both slug and identifier - we'll try both approaches
+          print('✅ Product identifier is slug: "$productIdentifier"');
           return DeepLinkRoute(
             type: DeepLinkType.product,
             productId: null,
@@ -161,24 +222,51 @@ class DeepLinkService {
         type: DeepLinkType.profile,
         queryParams: queryParams,
       );
-    } else if (path.startsWith('/checkout-guest/')) {
-      // Extract referral code from path
-      // Format: /checkout-guest/{referralCode}
+    } else if (path.startsWith('/checkout/') || path.contains('/checkout/')) {
+      // Extract checkout token from path
+      // Format: /checkout/{token} (for guest checkout)
+      final checkoutMatch = RegExp(r'/checkout/([^/?]+)').firstMatch(path);
+      if (checkoutMatch != null) {
+        final checkoutToken = checkoutMatch.group(1)!;
+        return DeepLinkRoute(
+          type: DeepLinkType.checkoutGuest,
+          checkoutToken: checkoutToken,
+          queryParams: queryParams,
+        );
+      }
+      // Also support /checkout-guest/{token} for backward compatibility
+    } else if (path.startsWith('/checkout-guest/') ||
+        path.contains('/checkout-guest/')) {
+      // Extract token from path
+      // Format: /checkout-guest/{token}
       final checkoutMatch = RegExp(
         r'/checkout-guest/([^/?]+)',
       ).firstMatch(path);
       if (checkoutMatch != null) {
-        final referralCode = checkoutMatch.group(1)!;
+        // Decode URL-encoded characters
+        final rawToken = checkoutMatch.group(1)!;
+        final checkoutToken = Uri.decodeComponent(rawToken);
+
+        print('🔍 Extracted checkout token from URL:');
+        print('   - Raw: "$rawToken"');
+        print('   - Decoded: "$checkoutToken"');
+
         return DeepLinkRoute(
           type: DeepLinkType.checkoutGuest,
-          queryParams: {...queryParams, 'ref': referralCode},
+          checkoutToken: checkoutToken,
+          queryParams: queryParams,
         );
       }
-      // Also support /checkout-guest with ref in query params
-      return DeepLinkRoute(
-        type: DeepLinkType.checkoutGuest,
-        queryParams: queryParams,
-      );
+      // Also support /checkout-guest with token in query params
+      final tokenFromQuery = queryParams['token'];
+      if (tokenFromQuery != null) {
+        print('🔍 Checkout token from query params: $tokenFromQuery');
+        return DeepLinkRoute(
+          type: DeepLinkType.checkoutGuest,
+          checkoutToken: tokenFromQuery,
+          queryParams: queryParams,
+        );
+      }
     } else if (path.startsWith('/order/') || path.contains('/order/')) {
       // Extract order ID from path
       final orderIdMatch = RegExp(r'/order/(\d+)').firstMatch(path);
@@ -220,6 +308,7 @@ class DeepLinkRoute {
   final String? productIdentifier; // Can be ID or slug - try both
   final int? categoryId;
   final int? orderId;
+  final String? checkoutToken; // Token for guest checkout
   final Map<String, String> queryParams;
 
   DeepLinkRoute({
@@ -229,6 +318,7 @@ class DeepLinkRoute {
     this.productIdentifier,
     this.categoryId,
     this.orderId,
+    this.checkoutToken,
     this.queryParams = const {},
   });
 }

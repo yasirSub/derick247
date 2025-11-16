@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import '../config/theme_config.dart';
 import '../models/product_model.dart';
 import '../services/api_service.dart';
+import '../services/translation_service.dart';
+import 'translated_text.dart';
 
 class ReferralFormPopup extends StatefulWidget {
   final Product product;
@@ -74,9 +76,12 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
     if (_friendStatus.isEmpty) {
+      final translationService = TranslationService();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select friend status'),
+        SnackBar(
+          content: Text(
+            translationService.translate('refer.selectFriendStatus'),
+          ),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -178,8 +183,8 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                     child: Row(
                       children: [
                         const Expanded(
-                          child: Text(
-                            'Refer and Earn',
+                          child: TranslatedText(
+                            'refer.referAndEarn',
                             style: TextStyle(
                               fontSize: AppTheme.fontSizeXLarge,
                               fontWeight: FontWeight.bold,
@@ -257,8 +262,8 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                           const SizedBox(height: AppTheme.spacingMedium),
 
                           // Instructions
-                          const Text(
-                            'Complete the step below to invite your friend',
+                          const TranslatedText(
+                            'refer.completeStep',
                             style: TextStyle(
                               fontSize: AppTheme.fontSizeMedium,
                               color: Colors.white70,
@@ -268,8 +273,8 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                           const SizedBox(height: AppTheme.spacingLarge),
 
                           // Friend's Name Field
-                          const Text(
-                            'Friend\'s Name',
+                          const TranslatedText(
+                            'refer.friendsName',
                             style: TextStyle(
                               fontSize: AppTheme.fontSizeMedium,
                               fontWeight: FontWeight.w500,
@@ -300,7 +305,10 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Please enter friend\'s name';
+                                final translationService = TranslationService();
+                                return translationService.translate(
+                                  'refer.friendNameRequired',
+                                );
                               }
                               return null;
                             },
@@ -309,8 +317,8 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                           const SizedBox(height: AppTheme.spacingLarge),
 
                           // Friend's Phone Field
-                          const Text(
-                            'Friend\'s Phone',
+                          const TranslatedText(
+                            'refer.friendsPhone',
                             style: TextStyle(
                               fontSize: AppTheme.fontSizeMedium,
                               fontWeight: FontWeight.w500,
@@ -342,7 +350,10 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Please enter friend\'s phone';
+                                final translationService = TranslationService();
+                                return translationService.translate(
+                                  'refer.friendPhoneRequired',
+                                );
                               }
                               return null;
                             },
@@ -351,8 +362,8 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                           const SizedBox(height: AppTheme.spacingLarge),
 
                           // How Ready Are You? Dropdown
-                          const Text(
-                            'How Ready Are You?',
+                          const TranslatedText(
+                            'refer.howReady',
                             style: TextStyle(
                               fontSize: AppTheme.fontSizeMedium,
                               fontWeight: FontWeight.w500,
@@ -377,8 +388,8 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                                 value: _friendStatus.isEmpty
                                     ? null
                                     : _friendStatus,
-                                hint: const Text(
-                                  'Select One',
+                                hint: const TranslatedText(
+                                  'refer.selectOne',
                                   style: TextStyle(color: Colors.white70),
                                 ),
                                 style: const TextStyle(color: Colors.white),
@@ -412,8 +423,8 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                           const SizedBox(height: AppTheme.spacingLarge),
 
                           // Notes Field
-                          const Text(
-                            'Notes',
+                          const TranslatedText(
+                            'refer.notes',
                             style: TextStyle(
                               fontSize: AppTheme.fontSizeMedium,
                               fontWeight: FontWeight.w500,
@@ -473,8 +484,8 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
                                             color: Colors.black,
                                           ),
                                         )
-                                      : const Text(
-                                          'Send Invitation',
+                                      : const TranslatedText(
+                                          'refer.sendInvitation',
                                           style: TextStyle(
                                             fontSize: AppTheme.fontSizeMedium,
                                             fontWeight: FontWeight.bold,

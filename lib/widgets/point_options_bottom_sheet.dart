@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../screens/profile/add_web_dropshipping_product_screen.dart';
+import '../services/translation_service.dart';
 import 'vendor_share_popup.dart';
 
 class PointOptionsBottomSheet extends StatelessWidget {
@@ -19,10 +21,7 @@ class PointOptionsBottomSheet extends StatelessWidget {
     );
   }
 
-  void _handleOptionTap(
-    BuildContext context,
-    String option,
-  ) {
+  void _handleOptionTap(BuildContext context, String option) {
     // Close the bottom sheet first
     Navigator.of(context).pop();
 
@@ -80,11 +79,7 @@ class PointOptionsBottomSheet extends StatelessWidget {
             color: iconColor ?? const Color(0xFFFFC107), // Yellow background
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            icon,
-            color: Colors.black,
-            size: 24,
-          ),
+          child: Icon(icon, color: Colors.black, size: 24),
         ),
         title: Text(
           title,
@@ -96,15 +91,9 @@ class PointOptionsBottomSheet extends StatelessWidget {
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(
-            color: Color(0xFFB0B0B0),
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: Color(0xFFB0B0B0), fontSize: 14),
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: Colors.white,
-        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.white),
         onTap: () => _handleOptionTap(context, option),
       ),
     );
@@ -112,6 +101,10 @@ class PointOptionsBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final translationService = Provider.of<TranslationService>(
+      context,
+      listen: true,
+    );
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF1F1F1F), // Dark bluish-grey background
@@ -130,9 +123,9 @@ class PointOptionsBottomSheet extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Point Options',
-                    style: TextStyle(
+                  Text(
+                    translationService.translate('pointOptions.title'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -161,8 +154,12 @@ class PointOptionsBottomSheet extends StatelessWidget {
                   // Point a Vendor
                   _buildOptionTile(
                     context: context,
-                    title: 'Point a Vendor',
-                    subtitle: 'Create and manage vendor products',
+                    title: translationService.translate(
+                      'pointOptions.pointAVendor.title',
+                    ),
+                    subtitle: translationService.translate(
+                      'pointOptions.pointAVendor.subtitle',
+                    ),
                     icon: Icons.store,
                     option: 'vendor',
                   ),
@@ -170,8 +167,12 @@ class PointOptionsBottomSheet extends StatelessWidget {
                   // Point a Referrer
                   _buildOptionTile(
                     context: context,
-                    title: 'Point a Referrer',
-                    subtitle: 'Refer friends and earn rewards',
+                    title: translationService.translate(
+                      'pointOptions.pointAReferrer.title',
+                    ),
+                    subtitle: translationService.translate(
+                      'pointOptions.pointAReferrer.subtitle',
+                    ),
                     icon: Icons.person_add,
                     option: 'referrer',
                   ),
@@ -179,8 +180,12 @@ class PointOptionsBottomSheet extends StatelessWidget {
                   // Point A Web Product
                   _buildOptionTile(
                     context: context,
-                    title: 'Point A Web Product',
-                    subtitle: 'Add web product with link',
+                    title: translationService.translate(
+                      'pointOptions.pointAWebProduct.title',
+                    ),
+                    subtitle: translationService.translate(
+                      'pointOptions.pointAWebProduct.subtitle',
+                    ),
                     icon: Icons.link,
                     option: 'web_product',
                   ),
@@ -188,8 +193,12 @@ class PointOptionsBottomSheet extends StatelessWidget {
                   // Point A Regular Product
                   _buildOptionTile(
                     context: context,
-                    title: 'Point A Regular Product',
-                    subtitle: 'Add normal product (dropshipping)',
+                    title: translationService.translate(
+                      'pointOptions.pointARegularProduct.title',
+                    ),
+                    subtitle: translationService.translate(
+                      'pointOptions.pointARegularProduct.subtitle',
+                    ),
                     icon: Icons.shopping_bag,
                     option: 'regular_product',
                   ),
@@ -204,4 +213,3 @@ class PointOptionsBottomSheet extends StatelessWidget {
     );
   }
 }
-

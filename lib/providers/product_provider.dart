@@ -60,14 +60,18 @@ class ProductProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         // Handle different response structures
         List<dynamic> dataList = [];
+        Map<String, dynamic>? paginationData;
         
         if (response.data['data'] != null) {
           if (response.data['data'] is List) {
             dataList = response.data['data'] as List;
           } else if (response.data['data']['data'] is List) {
             dataList = response.data['data']['data'] as List;
+            // Extract pagination metadata
+            paginationData = response.data['data'] as Map<String, dynamic>?;
           } else if (response.data['data']['products'] is List) {
             dataList = response.data['data']['products'] as List;
+            paginationData = response.data['data'] as Map<String, dynamic>?;
           }
         }
         
@@ -94,8 +98,29 @@ class ProductProvider extends ChangeNotifier {
           _products.addAll(newProducts);
         }
 
+        // Check pagination metadata to determine if there are more pages
+        if (paginationData != null) {
+          // Check if next_page_url exists and is not null
+          final nextPageUrl = paginationData['next_page_url'];
+          if (nextPageUrl != null) {
+            _hasMore = true;
+          } else {
+            // Fallback: compare current_page with last_page
+            final currentPage = paginationData['current_page'] as int?;
+            final lastPage = paginationData['last_page'] as int?;
+            if (currentPage != null && lastPage != null) {
+              _hasMore = currentPage < lastPage;
+            } else {
+              // If no pagination metadata, check if we got a full page
+              _hasMore = newProducts.length >= 10;
+            }
+          }
+        } else {
+          // Fallback: if no pagination metadata, check if we got a full page
+          _hasMore = newProducts.length >= 10;
+        }
+        
         _currentPage++;
-        _hasMore = newProducts.length >= 10; // Assuming 10 items per page
       } else {
         print('❌ API returned status: ${response.statusCode}');
         print('❌ Response: ${response.data}');
@@ -214,6 +239,10 @@ class ProductProvider extends ChangeNotifier {
 
   /// Load product by identifier - tries ID first, then slug if ID fails
   Future<void> loadProductDetailByIdentifier(String identifier) async {
+    print('🔍 loadProductDetailByIdentifier called with: "$identifier"');
+    print('   - Identifier length: ${identifier.length}');
+    print('   - Identifier type: ${identifier.runtimeType}');
+    
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -228,9 +257,13 @@ class ProductProvider extends ChangeNotifier {
         try {
           // Call the internal method directly to avoid double loading state
           final response = await _apiService.getProductDetail(productId);
+          print('📦 Response status: ${response.statusCode}');
+          print('📦 Response data keys: ${response.data.keys}');
+          
           if (response.statusCode == 200) {
             if (response.data['data'] != null) {
               final productData = response.data['data'];
+              print('✅ Product data found (ID): ${productData['id'] ?? 'N/A'}');
               print('🏳️ Product data flag (ID): ${productData['flag']}');
               _selectedProduct = Product.fromJson(productData);
               print('🏳️ Parsed product flag (ID): ${_selectedProduct?.flag}');
@@ -238,37 +271,193 @@ class ProductProvider extends ChangeNotifier {
               _isLoading = false;
               notifyListeners();
               return; // Success!
+            } else {
+              print('⚠️ Response data is null, will try as slug');
             }
+          } else {
+            print('⚠️ Failed to load by ID (status: ${response.statusCode}), will try as slug');
+            print('   Response: ${response.data}');
           }
-          print('⚠️ Failed to load by ID (status: ${response.statusCode}), will try as slug');
         } catch (e) {
-          print('⚠️ Failed to load by ID, will try as slug: $e');
+          print('⚠️ Exception loading by ID, will try as slug: $e');
+          print('   Error type: ${e.runtimeType}');
+          // If it's a 500 error on ID, still try slug
+          if (!e.toString().contains('500') && !e.toString().contains('Server error')) {
+            // If it's not a server error, rethrow immediately
+            rethrow;
+          }
         }
       }
       
       // If ID approach failed or identifier is not numeric, try as slug
-      print('🔍 Trying to load product by slug: $identifier');
-      final response = await _apiService.getProductDetailBySlug(identifier);
-      if (response.statusCode == 200) {
-        if (response.data['data'] != null) {
-          final productData = response.data['data'];
-          print('🏳️ Product data flag (slug): ${productData['flag']}');
-          _selectedProduct = Product.fromJson(productData);
-          print('🏳️ Parsed product flag (slug): ${_selectedProduct?.flag}');
-          _error = null;
+      print('🔍 Trying to load product by slug: "$identifier"');
+      print('   - Slug length: ${identifier.length}');
+      print('   - Slug contains spaces: ${identifier.contains(" ")}');
+      print('   - Slug contains special chars: ${identifier.contains(RegExp(r'[^a-zA-Z0-9\-_]'))}');
+      
+      try {
+        // First, try direct slug API call
+        print('🔄 Trying direct slug API call...');
+        final response = await _apiService.getProductDetailBySlug(identifier);
+        print('📦 Slug response status: ${response.statusCode}');
+        
+        if (response.statusCode == 200) {
+          if (response.data['data'] != null) {
+            final productData = response.data['data'];
+            print('✅ Product data found (slug): ${productData['id'] ?? 'N/A'}');
+            print('🏳️ Product data flag (slug): ${productData['flag']}');
+            _selectedProduct = Product.fromJson(productData);
+            print('🏳️ Parsed product flag (slug): ${_selectedProduct?.flag}');
+            _error = null;
+          } else {
+            _error = 'Product data not found in response';
+            print('⚠️ Product response data is null');
+            print('   Response structure: ${response.data.keys}');
+          }
         } else {
-          _error = 'Product data not found';
+          _error = 'Failed to load product (Status: ${response.statusCode})';
+          print('❌ Product API returned status: ${response.statusCode}');
+          print('   Response: ${response.data}');
+          // Check if server returned an error message
+          if (response.data['message'] != null) {
+            _error = response.data['message'].toString();
+          }
         }
-      } else {
-        _error = 'Failed to load product details';
+      } catch (slugError) {
+        print('❌ Error loading product by slug: $slugError');
+        print('   Error details: ${slugError.toString()}');
+        
+        // Check if it's a 500 error (server-side bug)
+        final is500Error = slugError.toString().contains('500') || 
+                          slugError.toString().contains('Server error') ||
+                          slugError.toString().contains('shippingAvailable');
+        
+        // If slug lookup fails with 500, try to find the product in the products list as fallback
+        if (is500Error) {
+          print('🔄 Slug API returned 500 (server bug detected). Trying products list fallback...');
+          try {
+            // Load products list and search for matching slug
+            // Try with larger limit to find the product
+            final productsResponse = await _apiService.getProducts(limit: 200); // Get more products
+            if (productsResponse.statusCode == 200 && productsResponse.data['data'] != null) {
+              // Handle different response structures (same as loadProducts method)
+              List<dynamic> productsList = [];
+              
+              if (productsResponse.data['data'] is List) {
+                productsList = productsResponse.data['data'] as List;
+              } else if (productsResponse.data['data'] is Map) {
+                final dataMap = productsResponse.data['data'] as Map;
+                if (dataMap['data'] is List) {
+                  productsList = dataMap['data'] as List;
+                } else if (dataMap['products'] is List) {
+                  productsList = dataMap['products'] as List;
+                }
+              }
+              
+              if (productsList.isNotEmpty) {
+                print('📋 Searching ${productsList.length} products for slug: "$identifier"');
+                
+                // Search for product by slug in the list
+                for (var productData in productsList) {
+                  // Ensure productData is a Map
+                  if (productData is! Map<String, dynamic>) continue;
+                  
+                  final productSlug = productData['slug']?.toString() ?? '';
+                  final productId = productData['id']?.toString();
+                  
+                  // Try exact match first
+                  if (productSlug.toLowerCase() == identifier.toLowerCase() || 
+                      productId == identifier) {
+                    print('✅ Found product in list: ID=${productData['id']}, slug=$productSlug');
+                    // Load full details by ID instead (this should work)
+                    final foundId = productData['id'] as int?;
+                    if (foundId != null) {
+                      try {
+                        print('🔄 Loading product details by ID: $foundId');
+                        final detailResponse = await _apiService.getProductDetail(foundId);
+                        if (detailResponse.statusCode == 200 && detailResponse.data['data'] != null) {
+                          _selectedProduct = Product.fromJson(detailResponse.data['data']);
+                          _error = null;
+                          _isLoading = false;
+                          notifyListeners();
+                          print('✅ Product loaded successfully via fallback (by ID)');
+                          return; // Success!
+                        }
+                      } catch (idError) {
+                        print('⚠️ Failed to load product by found ID: $idError');
+                      }
+                    }
+                  }
+                }
+                
+                // Try partial match if exact match failed
+                print('⚠️ Exact match not found. Trying partial match...');
+                for (var productData in productsList) {
+                  // Ensure productData is a Map
+                  if (productData is! Map<String, dynamic>) continue;
+                  
+                  final productSlug = productData['slug']?.toString() ?? '';
+                  if (productSlug.toLowerCase().contains(identifier.toLowerCase()) ||
+                      identifier.toLowerCase().contains(productSlug.toLowerCase())) {
+                    print('✅ Found similar product: ID=${productData['id']}, slug=$productSlug');
+                    final foundId = productData['id'] as int?;
+                    if (foundId != null) {
+                      try {
+                        final detailResponse = await _apiService.getProductDetail(foundId);
+                        if (detailResponse.statusCode == 200 && detailResponse.data['data'] != null) {
+                          _selectedProduct = Product.fromJson(detailResponse.data['data']);
+                          _error = null;
+                          _isLoading = false;
+                          notifyListeners();
+                          print('✅ Product loaded via partial match fallback');
+                          return;
+                        }
+                      } catch (idError) {
+                        print('⚠️ Failed to load product by partial match ID: $idError');
+                      }
+                    }
+                  }
+                }
+                
+                print('⚠️ Product not found in products list (checked ${productsList.length} products)');
+              } else {
+                print('⚠️ Products list is empty or invalid structure');
+              }
+            }
+          } catch (listError) {
+            print('⚠️ Failed to load products list for fallback: $listError');
+          }
+          
+          // If fallback also failed, set error message
+          _error = 'Server error: Unable to load product. Please try again later or contact support.';
+        } else if (slugError.toString().contains('404')) {
+          _error = 'Product not found. The product may have been removed or the link is invalid.';
+        } else if (slugError.toString().contains('timeout')) {
+          _error = 'Request timed out. Please check your connection and try again.';
+        } else {
+          _error = 'Failed to load product: ${slugError.toString()}';
+        }
+        
+        // Don't throw - let the error be shown in UI
+        // The error is already set above
       }
       
     } catch (e) {
-      print('❌ Error loading product by identifier: $e');
-      _error = e.toString();
+      print('❌ Top-level error in loadProductDetailByIdentifier: $e');
+      // Only set error if it's not already set
+      if (_error == null) {
+        if (e.toString().contains('500') || e.toString().contains('Server error')) {
+          _error = 'Server error loading product. Please try again later.';
+        } else if (e.toString().contains('404') || e.toString().contains('Not found')) {
+          _error = 'Product not found. Please check the link and try again.';
+        } else {
+          _error = 'Failed to load product: ${e.toString()}';
+        }
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
+      print('📊 Final state - isLoading: $_isLoading, error: $_error, product: ${_selectedProduct != null ? "loaded" : "null"}');
     }
   }
 

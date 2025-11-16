@@ -215,11 +215,154 @@ class ApiService {
   }
 
   Future<Response> getProductDetail(int productId) async {
-    return await _dio.get('${ApiConfig.productDetail}$productId');
+    print('🔗 Fetching product by ID: $productId');
+    final url = '${ApiConfig.productDetail}$productId';
+    print('🔗 Full URL: ${ApiConfig.baseUrl}$url');
+    print('🔑 Auth token available: ${_authToken != null}');
+
+    try {
+      // Build headers - include auth token if available (for public browsing, token is optional)
+      final headers = Map<String, String>.from(ApiConfig.jsonHeaders);
+      if (_authToken != null) {
+        headers['Authorization'] = 'Bearer $_authToken';
+        print('🔑 Sending auth token with request');
+      } else {
+        print('ℹ️ No auth token - allowing public access to product details');
+      }
+
+      final response = await _dio.get(url, options: Options(headers: headers));
+      print('✅ Product loaded by ID: Status ${response.statusCode}');
+      return response;
+    } catch (e) {
+      print('❌ Error fetching product by ID $productId: $e');
+      rethrow;
+    }
   }
 
   Future<Response> getProductDetailBySlug(String slug) async {
-    return await _dio.get('${ApiConfig.productDetail}$slug');
+    print('🔗 Fetching product by slug: "$slug"');
+    print('   - Slug type: ${slug.runtimeType}');
+    print('   - Slug length: ${slug.length}');
+    print('🔑 Auth token available: ${_authToken != null}');
+
+    // Clean the slug - remove any trailing slashes or query params
+    final cleanSlug = slug.trim().replaceAll(RegExp(r'/$'), '');
+
+    // Build headers - include auth token if available (for public browsing, token is optional)
+    final headers = Map<String, String>.from(ApiConfig.jsonHeaders);
+    if (_authToken != null) {
+      headers['Authorization'] = 'Bearer $_authToken';
+      print('🔑 Sending auth token with request');
+    } else {
+      print('ℹ️ No auth token - allowing public access to product details');
+    }
+
+    // Try multiple URL formats since browser URL might work differently than API
+    final urlFormats = [
+      cleanSlug, // As-is (no encoding)
+      Uri.encodeComponent(cleanSlug), // Fully encoded
+      Uri.encodeFull(cleanSlug), // Path-encoded (keeps / and ?)
+    ];
+
+    for (int i = 0; i < urlFormats.length; i++) {
+      final url = '${ApiConfig.productDetail}${urlFormats[i]}';
+      final fullUrl = '${ApiConfig.baseUrl}$url';
+      print('🔗 Attempt ${i + 1}: $fullUrl');
+
+      try {
+        final response = await _dio.get(
+          url,
+          options: Options(
+            headers: headers,
+            validateStatus: (status) =>
+                status != null &&
+                status < 600, // Don't throw on 500, we'll check it
+          ),
+        );
+
+        print('📦 Response status: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          print(
+            '✅ Product loaded by slug (attempt ${i + 1}): Status ${response.statusCode}',
+          );
+          return response;
+        } else if (response.statusCode == 404) {
+          // 404 means endpoint exists but product not found - try next format
+          print(
+            '⚠️ Product not found (404) with format ${i + 1}, trying next...',
+          );
+          continue;
+        } else if (response.statusCode == 500) {
+          // 500 means server error - log the error details
+          print('❌ Server error (500) with format ${i + 1}');
+          if (response.data != null && response.data is Map) {
+            final errorData = response.data as Map;
+            print('   Error message: ${errorData['message']}');
+            print('   Exception: ${errorData['exception']}');
+            print('   File: ${errorData['file']}');
+          } else {
+            print('   Response data: ${response.data}');
+          }
+
+          if (i < urlFormats.length - 1) {
+            print('   Trying next URL format...');
+            continue;
+          } else {
+            // Last attempt failed with 500 - include error details in exception
+            final errorMessage = response.data != null && response.data is Map
+                ? (response.data as Map)['message']?.toString() ??
+                      'Server error (500)'
+                : 'Server error (500)';
+
+            throw DioException(
+              requestOptions: RequestOptions(path: url),
+              response: Response(
+                requestOptions: RequestOptions(path: url),
+                statusCode: 500,
+                data: response.data,
+              ),
+              type: DioExceptionType.badResponse,
+              error: errorMessage,
+            );
+          }
+        }
+      } catch (e) {
+        // Check if it's a 500 error (either from status code or error message)
+        final is500Error =
+            (e is DioException && e.response?.statusCode == 500) ||
+            e.toString().contains('500') ||
+            e.toString().contains('shippingAvailable');
+
+        if (is500Error) {
+          // If it's a 500, try next format
+          if (i < urlFormats.length - 1) {
+            print('❌ Server error (500) with format ${i + 1}, trying next...');
+            continue;
+          }
+        }
+        // For last attempt, rethrow
+        if (i == urlFormats.length - 1) {
+          print('❌ All URL format attempts failed. Last error: $e');
+          // Include error message in the exception for better detection
+          if (e is DioException && e.response?.statusCode == 500) {
+            final errorMsg = e.response?.data != null && e.response!.data is Map
+                ? (e.response!.data as Map)['message']?.toString() ?? e.message
+                : e.message;
+            throw DioException(
+              requestOptions: e.requestOptions,
+              response: e.response,
+              type: e.type,
+              error: errorMsg ?? 'Server error (500)',
+            );
+          }
+          rethrow;
+        }
+      }
+    }
+
+    // Should not reach here, but just in case
+    throw Exception('Failed to load product with all URL formats');
   }
 
   Future<Response> getCategories() async {
@@ -287,6 +430,110 @@ class ApiService {
         validateStatus: (status) => true,
       ),
     );
+  }
+
+  // Get guest checkout information by token
+  Future<Response> getGuestCheckout(String checkoutToken) async {
+    print('🛒 Fetching guest checkout with token: $checkoutToken');
+
+    // Build headers - include auth token if available (optional for guest checkout)
+    final headers = Map<String, String>.from(ApiConfig.jsonHeaders);
+    if (_authToken != null) {
+      headers['Authorization'] = 'Bearer $_authToken';
+      print('🔑 Sending auth token with guest checkout request');
+    } else {
+      print('ℹ️ No auth token - guest checkout (public access)');
+    }
+
+    // Use checkout-guest endpoint, not checkout endpoint
+    final url = 'checkout-guest/$checkoutToken';
+    final fullUrl = '${ApiConfig.baseUrl}$url';
+    print('🔗 Full URL: $fullUrl');
+
+    try {
+      final response = await _dio.get(
+        url,
+        options: Options(
+          headers: headers,
+          validateStatus: (status) =>
+              status != null && status < 600, // Don't throw on 500
+        ),
+      );
+
+      print('📦 Guest checkout response status: ${response.statusCode}');
+
+      if (response.statusCode == 500) {
+        // Log server error details
+        if (response.data != null && response.data is Map) {
+          final errorData = response.data as Map;
+          print('❌ Server error (500) details:');
+          print('   - Message: ${errorData['message']}');
+          print('   - Exception: ${errorData['exception']}');
+          print('   - File: ${errorData['file']}');
+        }
+      }
+
+      return response;
+    } catch (e) {
+      print('❌ Error fetching guest checkout: $e');
+      rethrow;
+    }
+  }
+
+  // Submit guest checkout
+  Future<Response> submitGuestCheckout(
+    String checkoutToken,
+    Map<String, dynamic> checkoutData,
+  ) async {
+    print('🛒 Submitting guest checkout with token: $checkoutToken');
+
+    // Build headers - include auth token if available (optional for guest checkout)
+    final headers = Map<String, String>.from(ApiConfig.jsonHeaders);
+    if (_authToken != null) {
+      headers['Authorization'] = 'Bearer $_authToken';
+      print('🔑 Sending auth token with guest checkout submission');
+    } else {
+      print('ℹ️ No auth token - guest checkout (public access)');
+    }
+
+    // Add checkout token to the request data
+    final requestData = Map<String, dynamic>.from(checkoutData);
+    requestData['checkout_token'] = checkoutToken;
+
+    // Use POST to checkout-guest endpoint (not with token in URL)
+    final url = 'checkout-guest';
+    final fullUrl = '${ApiConfig.baseUrl}$url';
+    print('🔗 Full URL: $fullUrl');
+    print('📤 Request data: $requestData');
+
+    try {
+      final response = await _dio.post(
+        url,
+        data: requestData,
+        options: Options(
+          headers: headers,
+          validateStatus: (status) => status != null && status < 600,
+        ),
+      );
+
+      print(
+        '📦 Guest checkout submission response status: ${response.statusCode}',
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ Guest checkout submitted successfully');
+        if (response.data != null && response.data is Map) {
+          final data = response.data as Map;
+          print('   - Status: ${data['status']}');
+          print('   - Order ID: ${data['order_id']}');
+          print('   - PayPal Order ID: ${data['orderID']}');
+          print('   - Approval Link: ${data['approvalLink']}');
+        }
+      }
+      return response;
+    } catch (e) {
+      print('❌ Error submitting guest checkout: $e');
+      rethrow;
+    }
   }
 
   // Add new shipping address (legacy endpoint)
@@ -384,7 +631,7 @@ class ApiService {
   Future<Response> getCities(int stateId) async {
     return await _dio.get(
       ApiConfig.locations,
-      queryParameters: {'states': stateId},
+      queryParameters: {'state_id': stateId},
     );
   }
 
@@ -460,6 +707,8 @@ class ApiService {
       options: Options(
         headers: ApiConfig.formHeaders,
         contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) =>
+            true, // Accept all status codes for error handling
       ),
     );
   }
@@ -472,16 +721,93 @@ class ApiService {
     int productId,
     Map<String, dynamic> productData,
   ) async {
-    final formData = FormData.fromMap({'_method': 'PUT', ...productData});
+    // Enable debug logging for update operations
+    final wasDebugLogging = debugLogging;
+    debugLogging = true;
 
-    return await _dio.post(
-      '${ApiConfig.vendorProduct}/$productId',
-      data: formData,
-      options: Options(
-        headers: ApiConfig.formHeaders,
-        contentType: Headers.multipartFormDataContentType,
-      ),
-    );
+    try {
+      print('🔄 [UPDATE PRODUCT] Starting update for product ID: $productId');
+      print('   → Endpoint: ${ApiConfig.vendorProduct}');
+      print('   → Product ID: $productId');
+      print('   → Method: POST with _method: PUT');
+
+      // Log payload keys (excluding file data)
+      final payloadKeys = productData.keys.toList();
+      print('   → Payload keys: $payloadKeys');
+
+      // Log specific fields for debugging
+      if (productData.containsKey('name')) {
+        print('   → Name: ${productData['name']}');
+      }
+      if (productData.containsKey('price')) {
+        print('   → Price: ${productData['price']}');
+      }
+      if (productData.containsKey('category_id')) {
+        print('   → Category ID: ${productData['category_id']}');
+      }
+      if (productData.containsKey('currency')) {
+        print('   → Currency: ${productData['currency']}');
+      }
+
+      // Add product ID to payload and use _method: PUT
+      // Use the same endpoint as create, but include product_id in payload
+      final updatePayload = {
+        '_method': 'PUT',
+        'product_id': productId,
+        'id': productId,
+        ...productData,
+      };
+
+      print(
+        '   → Update payload includes: product_id=$productId, id=$productId',
+      );
+
+      final formData = FormData.fromMap(updatePayload);
+
+      final response = await _dio.post(
+        ApiConfig.vendorProduct, // Same endpoint as create
+        data: formData,
+        options: Options(
+          headers: ApiConfig.formHeaders,
+          contentType: Headers.multipartFormDataContentType,
+          validateStatus: (status) =>
+              true, // Accept all status codes for error handling
+        ),
+      );
+
+      print('✅ [UPDATE PRODUCT] Response received');
+      print('   → Status Code: ${response.statusCode}');
+      print('   → Headers: ${response.headers}');
+
+      if (response.data != null) {
+        if (response.data is Map) {
+          print('   → Response keys: ${(response.data as Map).keys.toList()}');
+          if (response.data.containsKey('message')) {
+            print('   → Message: ${response.data['message']}');
+          }
+          if (response.data.containsKey('errors')) {
+            print('   → Errors: ${response.data['errors']}');
+          }
+          if (response.data.containsKey('success')) {
+            print('   → Success: ${response.data['success']}');
+          }
+        } else {
+          print('   → Response data type: ${response.data.runtimeType}');
+          print(
+            '   → Response data: ${response.data.toString().substring(0, response.data.toString().length > 500 ? 500 : response.data.toString().length)}',
+          );
+        }
+      }
+
+      return response;
+    } catch (e, stackTrace) {
+      print('❌ [UPDATE PRODUCT] Error occurred');
+      print('   → Error: $e');
+      print('   → Stack trace: $stackTrace');
+      rethrow;
+    } finally {
+      debugLogging = wasDebugLogging;
+    }
   }
 
   Future<Response> deleteVendorProduct(int productId) async {

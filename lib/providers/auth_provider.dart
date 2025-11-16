@@ -129,6 +129,12 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // If user is already null, there's nothing to logout
+    if (_user == null) {
+      print('ℹ️ Logout called but user is already null - no action needed');
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -136,8 +142,12 @@ class AuthProvider extends ChangeNotifier {
       await _authService.logout();
       _user = null;
       _error = null;
+      print('✅ User logged out successfully');
     } catch (e) {
-      _error = e.toString();
+      print('⚠️ Error during logout: $e');
+      // Even if logout API call fails, clear local user data
+      _user = null;
+      _error = null;
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/theme_config.dart';
 import '../../services/api_service.dart';
+import '../../services/translation_service.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/translated_text.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({Key? key}) : super(key: key);
@@ -86,7 +88,9 @@ class _WalletScreenState extends State<WalletScreen>
         setState(() {
           _error =
               response.data['message']?.toString() ??
-              'Failed to load wallet information';
+              TranslationService().translate(
+                'wallet.failedToLoadWalletInformation',
+              );
         });
       }
     } catch (e) {
@@ -124,8 +128,8 @@ class _WalletScreenState extends State<WalletScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Buy Equxx',
+                    Text(
+                      TranslationService().translate('wallet.buyEquxx'),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -143,8 +147,8 @@ class _WalletScreenState extends State<WalletScreen>
                 const SizedBox(height: 24),
 
                 // Points field
-                const Text(
-                  'Points',
+                Text(
+                  TranslationService().translate('wallet.points'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -163,7 +167,9 @@ class _WalletScreenState extends State<WalletScreen>
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    hintText: 'Enter points (min 5)',
+                    hintText: TranslationService().translate(
+                      'wallet.enterPointsMin',
+                    ),
                     hintStyle: TextStyle(color: Colors.grey[400]),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -236,8 +242,12 @@ class _WalletScreenState extends State<WalletScreen>
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              const Text(
-                                'PayPal',
+                              Text(
+                                TranslationService()
+                                        .translate('checkout.paymentMethod')
+                                        .contains('PayPal')
+                                    ? 'PayPal'
+                                    : 'PayPal',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -298,8 +308,8 @@ class _WalletScreenState extends State<WalletScreen>
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              const Text(
-                                'Wallet',
+                              Text(
+                                TranslationService().translate('wallet.wallet'),
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -324,8 +334,10 @@ class _WalletScreenState extends State<WalletScreen>
                         : () async {
                             if (pointsController.text.trim().isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please enter points'),
+                                SnackBar(
+                                  content: TranslatedText(
+                                    'wallet.pleaseEnterPoints',
+                                  ),
                                   backgroundColor: AppTheme.errorColor,
                                 ),
                               );
@@ -337,8 +349,10 @@ class _WalletScreenState extends State<WalletScreen>
                             );
                             if (points == null || points < 5) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Minimum 5 points required'),
+                                SnackBar(
+                                  content: TranslatedText(
+                                    'wallet.minimumPointsRequired',
+                                  ),
                                   backgroundColor: AppTheme.errorColor,
                                 ),
                               );
@@ -381,23 +395,28 @@ class _WalletScreenState extends State<WalletScreen>
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Column(
                                                 mainAxisSize: MainAxisSize.min,
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    'Opening PayPal in your browser...',
-                                                    style: TextStyle(
+                                                    TranslationService()
+                                                        .translate(
+                                                          'wallet.openingPayPal',
+                                                        ),
+                                                    style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold,
                                                     ),
                                                   ),
-                                                  SizedBox(height: 4),
+                                                  const SizedBox(height: 4),
                                                   Text(
-                                                    'Please login to PayPal to complete your points purchase.',
-                                                    style: TextStyle(
+                                                    TranslationService().translate(
+                                                      'wallet.pleaseLoginPayPal',
+                                                    ),
+                                                    style: const TextStyle(
                                                       fontSize: 12,
                                                     ),
                                                   ),
@@ -456,8 +475,11 @@ class _WalletScreenState extends State<WalletScreen>
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                const Text(
-                                                  'Please open this URL in your browser:',
+                                                Text(
+                                                  TranslationService()
+                                                      .translate(
+                                                        'wallet.pleaseOpenUrl',
+                                                      ),
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                   ),
@@ -488,7 +510,9 @@ class _WalletScreenState extends State<WalletScreen>
                                     SnackBar(
                                       content: Text(
                                         response.data['message']?.toString() ??
-                                            'Points purchase initiated successfully!',
+                                            TranslationService().translate(
+                                              'wallet.pointsPurchaseSuccess',
+                                            ),
                                       ),
                                       backgroundColor: AppTheme.successColor,
                                       duration: const Duration(seconds: 3),
@@ -503,7 +527,9 @@ class _WalletScreenState extends State<WalletScreen>
                                     SnackBar(
                                       content: Text(
                                         response.data['message']?.toString() ??
-                                            'Failed to purchase points',
+                                            TranslationService().translate(
+                                              'wallet.failedToPurchasePoints',
+                                            ),
                                       ),
                                       backgroundColor: AppTheme.errorColor,
                                     ),
@@ -600,8 +626,10 @@ class _WalletScreenState extends State<WalletScreen>
                         ? null
                         : () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Card payment coming soon!'),
+                              SnackBar(
+                                content: TranslatedText(
+                                  'wallet.cardPaymentComingSoon',
+                                ),
                                 backgroundColor: AppTheme.successColor,
                               ),
                             );
@@ -616,12 +644,18 @@ class _WalletScreenState extends State<WalletScreen>
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.credit_card, color: Colors.white, size: 20),
-                        SizedBox(width: 8),
+                      children: [
+                        const Icon(
+                          Icons.credit_card,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
                         Text(
-                          'Debit or Credit Card',
-                          style: TextStyle(
+                          TranslationService().translate(
+                            'wallet.debitOrCreditCard',
+                          ),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -634,14 +668,14 @@ class _WalletScreenState extends State<WalletScreen>
                 const SizedBox(height: 16),
 
                 // Powered by PayPal
-                const Center(
+                Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Powered by ',
-                        style: TextStyle(
+                        TranslationService().translate('wallet.poweredBy'),
+                        style: const TextStyle(
                           color: Color(0xFF9CA3AF),
                           fontSize: 12,
                         ),
@@ -689,8 +723,8 @@ class _WalletScreenState extends State<WalletScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Send Money',
+                    Text(
+                      TranslationService().translate('wallet.sendMoney'),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -709,8 +743,8 @@ class _WalletScreenState extends State<WalletScreen>
                 const SizedBox(height: 8),
 
                 // Email field
-                const Text(
-                  'Email',
+                Text(
+                  TranslationService().translate('app.email'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -729,7 +763,9 @@ class _WalletScreenState extends State<WalletScreen>
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    hintText: 'Enter recipient email',
+                    hintText: TranslationService().translate(
+                      'wallet.enterRecipientEmail',
+                    ),
                     hintStyle: TextStyle(color: Colors.grey[400]),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -781,8 +817,10 @@ class _WalletScreenState extends State<WalletScreen>
                         : () async {
                             if (emailController.text.trim().isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please enter recipient email'),
+                                SnackBar(
+                                  content: TranslatedText(
+                                    'wallet.pleaseEnterRecipientEmail',
+                                  ),
                                   backgroundColor: AppTheme.errorColor,
                                 ),
                               );
@@ -820,7 +858,9 @@ class _WalletScreenState extends State<WalletScreen>
                                     SnackBar(
                                       content: Text(
                                         response.data['message']?.toString() ??
-                                            'Money sent successfully!',
+                                            TranslationService().translate(
+                                              'wallet.moneySentSuccess',
+                                            ),
                                       ),
                                       backgroundColor: AppTheme.successColor,
                                       duration: const Duration(seconds: 3),
@@ -831,7 +871,9 @@ class _WalletScreenState extends State<WalletScreen>
                                     SnackBar(
                                       content: Text(
                                         response.data['message']?.toString() ??
-                                            'Failed to send money',
+                                            TranslationService().translate(
+                                              'wallet.failedToSendMoney',
+                                            ),
                                       ),
                                       backgroundColor: AppTheme.errorColor,
                                     ),
@@ -1498,8 +1540,10 @@ class _WalletScreenState extends State<WalletScreen>
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                const Text(
-                                                  'Please open PayPal in your browser:',
+                                                Text(
+                                                  TranslationService().translate(
+                                                    'wallet.pleaseOpenPayPal',
+                                                  ),
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                   ),
@@ -1673,12 +1717,16 @@ class _WalletScreenState extends State<WalletScreen>
       appBar: CustomAppBar(
         titleWidget: Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.account_balance_wallet, color: Colors.white, size: 24),
-            SizedBox(width: 8),
+          children: [
+            const Icon(
+              Icons.account_balance_wallet,
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
             Text(
-              'Wallet',
-              style: TextStyle(
+              TranslationService().translate('wallet.wallet'),
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -1700,7 +1748,7 @@ class _WalletScreenState extends State<WalletScreen>
           : _error != null
           ? _buildErrorState()
           : _walletData == null
-          ? const Center(child: Text('No wallet data available'))
+          ? Center(child: TranslatedText('wallet.noWalletDataAvailable'))
           : _buildTabContent(),
     );
   }
@@ -1713,7 +1761,7 @@ class _WalletScreenState extends State<WalletScreen>
           Icon(Icons.error_outline, size: 64, color: AppTheme.errorColor),
           const SizedBox(height: 16),
           Text(
-            'Failed to load wallet',
+            TranslationService().translate('wallet.failedToLoadWallet'),
             style: TextStyle(fontSize: 18, color: AppTheme.errorColor),
           ),
           const SizedBox(height: 8),
@@ -1725,7 +1773,7 @@ class _WalletScreenState extends State<WalletScreen>
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadWalletData,
-            child: const Text('Retry'),
+            child: TranslatedText('app.retry'),
           ),
         ],
       ),
@@ -1767,9 +1815,9 @@ class _WalletScreenState extends State<WalletScreen>
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
-            tabs: const [
-              Tab(text: 'Wallet'),
-              Tab(text: 'Transactions'),
+            tabs: [
+              Tab(text: TranslationService().translate('wallet.wallet')),
+              Tab(text: TranslationService().translate('wallet.transactions')),
             ],
           ),
         ),
@@ -1802,8 +1850,8 @@ class _WalletScreenState extends State<WalletScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'My Wallets',
+                  Text(
+                    TranslationService().translate('wallet.myWallets'),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -3047,8 +3095,8 @@ class _WalletScreenState extends State<WalletScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Transactions',
+          Text(
+            TranslationService().translate('wallet.transactions'),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -3063,8 +3111,8 @@ class _WalletScreenState extends State<WalletScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Transaction',
+                Text(
+                  TranslationService().translate('wallet.transaction'),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -3072,8 +3120,8 @@ class _WalletScreenState extends State<WalletScreen>
                     letterSpacing: 0.3,
                   ),
                 ),
-                const Text(
-                  'Amount',
+                Text(
+                  TranslationService().translate('wallet.amount'),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -3104,7 +3152,9 @@ class _WalletScreenState extends State<WalletScreen>
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'No transactions yet',
+                      TranslationService().translate(
+                        'wallet.noTransactionsYet',
+                      ),
                       style: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
