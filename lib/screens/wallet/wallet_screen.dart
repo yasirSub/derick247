@@ -931,220 +931,642 @@ class _WalletScreenState extends State<WalletScreen>
 
   Future<void> _handleWithdraw() async {
     final emailController = TextEditingController();
+    final cardNumberController = TextEditingController();
+    final cardHolderController = TextEditingController();
+    final expiryController = TextEditingController();
+    final cvvController = TextEditingController();
     final amountController = TextEditingController();
+    String? selectedPaymentMethod; // 'paypal' or 'card'
     bool _isSubmitting = false;
 
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
-          backgroundColor: const Color(0xFF1E293B), // Dark blue-grey
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with title and close button
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Withdraw Funds',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+        builder: (context, setDialogState) => SingleChildScrollView(
+          child: Dialog(
+            backgroundColor: const Color(0xFF1E293B), // Dark blue-grey
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with title and close button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Withdraw Funds',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24, height: 24),
+                  const SizedBox(height: 8),
+
+                  // Amount field
+                  const Text(
+                    'Amount (USD)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFF334155), // Dark grey
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      hintText: 'Enter amount',
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      prefixText: '\$',
+                      prefixStyle: const TextStyle(color: Colors.white),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Payment method selection
+                  const Text(
+                    'Select Withdrawal Method',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // PayPal button
+                  GestureDetector(
+                    onTap: _isSubmitting
+                        ? null
+                        : () {
+                            setDialogState(() {
+                              selectedPaymentMethod = 'paypal';
+                            });
+                          },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: selectedPaymentMethod == 'paypal'
+                            ? const Color(0xFFFFC439) // Gold when selected
+                            : const Color(
+                                0xFF334155,
+                              ), // Dark grey when not selected
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: selectedPaymentMethod == 'paypal'
+                              ? const Color(
+                                  0xFF003087,
+                                ) // PayPal blue border when selected
+                              : Colors
+                                    .grey[600]!, // Light grey border when not selected
+                          width: 2,
+                        ),
+                        boxShadow: selectedPaymentMethod == 'paypal'
+                            ? [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFFFFC439,
+                                  ).withOpacity(0.5),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // PayPal Icon
+                          if (selectedPaymentMethod == 'paypal')
+                            SizedBox(
+                              width: 28,
+                              height: 20,
+                              child: Stack(
+                                children: [
+                                  Positioned(
+                                    left: 0,
+                                    child: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF003087), // Dark blue
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    left: 8,
+                                    child: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF009CDE), // Light blue
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            SizedBox(
+                              width: 28,
+                              height: 20,
+                              child: Stack(
+                                children: [
+                                  Positioned(
+                                    left: 0,
+                                    child: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[400],
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    left: 8,
+                                    child: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[500],
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'PayPal',
+                            style: TextStyle(
+                              color: selectedPaymentMethod == 'paypal'
+                                  ? const Color(
+                                      0xFF003087,
+                                    ) // PayPal blue when selected
+                                  : Colors
+                                        .grey[300], // Faded grey when not selected
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Card button
+                  GestureDetector(
+                    onTap: _isSubmitting
+                        ? null
+                        : () {
+                            setDialogState(() {
+                              selectedPaymentMethod = 'card';
+                            });
+                          },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: selectedPaymentMethod == 'card'
+                            ? const Color(0xFF1E40AF) // Dark blue when selected
+                            : const Color(
+                                0xFF334155,
+                              ), // Dark grey when not selected
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: selectedPaymentMethod == 'card'
+                              ? Colors.white
+                              : Colors
+                                    .grey[600]!, // Light grey border when not selected
+                          width: 2,
+                        ),
+                        boxShadow: selectedPaymentMethod == 'card'
+                            ? [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFF1E40AF,
+                                  ).withOpacity(0.5),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.credit_card,
+                            color: selectedPaymentMethod == 'card'
+                                ? Colors.white
+                                : Colors.grey[300], // Faded when not selected
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Debit or Credit Card',
+                            style: TextStyle(
+                              color: selectedPaymentMethod == 'card'
+                                  ? Colors.white
+                                  : Colors.grey[300], // Faded when not selected
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Show fields based on selected payment method
+                  if (selectedPaymentMethod == 'paypal') ...[
+                    // PayPal Email field
+                    const Text(
+                      'PayPal Email',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFF334155), // Dark grey
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        hintText: 'Enter PayPal email',
+                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
+                  ] else if (selectedPaymentMethod == 'card') ...[
+                    // Card Holder Name
+                    const Text(
+                      'Card Holder Name',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: cardHolderController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFF334155),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        hintText: 'Enter card holder name',
+                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Card Number
+                    const Text(
+                      'Card Number',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: cardNumberController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFF334155),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        hintText: '1234 5678 9012 3456',
+                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Expiry and CVV row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Expiry Date',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: expiryController,
+                                keyboardType: TextInputType.number,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: const Color(0xFF334155),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  hintText: 'MM/YY',
+                                  hintStyle: TextStyle(color: Colors.grey[400]),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'CVV',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: cvvController,
+                                keyboardType: TextInputType.number,
+                                obscureText: true,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: const Color(0xFF334155),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  hintText: '123',
+                                  hintStyle: TextStyle(color: Colors.grey[400]),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-                const Divider(color: Colors.white24, height: 24),
-                const SizedBox(height: 8),
+                  const SizedBox(height: 24),
 
-                // PayPal Email field
-                const Text(
-                  'PayPal Email',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFF334155), // Dark grey
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    hintText: 'Enter PayPal email',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
+                  // Withdraw button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () async {
+                              if (amountController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please enter amount'),
+                                    backgroundColor: AppTheme.errorColor,
+                                  ),
+                                );
+                                return;
+                              }
 
-                // Amount field
-                const Text(
-                  'Amount',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: amountController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFF334155), // Dark grey
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    hintText: 'Enter amount',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    prefixText: '\$',
-                    prefixStyle: const TextStyle(color: Colors.white),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Withdraw button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isSubmitting
-                        ? null
-                        : () async {
-                            if (emailController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please enter PayPal email'),
-                                  backgroundColor: AppTheme.errorColor,
-                                ),
+                              final amount = double.tryParse(
+                                amountController.text.trim(),
                               );
-                              return;
-                            }
+                              if (amount == null || amount <= 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Please enter a valid amount',
+                                    ),
+                                    backgroundColor: AppTheme.errorColor,
+                                  ),
+                                );
+                                return;
+                              }
 
-                            if (amountController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please enter amount'),
-                                  backgroundColor: AppTheme.errorColor,
-                                ),
-                              );
-                              return;
-                            }
+                              if (selectedPaymentMethod == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Please select a withdrawal method',
+                                    ),
+                                    backgroundColor: AppTheme.errorColor,
+                                  ),
+                                );
+                                return;
+                              }
 
-                            setDialogState(() {
-                              _isSubmitting = true;
-                            });
-
-                            try {
-                              final response = await _apiService
-                                  .withdrawFromWallet({
-                                    'email': emailController.text.trim(),
-                                    'amount': amountController.text.trim(),
-                                  });
-
-                              if (mounted) {
-                                Navigator.of(context).pop();
-
-                                if (response.statusCode == 200) {
-                                  // Reload wallet data
-                                  await _loadWalletData();
-
+                              // Validate payment method specific fields
+                              if (selectedPaymentMethod == 'paypal') {
+                                if (emailController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
+                                    const SnackBar(
                                       content: Text(
-                                        response.data['message']?.toString() ??
-                                            'Withdrawal submitted successfully!',
+                                        'Please enter PayPal email',
                                       ),
-                                      backgroundColor: AppTheme.successColor,
-                                      duration: const Duration(seconds: 3),
+                                      backgroundColor: AppTheme.errorColor,
                                     ),
                                   );
-                                } else {
+                                  return;
+                                }
+                              } else if (selectedPaymentMethod == 'card') {
+                                if (cardHolderController.text.trim().isEmpty ||
+                                    cardNumberController.text.trim().isEmpty ||
+                                    expiryController.text.trim().isEmpty ||
+                                    cvvController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Please fill all card details',
+                                      ),
+                                      backgroundColor: AppTheme.errorColor,
+                                    ),
+                                  );
+                                  return;
+                                }
+                              }
+
+                              setDialogState(() {
+                                _isSubmitting = true;
+                              });
+
+                              try {
+                                Map<String, dynamic> withdrawData = {
+                                  'amount': amountController.text.trim(),
+                                  'payment_method': selectedPaymentMethod,
+                                };
+
+                                // Add payment method specific data
+                                if (selectedPaymentMethod == 'paypal') {
+                                  withdrawData['email'] = emailController.text
+                                      .trim();
+                                } else if (selectedPaymentMethod == 'card') {
+                                  withdrawData['card_holder'] =
+                                      cardHolderController.text.trim();
+                                  withdrawData['card_number'] =
+                                      cardNumberController.text.trim();
+                                  withdrawData['expiry'] = expiryController.text
+                                      .trim();
+                                  withdrawData['cvv'] = cvvController.text
+                                      .trim();
+                                }
+
+                                final response = await _apiService
+                                    .withdrawFromWallet(withdrawData);
+
+                                if (mounted) {
+                                  Navigator.of(context).pop();
+
+                                  if (response.statusCode == 200) {
+                                    // Reload wallet data
+                                    await _loadWalletData();
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          response.data['message']
+                                                  ?.toString() ??
+                                              'Withdrawal submitted successfully!',
+                                        ),
+                                        backgroundColor: AppTheme.successColor,
+                                        duration: const Duration(seconds: 3),
+                                      ),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          response.data['message']
+                                                  ?.toString() ??
+                                              'Failed to submit withdrawal',
+                                        ),
+                                        backgroundColor: AppTheme.errorColor,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  Navigator.of(context).pop();
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text(
-                                        response.data['message']?.toString() ??
-                                            'Failed to submit withdrawal',
-                                      ),
+                                      content: Text('Error: ${e.toString()}'),
                                       backgroundColor: AppTheme.errorColor,
                                     ),
                                   );
                                 }
                               }
-                            } catch (e) {
-                              if (mounted) {
-                                Navigator.of(context).pop();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error: ${e.toString()}'),
-                                    backgroundColor: AppTheme.errorColor,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7C3AED), // Purple
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7C3AED), // Purple
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
                       ),
-                      elevation: 0,
-                    ),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'Withdraw',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          )
-                        : const Text(
-                            'Withdraw',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

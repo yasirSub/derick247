@@ -29,6 +29,7 @@ class _DropshippingProductsScreenState
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
   String _query = '';
+  String? _selectedFilter; // 'all', 'web', 'normal', null
 
   @override
   void initState() {
@@ -48,32 +49,73 @@ class _DropshippingProductsScreenState
       final data = response.data;
 
       // Debug print the shape to help diagnose empties
-      // ignore: avoid_print
-      print('Dropshipping API raw response: ${data.runtimeType} -> $data');
+      print('📦 [DROPSHIPPING LIST] API raw response type: ${data.runtimeType}');
+      if (data is Map) {
+        print('📦 [DROPSHIPPING LIST] Response keys: ${data.keys.toList()}');
+      }
 
-      // Tolerate common shapes: [], {data: []}, {products: []}, {result: []}, {items: []}, {data: {data: []}}
+      // Tolerate common shapes: [], {data: []}, {products: []}, {result: []}, {items: []}, {data: {data: []}}, {success: true, data: {data: []}}
       List<dynamic> items = const [];
       if (data is List) {
         items = data;
+        print('📦 [DROPSHIPPING LIST] Data is List, items count: ${items.length}');
       } else if (data is Map<String, dynamic>) {
         final map = data;
-        if (map['data'] is List) {
+        print('📦 [DROPSHIPPING LIST] Data is Map, checking nested structures...');
+        
+        // Handle {success: true, data: {data: [...]}} structure
+        if (map['success'] != null && map['data'] is Map<String, dynamic>) {
+          final innerData = map['data'] as Map<String, dynamic>;
+          print('📦 [DROPSHIPPING LIST] Found success wrapper, checking inner data...');
+          if (innerData['data'] is List) {
+            items = innerData['data'] as List;
+            print('📦 [DROPSHIPPING LIST] Found items in data.data, count: ${items.length}');
+          }
+        }
+        // Handle {data: {data: [...]}} structure
+        else if (map['data'] is Map && (map['data'] as Map)['data'] is List) {
+          items = (map['data'] as Map)['data'] as List;
+          print('📦 [DROPSHIPPING LIST] Found items in data.data, count: ${items.length}');
+        }
+        // Handle {data: []} structure
+        else if (map['data'] is List) {
           items = map['data'] as List;
-        } else if (map['products'] is List) {
+          print('📦 [DROPSHIPPING LIST] Found items in data, count: ${items.length}');
+        }
+        // Handle other common keys
+        else if (map['products'] is List) {
           items = map['products'] as List;
+          print('📦 [DROPSHIPPING LIST] Found items in products, count: ${items.length}');
         } else if (map['items'] is List) {
           items = map['items'] as List;
+          print('📦 [DROPSHIPPING LIST] Found items in items, count: ${items.length}');
         } else if (map['result'] is List) {
           items = map['result'] as List;
-        } else if (map['data'] is Map && (map['data'] as Map)['data'] is List) {
-          items = (map['data'] as Map)['data'] as List;
+          print('📦 [DROPSHIPPING LIST] Found items in result, count: ${items.length}');
+        } else {
+          print('⚠️ [DROPSHIPPING LIST] Could not find products array in response');
         }
       }
 
+      print('📦 [DROPSHIPPING LIST] Processing ${items.length} items into Product objects...');
       List<Product> products = items
           .whereType<Map<String, dynamic>>()
-          .map((e) => Product.fromJson(e))
+          .map((e) {
+            try {
+              return Product.fromJson(e);
+            } catch (error) {
+              print('❌ [DROPSHIPPING LIST] Error parsing product: $error');
+              print('   Product data: $e');
+              return null;
+            }
+          })
+          .whereType<Product>()
           .toList();
+      
+      print('✅ [DROPSHIPPING LIST] Successfully parsed ${products.length} products');
+      if (products.isNotEmpty) {
+        print('📦 [DROPSHIPPING LIST] First product: ${products.first.name} (ID: ${products.first.id}, Type: ${products.first.productType})');
+      }
 
       // Fallback: if no dropshipping items, try vendor products (some accounts use vendor endpoint)
       if (products.isEmpty) {
@@ -142,20 +184,32 @@ class _DropshippingProductsScreenState
   }
 
   void _applyFilter() {
-    if (_query.isEmpty) {
-      setState(() {
-        _filtered = List<Product>.from(_products);
-      });
-      return;
+    List<Product> result = List<Product>.from(_products);
+
+    // Apply product type filter
+    if (_selectedFilter != null && _selectedFilter!.isNotEmpty && _selectedFilter != 'all') {
+      if (_selectedFilter == 'web') {
+        result = result.where((p) => 
+          p.productType == 'point_web_product'
+        ).toList();
+      } else if (_selectedFilter == 'normal') {
+        result = result.where((p) => 
+          p.productType == 'point_regular_product'
+        ).toList();
+      }
+      // If 'all' or null, show all products (no filter applied)
     }
 
-    final q = _query.toLowerCase();
-    final result = _products.where((p) {
-      final inName = p.name.toLowerCase().contains(q);
-      final inCategory = (p.categoryName ?? '').toLowerCase().contains(q);
-      final inType = (p.productType ?? '').toLowerCase().contains(q);
-      return inName || inCategory || inType;
-    }).toList();
+    // Apply search query filter
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      result = result.where((p) {
+        final inName = p.name.toLowerCase().contains(q);
+        final inCategory = (p.categoryName ?? '').toLowerCase().contains(q);
+        final inType = (p.productType ?? '').toLowerCase().contains(q);
+        return inName || inCategory || inType;
+      }).toList();
+    }
 
     setState(() {
       _filtered = result;
@@ -247,7 +301,14 @@ class _DropshippingProductsScreenState
             const SizedBox(height: AppTheme.spacingSmall),
         itemBuilder: (context, index) {
           if (index == 0) {
-            return _buildSearchField();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchField(),
+                const SizedBox(height: 12),
+                _buildFilterChips(),
+              ],
+            );
           }
           final product = _filtered[index - 1];
           return _DropshippingListTile(
@@ -367,6 +428,71 @@ class _DropshippingProductsScreenState
         ),
         isDense: true,
         contentPadding: const EdgeInsets.all(AppTheme.spacingSmall),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildFilterChip(
+            label: 'All',
+            value: 'all',
+            icon: Icons.grid_view,
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            label: 'Web Product',
+            value: 'web',
+            icon: Icons.link,
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            label: 'Normal Product',
+            value: 'normal',
+            icon: Icons.person_outline,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    final isSelected = _selectedFilter == value;
+    return FilterChip(
+      avatar: Icon(
+        icon,
+        size: 18,
+        color: isSelected ? Colors.white : AppTheme.primaryColor,
+      ),
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          // If clicking the already selected chip, deselect it (show all)
+          if (isSelected && selected) {
+            _selectedFilter = null;
+          } else {
+            _selectedFilter = selected ? value : null;
+          }
+        });
+        _applyFilter();
+      },
+      selectedColor: AppTheme.primaryColor,
+      checkmarkColor: Colors.white,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : AppTheme.textColor,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
       ),
     );
   }

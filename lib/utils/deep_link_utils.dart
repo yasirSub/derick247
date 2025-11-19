@@ -72,7 +72,8 @@ class DeepLinkUtils {
   }
 
   /// Generate shareable text with product information and deep link
-  /// Returns only the link without product name, price, or description
+  /// Returns product title with link hidden behind it
+  /// Option to hide link completely when sharing with image (link embedded in preview)
   static String generateProductShareText({
     required String productName,
     required String price,
@@ -80,13 +81,24 @@ class DeepLinkUtils {
     String? productSlug,
     String? description,
     String? refCode,
+    bool hideLink = false, // Hide link completely (for image shares)
   }) {
-    // Return only the link - no product name, price, or description
-    return generateProductLink(
+    // Generate the product link
+    final link = generateProductLink(
       productId: productId,
       productSlug: productSlug,
       productName: productName,
       refCode: refCode,
     );
+    
+    // If hideLink is true, return only product title
+    // (Link is embedded in image preview metadata)
+    if (hideLink) {
+      return productName;
+    }
+    
+    // Return product title with link at the bottom (hidden with spacing)
+    // Put link at the end with multiple newlines to make it less visible
+    return '$productName\n\n\n\n\n$link';
   }
 }

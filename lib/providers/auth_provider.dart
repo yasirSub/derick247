@@ -15,10 +15,15 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isLoggedIn => _user != null;
+  bool get isEmailVerified =>
+      _user?.emailVerifiedAt != null && _user!.emailVerifiedAt!.isNotEmpty;
+  bool _requiresEmailVerification = false;
+  bool get requiresEmailVerification => _requiresEmailVerification;
   String? get authToken => _authService.authToken;
 
   Future<void> initialize() async {
     _isLoading = true;
+    _requiresEmailVerification = false;
     notifyListeners();
 
     try {
@@ -51,6 +56,10 @@ class AuthProvider extends ChangeNotifier {
         _user = result['user'];
         _error = null;
         notifyListeners();
+        final emailVerified =
+            (_user?.emailVerifiedAt != null && _user!.emailVerifiedAt!.isNotEmpty) ||
+                (result['mail_verified_at'] == true);
+        _requiresEmailVerification = !emailVerified;
         return true;
       } else {
         if (debugLogging) {
@@ -157,6 +166,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> refreshUser() async {
     try {
       _user = await _authService.refreshUserData();
+      _requiresEmailVerification = !isEmailVerified;
       notifyListeners();
     } catch (e) {
       _error = e.toString();

@@ -272,8 +272,6 @@ class _VendorSharePopupState extends State<VendorSharePopup> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF1F1F1F), // Dark bluish-grey background
@@ -283,13 +281,10 @@ class _VendorSharePopupState extends State<VendorSharePopup> {
         ),
       ),
       child: SafeArea(
+        top: false,
+        bottom: true,
         child: Padding(
-          padding: EdgeInsets.only(
-            left: 24.0,
-            right: 24.0,
-            top: 24.0,
-            bottom: bottomPadding + 100.0,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -297,14 +292,18 @@ class _VendorSharePopupState extends State<VendorSharePopup> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    widget.type == 'referrer'
-                        ? 'Share Referrer Link'
-                        : 'Share Vendor Link',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      widget.type == 'referrer'
+                          ? 'Share Referrer Link'
+                          : 'Share Vendor Link',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
@@ -392,8 +391,6 @@ class _VendorSharePopupState extends State<VendorSharePopup> {
                     ),
                   ],
                 ),
-
-              SizedBox(height: 40 + bottomPadding),
             ],
           ),
         ),

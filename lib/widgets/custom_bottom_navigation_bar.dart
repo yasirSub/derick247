@@ -136,7 +136,6 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar>
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
     final navBarColor = const Color(0xFF282C34);
 
     // Set system navigation bar color to match the navigation bar
@@ -183,10 +182,13 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar>
               color: navBarColor,
               child: SafeArea(
                 top: false,
-                bottom: false,
+                bottom: true,
                 child: Container(
                   color: navBarColor,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: EdgeInsets.only(
+                    top: 8,
+                    bottom: 8,
+                  ),
                   child: BottomNavigationBar(
                     type: BottomNavigationBarType.fixed,
                     currentIndex: widget.currentIndex,
@@ -238,12 +240,6 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar>
               ),
             ),
           ),
-        ),
-        // Extension container to cover system navigation area
-        Container(
-          height: bottomPadding,
-          color: navBarColor,
-          width: double.infinity,
         ),
       ],
     );

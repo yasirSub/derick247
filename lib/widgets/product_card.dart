@@ -109,22 +109,30 @@ class ProductCard extends StatelessWidget {
   }
 
   Future<void> _shareProduct(BuildContext context) async {
-    // Generate shareable text with product info and deep link
-    // Use slug if available, otherwise use ID
+    // Generate product link
+    final productLink = DeepLinkUtils.generateProductLink(
+      productId: product.slug.isEmpty ? product.id : null,
+      productSlug: product.slug.isNotEmpty ? product.slug : null,
+      productName: product.name,
+    );
+
+    // Generate share text with product title (link will be hidden when sharing with image)
     final shareText = DeepLinkUtils.generateProductShareText(
       productName: product.name,
       price: product.formattedPrice,
       productId: product.slug.isEmpty ? product.id : null,
       productSlug: product.slug.isNotEmpty ? product.slug : null,
       description: product.shortDescription,
+      hideLink: true, // Hide link when sharing with image
     );
 
     // Get product image URL if available
     final productImageUrl = product.firstImage;
 
     await ShareUtils.shareLinkWithImage(
-      link: shareText,
-      subject: 'Product Link',
+      link: productLink,
+      shareText: shareText, // Product title only (link hidden)
+      subject: product.name, // Use product name as subject
       productImageUrl: productImageUrl,
       context: context,
     );

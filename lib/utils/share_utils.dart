@@ -10,10 +10,12 @@ import '../services/translation_service.dart';
 
 class ShareUtils {
   /// Share a link with an image (product image or app logo)
+  /// The text can include product title with link hidden behind it
   static Future<void> shareLinkWithImage({
     required String link,
     String? subject,
     String? productImageUrl,
+    String? shareText, // Optional: Custom text (e.g., product title + link)
     BuildContext? context,
   }) async {
     try {
@@ -29,22 +31,45 @@ class ShareUtils {
         imagePath = await _getAppLogoPath();
       }
       
+      // Format share text - include link for deep linking to work
+      // Put link after title with spacing to make it less visible but still functional
+      String textToShare;
+      if (shareText != null && link.isNotEmpty) {
+        // Check if shareText already contains the link
+        if (shareText.contains(link)) {
+          // Link is already in shareText, use as is
+          textToShare = shareText;
+        } else {
+          // Link is not in shareText, add it after title for deep linking
+          // Extract title (first line if multiline)
+          final lines = shareText.split('\n');
+          final title = lines.first.trim();
+          // Include link for deep linking functionality (hidden at bottom with spacing)
+          textToShare = '$title\n\n\n\n\n$link';
+        }
+      } else {
+        textToShare = shareText ?? link;
+      }
+      
       // Share with image if available
       if (imagePath != null && File(imagePath).existsSync()) {
         final xFile = XFile(imagePath);
+        // Share with image and text containing link (link is required for deep linking)
+        // Link is placed at bottom with spacing to make it less visible
         await Share.shareXFiles(
           [xFile],
-          text: link,
+          text: textToShare, // Title + link (link at bottom for deep linking)
           subject: subject ?? 'Comisionista247',
         );
       } else {
         // Fallback to text-only sharing
-        await Share.share(link, subject: subject ?? 'Comisionista247');
+        await Share.share(textToShare, subject: subject ?? 'Comisionista247');
       }
     } catch (e) {
       // If sharing with image fails, fallback to text-only
       try {
-        await Share.share(link, subject: subject ?? 'Comisionista247');
+        final textToShare = shareText ?? link;
+        await Share.share(textToShare, subject: subject ?? 'Comisionista247');
       } catch (e2) {
         if (context != null && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -118,23 +143,64 @@ class ShareUtils {
   /// Download and save product image from URL
   static Future<String?> _downloadAndSaveImage(String imageUrl) async {
     try {
+      // Ensure URL is absolute
+      String url = imageUrl;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        // If relative URL, prepend base URL
+        url = 'https://comisionista247.com$url';
+      }
+      
       final dio = Dio();
+      
+      // Set timeout and follow redirects
+      dio.options.connectTimeout = const Duration(seconds: 10);
+      dio.options.receiveTimeout = const Duration(seconds: 10);
+      dio.options.followRedirects = true;
+      
       final response = await dio.get<List<int>>(
-        imageUrl,
+        url,
         options: Options(responseType: ResponseType.bytes),
       );
       
-      if (response.statusCode == 200 && response.data != null) {
+      if (response.statusCode == 200 && response.data != null && response.data!.isNotEmpty) {
         final Directory tempDir = await getTemporaryDirectory();
-        final String tempPath = '${tempDir.path}/product_share_${DateTime.now().millisecondsSinceEpoch}.png';
+        
+        // Detect file extension from URL or content type
+        String extension = 'png';
+        final contentType = response.headers.value('content-type');
+        if (contentType != null) {
+          if (contentType.contains('jpeg') || contentType.contains('jpg')) {
+            extension = 'jpg';
+          } else if (contentType.contains('png')) {
+            extension = 'png';
+          } else if (contentType.contains('webp')) {
+            extension = 'webp';
+          }
+        } else {
+          // Try to get extension from URL
+          final urlLower = url.toLowerCase();
+          if (urlLower.contains('.jpg') || urlLower.contains('.jpeg')) {
+            extension = 'jpg';
+          } else if (urlLower.contains('.png')) {
+            extension = 'png';
+          } else if (urlLower.contains('.webp')) {
+            extension = 'webp';
+          }
+        }
+        
+        final String tempPath = '${tempDir.path}/product_share_${DateTime.now().millisecondsSinceEpoch}.$extension';
         
         final File tempFile = File(tempPath);
         await tempFile.writeAsBytes(response.data!);
         
-        return tempPath;
+        // Verify file was created and has content
+        if (await tempFile.exists() && await tempFile.length() > 0) {
+          return tempPath;
+        }
       }
     } catch (e) {
       // If download fails, return null to use app logo
+      print('Failed to download product image: $e');
     }
     return null;
   }

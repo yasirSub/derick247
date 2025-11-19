@@ -23,6 +23,8 @@ import 'screens/profile/dashboard_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/orders/order_details_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/email_verified_success_screen.dart';
+import 'utils/responsive.dart';
 
 class NoGlowScrollBehavior extends ScrollBehavior {
   @override
@@ -84,6 +86,17 @@ class Derick247App extends StatelessWidget {
                 GlobalWidgetsLocalizations.delegate,
                 GlobalCupertinoLocalizations.delegate,
               ],
+              builder: (context, child) {
+                if (child == null) return const SizedBox.shrink();
+                final media = MediaQuery.of(context);
+                final clampedScale = Responsive.clampTextScale(context);
+                return MediaQuery(
+                  data: media.copyWith(
+                    textScaler: TextScaler.linear(clampedScale),
+                  ),
+                  child: child,
+                );
+              },
               home: const AppInitializer(),
             ),
           );
@@ -394,6 +407,17 @@ class _AppInitializerState extends State<AppInitializer> {
                 );
               }
             }
+            break;
+          case DeepLinkType.emailVerified:
+            final emailFromQuery = deepLinkRoute.queryParams['email'];
+            navigator.push(
+              MaterialPageRoute(
+                builder: (_) => EmailVerifiedSuccessScreen(
+                  email: emailFromQuery,
+                  verificationLink: deepLinkRoute.rawUri,
+                ),
+              ),
+            );
             break;
           case DeepLinkType.home:
             // Navigate to home if not already there

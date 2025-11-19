@@ -24,6 +24,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
   String _query = '';
+  String? _selectedFilter; // 'all', 'web', 'normal', null
 
   @override
   void initState() {
@@ -82,20 +83,32 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
   }
 
   void _applyFilter() {
-    if (_query.isEmpty) {
-      setState(() {
-        _filtered = List<Product>.from(_products);
-      });
-      return;
+    List<Product> result = List<Product>.from(_products);
+
+    // Apply product type filter
+    if (_selectedFilter != null && _selectedFilter!.isNotEmpty && _selectedFilter != 'all') {
+      if (_selectedFilter == 'web') {
+        result = result.where((p) => 
+          p.productType == 'point_web_product'
+        ).toList();
+      } else if (_selectedFilter == 'normal') {
+        result = result.where((p) => 
+          p.productType == 'point_regular_product'
+        ).toList();
+      }
+      // If 'all' or null, show all products (no filter applied)
     }
 
-    final q = _query.toLowerCase();
-    final result = _products.where((p) {
-      final inName = p.name.toLowerCase().contains(q);
-      final inCategory = (p.categoryName ?? '').toLowerCase().contains(q);
-      final inType = (p.productType ?? '').toLowerCase().contains(q);
-      return inName || inCategory || inType;
-    }).toList();
+    // Apply search query filter
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      result = result.where((p) {
+        final inName = p.name.toLowerCase().contains(q);
+        final inCategory = (p.categoryName ?? '').toLowerCase().contains(q);
+        final inType = (p.productType ?? '').toLowerCase().contains(q);
+        return inName || inCategory || inType;
+      }).toList();
+    }
 
     setState(() {
       _filtered = result;
@@ -182,7 +195,14 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
             const SizedBox(height: AppTheme.spacingSmall),
         itemBuilder: (context, index) {
           if (index == 0) {
-            return _buildSearchField();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchField(),
+                const SizedBox(height: 12),
+                _buildFilterChips(),
+              ],
+            );
           }
           final product = _filtered[index - 1];
           return _VendorListTile(
@@ -311,6 +331,71 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
     );
   }
 
+  Widget _buildFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildFilterChip(
+            label: 'All',
+            value: 'all',
+            icon: Icons.grid_view,
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            label: 'Web Product',
+            value: 'web',
+            icon: Icons.link,
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            label: 'Normal Product',
+            value: 'normal',
+            icon: Icons.person_outline,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    final isSelected = _selectedFilter == value;
+    return FilterChip(
+      avatar: Icon(
+        icon,
+        size: 18,
+        color: isSelected ? Colors.white : AppTheme.primaryColor,
+      ),
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          // If clicking the already selected chip, deselect it (show all)
+          if (isSelected && selected) {
+            _selectedFilter = null;
+          } else {
+            _selectedFilter = selected ? value : null;
+          }
+        });
+        _applyFilter();
+      },
+      selectedColor: AppTheme.primaryColor,
+      checkmarkColor: Colors.white,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : AppTheme.textColor,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
+    );
+  }
+
   Future<void> _showAddProductOptions() async {
     final result = await showModalBottomSheet<String>(
       context: context,
@@ -426,6 +511,22 @@ class _VendorListTile extends StatelessWidget {
             const SizedBox(height: 4),
             Row(
               children: [
+                if (product.categoryName != null) ...[
+                  Icon(Icons.category, size: 14, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      product.categoryName!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

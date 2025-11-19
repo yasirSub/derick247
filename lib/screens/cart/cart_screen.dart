@@ -13,6 +13,7 @@ import '../../services/translation_service.dart';
 import '../auth/login_screen.dart';
 import '../products/product_detail_screen.dart';
 import '../checkout/checkout_screen.dart';
+import '../auth/verify_email_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({Key? key}) : super(key: key);
@@ -118,23 +119,24 @@ class _CartScreenState extends State<CartScreen> {
       }
     } catch (e) {
       String errorMessage = e.toString();
+      final lowerMessage = errorMessage.toLowerCase();
 
-      // Handle 401 Unauthorized specifically
-      if (errorMessage.contains('401') ||
-          errorMessage.contains('Unauthenticated')) {
-        errorMessage = 'Your session has expired. Please login again.';
-        // Clear auth state
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        await authProvider.logout();
-
-        // Optionally redirect to login after a delay
+      if (lowerMessage.contains('verify your email')) {
+        errorMessage = 'Please verify your email to view your cart.';
         if (mounted) {
-          Future.delayed(const Duration(seconds: 2), () {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
-            );
-          });
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => VerifyEmailScreen(
+                email:
+                    Provider.of<AuthProvider>(context, listen: false).user?.email ??
+                        '',
+              ),
+            ),
+          );
         }
+      } else if (lowerMessage.contains('401') ||
+          lowerMessage.contains('unauthenticated')) {
+        errorMessage = 'Your session may have expired. Please login again.';
       }
 
       setState(() {
@@ -648,10 +650,12 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildErrorState() {
-    final isAuthError =
-        _error?.contains('401') == true ||
-        _error?.contains('Unauthenticated') == true ||
-        _error?.contains('session has expired') == true;
+    final errorText = _error?.toLowerCase() ?? '';
+    final requiresVerification = errorText.contains('verify your email');
+    final isAuthError = (!requiresVerification) &&
+        (errorText.contains('401') ||
+            errorText.contains('unauthenticated') ||
+            errorText.contains('session has expired'));
 
     return Center(
       child: Padding(
@@ -666,7 +670,11 @@ class _CartScreenState extends State<CartScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              isAuthError ? 'Authentication Required' : 'Failed to load cart',
+              requiresVerification
+                  ? 'Email Verification Needed'
+                  : isAuthError
+                      ? 'Authentication Required'
+                      : 'Failed to load cart',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -683,7 +691,31 @@ class _CartScreenState extends State<CartScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            if (!isAuthError)
+            if (requiresVerification)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => VerifyEmailScreen(
+                        email: Provider.of<AuthProvider>(context, listen: false)
+                                .user
+                                ?.email ??
+                            '',
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('Verify Email'),
+              )
+            else if (!isAuthError)
               ElevatedButton(
                 onPressed: _loadCartFromAPI,
                 style: ElevatedButton.styleFrom(
@@ -701,7 +733,12 @@ class _CartScreenState extends State<CartScreen> {
                 onPressed: () {
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
+                      builder: (context) => VerifyEmailScreen(
+                        email: Provider.of<AuthProvider>(context, listen: false)
+                                .user
+                                ?.email ??
+                            '',
+                      ),
                     ),
                   );
                 },
@@ -713,7 +750,7 @@ class _CartScreenState extends State<CartScreen> {
                     vertical: 12,
                   ),
                 ),
-                child: const Text('Go to Login'),
+                child: const Text('Verify Email'),
               ),
           ],
         ),

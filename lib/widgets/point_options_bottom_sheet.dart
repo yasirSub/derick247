@@ -105,30 +105,43 @@ class PointOptionsBottomSheet extends StatelessWidget {
       context,
       listen: true,
     );
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1F1F1F), // Dark bluish-grey background
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxHeight = screenHeight * 0.85; // Max 85% of screen height
+    
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: maxHeight,
       ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1F1F1F), // Dark bluish-grey background
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          bottom: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // Header with close button
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 16, 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    translationService.translate('pointOptions.title'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      translationService.translate('pointOptions.title'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
@@ -146,70 +159,75 @@ class PointOptionsBottomSheet extends StatelessWidget {
             ),
 
             // Options List
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Point a Vendor
-                  _buildOptionTile(
-                    context: context,
-                    title: translationService.translate(
-                      'pointOptions.pointAVendor.title',
-                    ),
-                    subtitle: translationService.translate(
-                      'pointOptions.pointAVendor.subtitle',
-                    ),
-                    icon: Icons.store,
-                    option: 'vendor',
-                  ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Point a Vendor
+                      _buildOptionTile(
+                        context: context,
+                        title: translationService.translate(
+                          'pointOptions.pointAVendor.title',
+                        ),
+                        subtitle: translationService.translate(
+                          'pointOptions.pointAVendor.subtitle',
+                        ),
+                        icon: Icons.store,
+                        option: 'vendor',
+                      ),
 
-                  // Point a Referrer
-                  _buildOptionTile(
-                    context: context,
-                    title: translationService.translate(
-                      'pointOptions.pointAReferrer.title',
-                    ),
-                    subtitle: translationService.translate(
-                      'pointOptions.pointAReferrer.subtitle',
-                    ),
-                    icon: Icons.person_add,
-                    option: 'referrer',
-                  ),
+                      // Point a Referrer
+                      _buildOptionTile(
+                        context: context,
+                        title: translationService.translate(
+                          'pointOptions.pointAReferrer.title',
+                        ),
+                        subtitle: translationService.translate(
+                          'pointOptions.pointAReferrer.subtitle',
+                        ),
+                        icon: Icons.person_add,
+                        option: 'referrer',
+                      ),
 
-                  // Point A Web Product
-                  _buildOptionTile(
-                    context: context,
-                    title: translationService.translate(
-                      'pointOptions.pointAWebProduct.title',
-                    ),
-                    subtitle: translationService.translate(
-                      'pointOptions.pointAWebProduct.subtitle',
-                    ),
-                    icon: Icons.link,
-                    option: 'web_product',
-                  ),
+                      // Point A Web Product
+                      _buildOptionTile(
+                        context: context,
+                        title: translationService.translate(
+                          'pointOptions.pointAWebProduct.title',
+                        ),
+                        subtitle: translationService.translate(
+                          'pointOptions.pointAWebProduct.subtitle',
+                        ),
+                        icon: Icons.link,
+                        option: 'web_product',
+                      ),
 
-                  // Point A Regular Product
-                  _buildOptionTile(
-                    context: context,
-                    title: translationService.translate(
-                      'pointOptions.pointARegularProduct.title',
-                    ),
-                    subtitle: translationService.translate(
-                      'pointOptions.pointARegularProduct.subtitle',
-                    ),
-                    icon: Icons.shopping_bag,
-                    option: 'regular_product',
-                  ),
+                      // Point A Regular Product
+                      _buildOptionTile(
+                        context: context,
+                        title: translationService.translate(
+                          'pointOptions.pointARegularProduct.title',
+                        ),
+                        subtitle: translationService.translate(
+                          'pointOptions.pointARegularProduct.subtitle',
+                        ),
+                        icon: Icons.shopping_bag,
+                        option: 'regular_product',
+                      ),
 
-                  const SizedBox(height: 8),
-                ],
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
+    ),
     );
   }
 }

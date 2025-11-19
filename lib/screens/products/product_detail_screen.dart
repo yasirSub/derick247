@@ -235,22 +235,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _shareProduct() async {
     if (_product == null) return;
 
-    // Generate shareable text with product info and deep link
-    // Use slug if available, otherwise use ID
+    // Generate product link
+    final productLink = DeepLinkUtils.generateProductLink(
+      productId: _product!.slug.isEmpty ? _product!.id : null,
+      productSlug: _product!.slug.isNotEmpty ? _product!.slug : null,
+      productName: _product!.name,
+    );
+
+    // Generate share text with product title (link will be hidden when sharing with image)
     final shareText = DeepLinkUtils.generateProductShareText(
       productName: _product!.name,
       price: _product!.formattedPrice,
       productId: _product!.slug.isEmpty ? _product!.id : null,
       productSlug: _product!.slug.isNotEmpty ? _product!.slug : null,
       description: _product!.shortDescription,
+      hideLink: true, // Hide link when sharing with image
     );
 
     // Get product image URL if available
     final productImageUrl = _product!.firstImage;
 
     await ShareUtils.shareLinkWithImage(
-      link: shareText,
-      subject: 'Product Link',
+      link: productLink,
+      shareText: shareText, // Product title only (link hidden)
+      subject: _product!.name, // Use product name as subject
       productImageUrl: productImageUrl,
       context: context,
     );

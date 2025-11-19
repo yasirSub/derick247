@@ -10,6 +10,7 @@ import '../auth/login_screen.dart';
 import '../products/products_screen.dart';
 import '../products/product_detail_screen.dart';
 import '../profile/profile_screen.dart';
+import '../auth/verify_email_screen.dart';
 import '../wishlist/wishlist_screen.dart';
 import '../cart/cart_screen.dart';
 import '../categories/categories_screen.dart';
@@ -89,16 +90,24 @@ class _HomeScreenState extends State<HomeScreen> {
         bottomNavigationBar: CustomBottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: (index) {
-            // Check if user is trying to access dashboard (index 3) without being logged in
+            final authProvider = Provider.of<AuthProvider>(
+              context,
+              listen: false,
+            );
             if (index == 3) {
-              final authProvider = Provider.of<AuthProvider>(
-                context,
-                listen: false,
-              );
               if (!authProvider.isLoggedIn) {
-                // Redirect to login page
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+                return;
+              }
+              if (!authProvider.isEmailVerified) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => VerifyEmailScreen(
+                      email: authProvider.user?.email ?? '',
+                    ),
+                  ),
                 );
                 return;
               }

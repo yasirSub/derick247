@@ -90,13 +90,39 @@ class _ShareLinkPopupState extends State<ShareLinkPopup>
   }
 
   Future<void> _shareViaWhatsApp() async {
-    // Share only the link without product name
-    final shareText = _currentLink;
+    // For product links, show product title only (link hidden when sharing with image)
+    final link = _currentLink;
+    final productImageUrl = widget.product.firstImage;
+    
+    // Create share text with product title only (link hidden when sharing with image)
+    // For product links, show only title - link is embedded in image preview
+    String? shareText;
+    if (_isProductLink) {
+      // Only show product title, link is hidden and embedded in preview
+      shareText = widget.product.name;
+    }
 
+    // If product image is available, use native share dialog to include the image
+    // URL schemes don't support image attachments
+    if (productImageUrl != null && productImageUrl.isNotEmpty) {
+      try {
+        await ShareUtils.shareLinkWithImage(
+          link: link,
+          shareText: shareText ?? link, // Use product title + link if available
+          productImageUrl: productImageUrl,
+          context: context,
+        );
+        return;
+      } catch (e) {
+        // If share with image fails, fall through to URL scheme
+      }
+    }
+
+    // Fallback to WhatsApp URL scheme if no image or share failed
     try {
-      // Try to open WhatsApp directly
+      final textToShare = shareText ?? link;
       final whatsappUrl =
-          'whatsapp://send?text=${Uri.encodeComponent(shareText)}';
+          'whatsapp://send?text=${Uri.encodeComponent(textToShare)}';
       final uri = Uri.parse(whatsappUrl);
 
       if (await canLaunchUrl(uri)) {
@@ -104,29 +130,57 @@ class _ShareLinkPopupState extends State<ShareLinkPopup>
       } else {
         // Fallback to general share if WhatsApp is not installed
         await ShareUtils.shareLinkWithImage(
-          link: shareText,
-          productImageUrl: widget.product.firstImage,
+          link: link,
+          shareText: shareText ?? link,
+          productImageUrl: productImageUrl,
           context: context,
         );
       }
     } catch (e) {
       // Fallback to general share
       await ShareUtils.shareLinkWithImage(
-        link: shareText,
-        productImageUrl: widget.product.firstImage,
+        link: link,
+        shareText: shareText ?? link,
+        productImageUrl: productImageUrl,
         context: context,
       );
     }
   }
 
   Future<void> _shareViaFacebook() async {
-    // Share only the link without product name
-    final shareText = _currentLink;
+    // For product links, show product title only (link hidden when sharing with image)
+    final link = _currentLink;
+    final productImageUrl = widget.product.firstImage;
+    
+    // Create share text with product title only (link hidden when sharing with image)
+    // For product links, show only title - link is embedded in image preview
+    String? shareText;
+    if (_isProductLink) {
+      // Only show product title, link is hidden and embedded in preview
+      shareText = widget.product.name;
+    }
 
+    // If product image is available, use native share dialog to include the image
+    // URL schemes don't support image attachments
+    if (productImageUrl != null && productImageUrl.isNotEmpty) {
+      try {
+        await ShareUtils.shareLinkWithImage(
+          link: link,
+          shareText: shareText ?? link, // Use product title + link if available
+          productImageUrl: productImageUrl,
+          context: context,
+        );
+        return;
+      } catch (e) {
+        // If share with image fails, fall through to URL scheme
+      }
+    }
+
+    // Fallback to Facebook URL scheme if no image or share failed
     try {
-      // Try to open Facebook directly
+      final textToShare = shareText ?? link;
       final facebookUrl =
-          'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(_currentLink)}&quote=${Uri.encodeComponent(shareText)}';
+          'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(link)}&quote=${Uri.encodeComponent(textToShare)}';
       final uri = Uri.parse(facebookUrl);
 
       if (await canLaunchUrl(uri)) {
@@ -134,16 +188,18 @@ class _ShareLinkPopupState extends State<ShareLinkPopup>
       } else {
         // Fallback to general share if Facebook app is not available
         await ShareUtils.shareLinkWithImage(
-          link: shareText,
-          productImageUrl: widget.product.firstImage,
+          link: link,
+          shareText: shareText ?? link,
+          productImageUrl: productImageUrl,
           context: context,
         );
       }
     } catch (e) {
       // Fallback to general share
       await ShareUtils.shareLinkWithImage(
-        link: shareText,
-        productImageUrl: widget.product.firstImage,
+        link: link,
+        shareText: shareText ?? link,
+        productImageUrl: productImageUrl,
         context: context,
       );
     }
@@ -214,9 +270,12 @@ class _ShareLinkPopupState extends State<ShareLinkPopup>
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   // Header
                   Container(
                     padding: const EdgeInsets.all(AppTheme.spacingLarge),
@@ -659,6 +718,7 @@ class _ShareLinkPopupState extends State<ShareLinkPopup>
                     ),
                   ),
                 ],
+              ),
               ),
             ),
           ),

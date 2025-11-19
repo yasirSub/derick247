@@ -280,6 +280,15 @@ class DeepLinkService {
           );
         }
       }
+    } else if (path.contains('email-verified') ||
+        path.contains('/verify-email') ||
+        path.contains('verify-email-success') ||
+        path.contains('email-verification-success')) {
+      return DeepLinkRoute(
+        type: DeepLinkType.emailVerified,
+        queryParams: queryParams,
+        rawUri: uri,
+      );
     } else if (path == '/' || path.isEmpty) {
       return DeepLinkRoute(type: DeepLinkType.home, queryParams: queryParams);
     }
@@ -297,6 +306,7 @@ enum DeepLinkType {
   dashboard,
   profile,
   order,
+  emailVerified,
   home,
 }
 
@@ -310,6 +320,7 @@ class DeepLinkRoute {
   final int? orderId;
   final String? checkoutToken; // Token for guest checkout
   final Map<String, String> queryParams;
+  final Uri? rawUri;
 
   DeepLinkRoute({
     required this.type,
@@ -320,5 +331,6 @@ class DeepLinkRoute {
     this.orderId,
     this.checkoutToken,
     this.queryParams = const {},
+    this.rawUri,
   });
 }

@@ -12,6 +12,7 @@ import '../../widgets/custom_app_bar.dart';
 import '../../widgets/translated_text.dart';
 import '../../widgets/currency_selection_dialog.dart';
 import 'package:country_flags/country_flags.dart';
+import '../../utils/responsive.dart';
 
 class AddWebDropshippingProductScreen extends StatefulWidget {
   final int? productId; // when present, treat as edit
@@ -43,6 +44,8 @@ class _State extends State<AddWebDropshippingProductScreen> {
   bool _submitting = false;
   bool _loadingCategories = true;
   bool _loadingExisting = false;
+  // Track if this is a normal product (can be set after loading existing product)
+  bool _isNormalProduct = false;
   String? _categoriesError;
   List<Map<String, dynamic>> _categories = const [];
   String? _selectedCategoryId;
@@ -70,11 +73,16 @@ class _State extends State<AddWebDropshippingProductScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCategories();
+    // Initialize _isNormalProduct from widget.isNormal (for new products)
+    _isNormalProduct = widget.isNormal;
+    // Load categories first, then load existing product if editing
+    _loadCategories().then((_) {
+      // Only load existing product after categories are loaded
+      if (widget.productId != null) {
+        _loadExistingProduct(widget.productId!);
+      }
+    });
     _loadDefaultCurrencyFromPrefs();
-    if (widget.productId != null) {
-      _loadExistingProduct(widget.productId!);
-    }
   }
 
   Future<void> _loadDefaultCurrencyFromPrefs() async {
@@ -100,6 +108,7 @@ class _State extends State<AddWebDropshippingProductScreen> {
   }
 
   Future<void> _loadExistingProduct(int id) async {
+    print('🔍 [EDIT PRODUCT] Loading existing product ID: $id');
     setState(() {
       _loadingExisting = true;
     });
@@ -108,21 +117,59 @@ class _State extends State<AddWebDropshippingProductScreen> {
       // Try dropshipping detail then vendor detail
       Map<String, dynamic>? obj;
       try {
+        print('🔍 [EDIT PRODUCT] Trying dropshipping product API...');
         final res = await api.getDropshippingProduct(id);
         final data = res.data;
+        print(
+          '🔍 [EDIT PRODUCT] Dropshipping API response status: ${res.statusCode}',
+        );
         if (data is Map<String, dynamic>) {
           obj = (data['data'] is Map<String, dynamic>) ? data['data'] : data;
+          print('🔍 [EDIT PRODUCT] Found product data from dropshipping API');
         }
-      } catch (_) {}
+      } catch (e) {
+        print('⚠️ [EDIT PRODUCT] Dropshipping API error: $e');
+      }
       if (obj == null) {
-        final res = await api.getVendorProduct(id);
-        final data = res.data;
-        if (data is Map<String, dynamic>) {
-          obj = (data['data'] is Map<String, dynamic>) ? data['data'] : data;
+        try {
+          print('🔍 [EDIT PRODUCT] Trying vendor product API...');
+          final res = await api.getVendorProduct(id);
+          final data = res.data;
+          print(
+            '🔍 [EDIT PRODUCT] Vendor API response status: ${res.statusCode}',
+          );
+          if (data is Map<String, dynamic>) {
+            obj = (data['data'] is Map<String, dynamic>) ? data['data'] : data;
+            print('🔍 [EDIT PRODUCT] Found product data from vendor API');
+          }
+        } catch (e) {
+          print('⚠️ [EDIT PRODUCT] Vendor API error: $e');
         }
       }
 
       if (obj != null) {
+        print('✅ [EDIT PRODUCT] Product data loaded successfully');
+        print(
+          '🔍 [EDIT PRODUCT] Full product object keys: ${obj.keys.toList()}',
+        );
+
+        // Detect product type from API response
+        // API now returns 'product_type', fallback to 'type' for backwards compatibility
+        final productType =
+            (obj['product_type'] ?? obj['type'])?.toString() ?? '';
+        final detectedIsNormal = productType == 'point_regular_product';
+        print('🔍 [EDIT PRODUCT] Product type from API: $productType');
+        print('🔍 [EDIT PRODUCT] Raw type field: ${obj['type']}');
+        print(
+          '🔍 [EDIT PRODUCT] Raw product_type field: ${obj['product_type']}',
+        );
+        print('🔍 [EDIT PRODUCT] isNormal: $detectedIsNormal');
+
+        // Update _isNormalProduct based on detected type
+        setState(() {
+          _isNormalProduct = detectedIsNormal;
+        });
+
         // Basic text fields
         _nameCtrl.text = (obj['name'] ?? '').toString();
         _productLinkCtrl.text = (obj['product_link'] ?? obj['link'] ?? '')
@@ -135,47 +182,295 @@ class _State extends State<AddWebDropshippingProductScreen> {
             (obj['short_summary'] ?? obj['short_description'] ?? '').toString();
         _descriptionCtrl.text = (obj['description'] ?? '').toString();
 
-        // Category mapping by id, otherwise by name
-        final incomingCategoryId = obj['category_id']?.toString();
-        final incomingCategoryName = obj['category_name'] ?? obj['category'];
+        // Load owner fields for normal products
+        if (detectedIsNormal) {
+          _ownerNameCtrl.text = (obj['owner_name'] ?? '').toString();
+          _ownerPhoneCtrl.text = (obj['owner_phone'] ?? '').toString();
+          _ownerCommentsCtrl.text =
+              (obj['about_owner'] ?? obj['owner_comments'] ?? '').toString();
+        }
+
+        // Category mapping - check multiple possible field names
+        String? incomingCategoryId;
+        String? incomingCategoryName;
+
+        // Try category_id first (snake_case)
+        if (obj['category_id'] != null) {
+          incomingCategoryId = obj['category_id'].toString();
+        }
+        // Try categoryId (camelCase)
+        else if (obj['categoryId'] != null) {
+          incomingCategoryId = obj['categoryId'].toString();
+        }
+        // Try category object with id field
+        else if (obj['category'] is Map) {
+          final catObj = obj['category'] as Map;
+          if (catObj['id'] != null) {
+            incomingCategoryId = catObj['id'].toString();
+          }
+        }
+
+        // Try category_name first (snake_case)
+        if (obj['category_name'] != null) {
+          incomingCategoryName = obj['category_name'].toString();
+        }
+        // Try categoryName (camelCase)
+        else if (obj['categoryName'] != null) {
+          incomingCategoryName = obj['categoryName'].toString();
+        }
+        // Try category object with name field
+        else if (obj['category'] is Map) {
+          final catObj = obj['category'] as Map;
+          if (catObj['name'] != null) {
+            incomingCategoryName = catObj['name'].toString();
+          }
+        }
+        // Try category as string
+        else if (obj['category'] is String) {
+          incomingCategoryName = obj['category'].toString();
+        }
+
+        print('🔍 [EDIT PRODUCT] Category data from API:');
+        print('   - category_id (direct): ${obj['category_id']}');
+        print('   - categoryId (camelCase): ${obj['categoryId']}');
+        print('   - category object: ${obj['category']}');
+        print('   - category_name (direct): ${obj['category_name']}');
+        print('   - categoryName (camelCase): ${obj['categoryName']}');
+        print('   - Final incomingCategoryId: $incomingCategoryId');
+        print('   - Final incomingCategoryName: $incomingCategoryName');
+        print('   - Loaded categories count: ${_categories.length}');
+
         if (incomingCategoryId != null && incomingCategoryId.isNotEmpty) {
           _selectedCategoryId = incomingCategoryId;
+          print(
+            '✅ [EDIT PRODUCT] Set category ID from API: $_selectedCategoryId',
+          );
+
+          // If we have category ID but no name, try to find name from loaded categories
+          if ((incomingCategoryName == null || incomingCategoryName.isEmpty) &&
+              _categories.isNotEmpty) {
+            print(
+              '🔍 [EDIT PRODUCT] Category ID found but no name - searching in loaded categories...',
+            );
+            try {
+              final match = _categories.firstWhere(
+                (e) => (e['id'] ?? '').toString() == incomingCategoryId,
+                orElse: () => const {'name': null},
+              );
+              if (match['name'] != null) {
+                _selectedCategoryName = match['name'].toString();
+                print(
+                  '✅ [EDIT PRODUCT] Found category name by ID: $_selectedCategoryName',
+                );
+              } else {
+                print(
+                  '⚠️ [EDIT PRODUCT] Category ID "$incomingCategoryId" not found in loaded categories',
+                );
+              }
+            } catch (e) {
+              print('❌ [EDIT PRODUCT] Error searching category name by ID: $e');
+            }
+          }
         }
-        if (incomingCategoryName != null) {
+
+        if (incomingCategoryName != null && incomingCategoryName.isNotEmpty) {
           _selectedCategoryName = incomingCategoryName.toString();
+          print(
+            '✅ [EDIT PRODUCT] Set category name from API: $_selectedCategoryName',
+          );
         }
+
         // If we only have name, try to find id from loaded categories
         if ((_selectedCategoryId == null || _selectedCategoryId!.isEmpty) &&
             _selectedCategoryName != null &&
             _categories.isNotEmpty) {
-          final match = _categories.firstWhere(
-            (e) => (e['name'] ?? '') == _selectedCategoryName,
-            orElse: () => const {'id': null},
+          print(
+            '🔍 [EDIT PRODUCT] Searching for category by name in loaded categories...',
           );
-          if (match['id'] != null) {
-            _selectedCategoryId = match['id'].toString();
+          try {
+            final match = _categories.firstWhere(
+              (e) => (e['name'] ?? '') == _selectedCategoryName,
+              orElse: () => const {'id': null},
+            );
+            if (match['id'] != null) {
+              _selectedCategoryId = match['id'].toString();
+              print(
+                '✅ [EDIT PRODUCT] Found category ID by name: $_selectedCategoryId',
+              );
+            } else {
+              print(
+                '⚠️ [EDIT PRODUCT] Category name "$_selectedCategoryName" not found in loaded categories',
+              );
+            }
+          } catch (e) {
+            print('❌ [EDIT PRODUCT] Error searching categories: $e');
+          }
+        } else if ((_selectedCategoryId == null ||
+                _selectedCategoryId!.isEmpty) &&
+            _selectedCategoryName != null) {
+          print(
+            '⚠️ [EDIT PRODUCT] Cannot match category by name - categories list is empty or still loading',
+          );
+        }
+
+        _categorySearchCtrl.text = _selectedCategoryName ?? '';
+        print('🔍 [EDIT PRODUCT] Final category selection:');
+        print('   - Selected category ID: $_selectedCategoryId');
+        print('   - Selected category name: $_selectedCategoryName');
+
+        // Update UI after setting category fields
+        if (mounted) {
+          setState(() {
+            // Trigger rebuild to show selected category in UI
+          });
+        }
+
+        // Subcategory mapping - check multiple possible field names
+        String? incomingSubcategoryId;
+        String? incomingSubcategoryName;
+
+        // Try subcategory_id first (snake_case)
+        if (obj['subcategory_id'] != null) {
+          incomingSubcategoryId = obj['subcategory_id'].toString();
+        }
+        // Try subcategoryId (camelCase)
+        else if (obj['subcategoryId'] != null) {
+          incomingSubcategoryId = obj['subcategoryId'].toString();
+        }
+        // Try subcategory object with id field
+        else if (obj['subcategory'] is Map) {
+          final subcatObj = obj['subcategory'] as Map;
+          if (subcatObj['id'] != null) {
+            incomingSubcategoryId = subcatObj['id'].toString();
           }
         }
-        _categorySearchCtrl.text = _selectedCategoryName ?? '';
 
-        // Subcategory mapping by id, otherwise by name
-        final incomingSubcategoryId = obj['subcategory_id']?.toString();
-        final incomingSubcategoryName =
-            obj['subcategory_name'] ?? obj['subcategory'];
+        // Try subcategory_name first (snake_case)
+        if (obj['subcategory_name'] != null) {
+          incomingSubcategoryName = obj['subcategory_name'].toString();
+        }
+        // Try subcategoryName (camelCase)
+        else if (obj['subcategoryName'] != null) {
+          incomingSubcategoryName = obj['subcategoryName'].toString();
+        }
+        // Try subcategory object with name field
+        else if (obj['subcategory'] is Map) {
+          final subcatObj = obj['subcategory'] as Map;
+          if (subcatObj['name'] != null) {
+            incomingSubcategoryName = subcatObj['name'].toString();
+          }
+        }
+        // Try subcategory as string
+        else if (obj['subcategory'] is String) {
+          incomingSubcategoryName = obj['subcategory'].toString();
+        }
+
+        print('🔍 [EDIT PRODUCT] Subcategory data from API:');
+        print('   - subcategory_id (direct): ${obj['subcategory_id']}');
+        print('   - subcategoryId (camelCase): ${obj['subcategoryId']}');
+        print('   - subcategory object: ${obj['subcategory']}');
+        print('   - subcategory_name (direct): ${obj['subcategory_name']}');
+        print('   - subcategoryName (camelCase): ${obj['subcategoryName']}');
+        print('   - Final incomingSubcategoryId: $incomingSubcategoryId');
+        print('   - Final incomingSubcategoryName: $incomingSubcategoryName');
+
         if (incomingSubcategoryId != null && incomingSubcategoryId.isNotEmpty) {
           _selectedSubcategoryId = incomingSubcategoryId;
+          print(
+            '✅ [EDIT PRODUCT] Set subcategory ID from API: $_selectedSubcategoryId',
+          );
         }
-        if (incomingSubcategoryName != null) {
+        if (incomingSubcategoryName != null &&
+            incomingSubcategoryName.isNotEmpty) {
           _selectedSubcategoryName = incomingSubcategoryName.toString();
+          print(
+            '✅ [EDIT PRODUCT] Set subcategory name from API: $_selectedSubcategoryName',
+          );
         }
         _subcategorySearchCtrl.text = _selectedSubcategoryName ?? '';
 
-        // If we have a category ID, fetch subcategories
+        // If we have a category ID, fetch subcategories (and wait for them to load before setting selected subcategory)
         if (_selectedCategoryId != null && _selectedCategoryId!.isNotEmpty) {
           final categoryIdInt = int.tryParse(_selectedCategoryId!);
           if (categoryIdInt != null) {
-            _fetchSubcategories(categoryIdInt);
+            print(
+              '🔍 [EDIT PRODUCT] Fetching subcategories for category ID: $categoryIdInt',
+            );
+            await _fetchSubcategories(categoryIdInt);
+
+            // After subcategories are loaded, try to match by ID or name
+            if (_subcategories.isNotEmpty) {
+              // If we have subcategory ID but no name, try to find name from loaded subcategories
+              if ((_selectedSubcategoryId != null &&
+                      _selectedSubcategoryId!.isNotEmpty) &&
+                  (_selectedSubcategoryName == null ||
+                      _selectedSubcategoryName!.isEmpty)) {
+                print(
+                  '🔍 [EDIT PRODUCT] Subcategory ID found but no name - searching in loaded subcategories...',
+                );
+                try {
+                  final match = _subcategories.firstWhere(
+                    (e) => (e['id'] ?? '').toString() == _selectedSubcategoryId,
+                    orElse: () => const {'name': null},
+                  );
+                  if (match['name'] != null) {
+                    _selectedSubcategoryName = match['name'].toString();
+                    _subcategorySearchCtrl.text = _selectedSubcategoryName!;
+                    print(
+                      '✅ [EDIT PRODUCT] Found subcategory name by ID: $_selectedSubcategoryName',
+                    );
+                  }
+                } catch (e) {
+                  print(
+                    '❌ [EDIT PRODUCT] Error searching subcategory name by ID: $e',
+                  );
+                }
+              }
+
+              // If we have subcategory name but no ID, try to match it
+              if ((_selectedSubcategoryId == null ||
+                      _selectedSubcategoryId!.isEmpty) &&
+                  _selectedSubcategoryName != null &&
+                  _selectedSubcategoryName!.isNotEmpty) {
+                print(
+                  '🔍 [EDIT PRODUCT] Searching for subcategory by name in loaded subcategories...',
+                );
+                try {
+                  final match = _subcategories.firstWhere(
+                    (e) => (e['name'] ?? '') == _selectedSubcategoryName,
+                    orElse: () => const {'id': null},
+                  );
+                  if (match['id'] != null) {
+                    _selectedSubcategoryId = match['id'].toString();
+                    print(
+                      '✅ [EDIT PRODUCT] Found subcategory ID by name: $_selectedSubcategoryId',
+                    );
+                  } else {
+                    print(
+                      '⚠️ [EDIT PRODUCT] Subcategory name "$_selectedSubcategoryName" not found in loaded subcategories',
+                    );
+                  }
+                } catch (e) {
+                  print('❌ [EDIT PRODUCT] Error searching subcategories: $e');
+                }
+              }
+            }
           }
+        } else {
+          print(
+            '⚠️ [EDIT PRODUCT] Cannot fetch subcategories - no valid category ID',
+          );
+        }
+
+        print('🔍 [EDIT PRODUCT] Final subcategory selection:');
+        print('   - Selected subcategory ID: $_selectedSubcategoryId');
+        print('   - Selected subcategory name: $_selectedSubcategoryName');
+
+        // Update UI after setting all fields
+        if (mounted) {
+          setState(() {
+            // Trigger rebuild to show selected category and subcategory in UI
+          });
         }
 
         // Existing media (for preview)
@@ -220,26 +515,67 @@ class _State extends State<AddWebDropshippingProductScreen> {
   }
 
   Future<void> _loadCategories() async {
+    print('📂 [CATEGORIES] Starting to load categories...');
     setState(() {
       _loadingCategories = true;
       _categoriesError = null;
     });
     try {
       final res = await ApiService().getCategories();
+      print('📂 [CATEGORIES] API response status: ${res.statusCode}');
       final data = res.data;
+      print('📂 [CATEGORIES] Response data type: ${data.runtimeType}');
+
       List<dynamic> items = const [];
       if (data is List) {
         items = data;
+        print('📂 [CATEGORIES] Data is List, items count: ${items.length}');
       } else if (data is Map<String, dynamic>) {
-        if (data['data'] is List) {
-          items = data['data'];
-        } else if (data['categories'] is List) {
-          items = data['categories'];
-        } else if (data['data'] is Map &&
-            (data['data'] as Map)['data'] is List) {
+        print('📂 [CATEGORIES] Data is Map, keys: ${data.keys.toList()}');
+
+        // Handle {success: true, data: {data: [...]}} structure (same as products API)
+        if (data['success'] != null && data['data'] is Map<String, dynamic>) {
+          final innerData = data['data'] as Map<String, dynamic>;
+          print(
+            '📂 [CATEGORIES] Found success wrapper, checking inner data...',
+          );
+          if (innerData['data'] is List) {
+            items = innerData['data'] as List;
+            print(
+              '📂 [CATEGORIES] Found categories in success.data.data, count: ${items.length}',
+            );
+          } else if (innerData['categories'] is List) {
+            items = innerData['categories'] as List;
+            print(
+              '📂 [CATEGORIES] Found categories in success.data.categories, count: ${items.length}',
+            );
+          }
+        }
+        // Handle {data: {data: [...]}} structure
+        else if (data['data'] is Map && (data['data'] as Map)['data'] is List) {
           items = (data['data'] as Map)['data'] as List;
+          print(
+            '📂 [CATEGORIES] Found categories in data.data, count: ${items.length}',
+          );
+        }
+        // Handle {data: []} structure
+        else if (data['data'] is List) {
+          items = data['data'] as List;
+          print(
+            '📂 [CATEGORIES] Found categories in data, count: ${items.length}',
+          );
+        }
+        // Handle {categories: []} structure
+        else if (data['categories'] is List) {
+          items = data['categories'] as List;
+          print(
+            '📂 [CATEGORIES] Found categories in categories, count: ${items.length}',
+          );
+        } else {
+          print('⚠️ [CATEGORIES] Could not find categories array in response');
         }
       }
+
       final cats = items
           .whereType<Map<String, dynamic>>()
           .map(
@@ -250,6 +586,15 @@ class _State extends State<AddWebDropshippingProductScreen> {
           )
           .where((e) => e['name']!.isNotEmpty)
           .toList();
+
+      print('📂 [CATEGORIES] Processed categories count: ${cats.length}');
+      if (cats.isNotEmpty) {
+        print('📂 [CATEGORIES] First few categories:');
+        for (int i = 0; i < (cats.length > 3 ? 3 : cats.length); i++) {
+          print('   - ${cats[i]['id']}: ${cats[i]['name']}');
+        }
+      }
+
       // Fallback hardcoded minimal set if empty (ensures selectable values)
       final fallback = [
         {'id': '1', 'name': 'Electronics'},
@@ -257,13 +602,21 @@ class _State extends State<AddWebDropshippingProductScreen> {
         {'id': '3', 'name': 'Laptops'},
         {'id': '4', 'name': 'Tablets'},
       ];
+
+      final finalCategories = cats.isNotEmpty ? cats : fallback;
+      print(
+        '📂 [CATEGORIES] Final categories to use: ${finalCategories.length} (${cats.isNotEmpty ? "from API" : "fallback"})',
+      );
+
       setState(() {
-        _categories = cats.isNotEmpty ? cats : fallback;
+        _categories = finalCategories;
         _selectedCategoryId = null; // no default selection
         _selectedCategoryName = null;
         _loadingCategories = false;
       });
+      print('✅ [CATEGORIES] Categories loaded successfully');
     } catch (e) {
+      print('❌ [CATEGORIES] Error loading categories: $e');
       setState(() {
         _categoriesError = 'Failed to load categories';
         _loadingCategories = false;
@@ -281,8 +634,10 @@ class _State extends State<AddWebDropshippingProductScreen> {
     try {
       final api = ApiService();
       final Map<String, dynamic> payload = {
-        if (!widget.isNormal) 'product_link': _productLinkCtrl.text.trim(),
-        'type': widget.isNormal ? 'point_regular_product' : 'point_web_product',
+        if (!_isNormalProduct) 'product_link': _productLinkCtrl.text.trim(),
+        'type': _isNormalProduct
+            ? 'point_regular_product'
+            : 'point_web_product',
         'name': _nameCtrl.text.trim(),
         'category_id': _selectedCategoryId ?? '',
         if (_selectedSubcategoryId != null &&
@@ -296,7 +651,7 @@ class _State extends State<AddWebDropshippingProductScreen> {
             ? 'N/A'
             : _shortSummaryCtrl.text.trim(),
         'description': _descriptionCtrl.text.trim(),
-        if (widget.isNormal) ...{
+        if (_isNormalProduct) ...{
           'owner_name': _ownerNameCtrl.text.trim(),
           'owner_phone': _ownerPhoneCtrl.text.trim(),
           'about_owner': _ownerCommentsCtrl.text.trim(),
@@ -388,6 +743,7 @@ class _State extends State<AddWebDropshippingProductScreen> {
       appBar: CustomAppBar(
         title: TranslationService().translate('dropshipping.createProduct'),
         isDark: true,
+        actions: const [], // Remove profile icon from top menu
       ),
       backgroundColor: AppTheme.backgroundColor,
       body: SingleChildScrollView(
@@ -402,7 +758,7 @@ class _State extends State<AddWebDropshippingProductScreen> {
               _buildStepperTabs(),
               const SizedBox(height: AppTheme.spacingMedium),
               if (_step == 0) ...[
-                if (!widget.isNormal)
+                if (!_isNormalProduct)
                   _buildText(
                     TranslationService().translate('dropshipping.productLink'),
                     _productLinkCtrl,
@@ -417,40 +773,29 @@ class _State extends State<AddWebDropshippingProductScreen> {
                     'dropshipping.basicInformation',
                   ),
                 ),
-                if (widget.isNormal) ...[
+                if (_isNormalProduct) ...[
                   _subSectionBar(
                     TranslationService().translate('dropshipping.ownerDetails'),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildText(
-                          TranslationService().translate(
-                            'dropshipping.ownerName',
-                          ),
-                          _ownerNameCtrl,
-                          hint: TranslationService().translate(
-                            'dropshipping.ownerNameHint',
-                          ),
-                          requiredField: true,
-                        ),
+                  ResponsivePair(
+                    first: _buildText(
+                      TranslationService().translate('dropshipping.ownerName'),
+                      _ownerNameCtrl,
+                      hint: TranslationService().translate(
+                        'dropshipping.ownerNameHint',
                       ),
-                      const SizedBox(width: AppTheme.spacingSmall),
-                      Expanded(
-                        child: _buildText(
-                          TranslationService().translate(
-                            'dropshipping.ownerPhone',
-                          ),
-                          _ownerPhoneCtrl,
-                          hint: TranslationService().translate(
-                            'dropshipping.ownerPhoneHint',
-                          ),
-                          requiredField: true,
-                          keyboard: TextInputType.phone,
-                        ),
+                      requiredField: true,
+                    ),
+                    second: _buildText(
+                      TranslationService().translate('dropshipping.ownerPhone'),
+                      _ownerPhoneCtrl,
+                      hint: TranslationService().translate(
+                        'dropshipping.ownerPhoneHint',
                       ),
-                    ],
+                      requiredField: true,
+                      keyboard: TextInputType.phone,
+                    ),
                   ),
                   _buildText(
                     TranslationService().translate('dropshipping.comments'),
@@ -477,26 +822,19 @@ class _State extends State<AddWebDropshippingProductScreen> {
                 // then two wide inputs for quantity and minimum order.
                 _buildPriceField(),
                 const SizedBox(height: AppTheme.spacingSmall),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildNumberField(
-                        TranslationService().translate(
-                          'dropshipping.productQuantity',
-                        ),
-                        _quantityCtrl,
-                      ),
+                ResponsivePair(
+                  first: _buildNumberField(
+                    TranslationService().translate(
+                      'dropshipping.productQuantity',
                     ),
-                    const SizedBox(width: AppTheme.spacingSmall),
-                    Expanded(
-                      child: _buildNumberField(
-                        TranslationService().translate(
-                          'dropshipping.minimumOrderQuantity',
-                        ),
-                        _minQtyCtrl,
-                      ),
+                    _quantityCtrl,
+                  ),
+                  second: _buildNumberField(
+                    TranslationService().translate(
+                      'dropshipping.minimumOrderQuantity',
                     ),
-                  ],
+                    _minQtyCtrl,
+                  ),
                 ),
                 _buildText(
                   TranslationService().translate(
@@ -649,12 +987,20 @@ class _State extends State<AddWebDropshippingProductScreen> {
           TextFormField(
             controller: _categorySearchCtrl,
             readOnly: true,
-            onTap: _openCategoryPicker,
+            enabled: !_loadingCategories && _categories.isNotEmpty,
+            onTap: (!_loadingCategories && _categories.isNotEmpty)
+                ? _openCategoryPicker
+                : null,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search),
-              hintText:
-                  _selectedCategoryName ??
-                  TranslationService().translate('dropshipping.searchCategory'),
+              hintText: _loadingCategories
+                  ? 'Loading categories...'
+                  : (_categories.isEmpty
+                        ? 'No categories available'
+                        : (_selectedCategoryName ??
+                              TranslationService().translate(
+                                'dropshipping.searchCategory',
+                              ))),
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -662,6 +1008,14 @@ class _State extends State<AddWebDropshippingProductScreen> {
                 ? TranslationService().translate('dropshipping.required')
                 : null,
           ),
+          if (!_loadingCategories && _categories.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Categories not available. Please try again.',
+                style: TextStyle(color: Colors.orange[700], fontSize: 12),
+              ),
+            ),
         ],
       ),
     );
@@ -756,6 +1110,9 @@ class _State extends State<AddWebDropshippingProductScreen> {
   }
 
   Future<void> _fetchSubcategories(int categoryId) async {
+    print(
+      '📂 [SUBCATEGORIES] Starting to fetch subcategories for category ID: $categoryId',
+    );
     setState(() {
       _loadingSubcategories = true;
       _subcategories = const [];
@@ -763,20 +1120,60 @@ class _State extends State<AddWebDropshippingProductScreen> {
 
     try {
       final res = await ApiService().getSubcategories(categoryId);
+      print('📂 [SUBCATEGORIES] API response status: ${res.statusCode}');
       final data = res.data;
+      print('📂 [SUBCATEGORIES] Response data type: ${data.runtimeType}');
 
       List<dynamic> items = const [];
-      if (data is Map<String, dynamic>) {
-        final root = data['data'];
-        if (root is Map<String, dynamic> && root['data'] is List) {
-          items = root['data'] as List;
-        } else if (data['data'] is List) {
-          items = data['data'] as List;
-        } else if (root is List) {
-          items = root;
-        }
-      } else if (data is List) {
+      if (data is List) {
         items = data;
+        print('📂 [SUBCATEGORIES] Data is List, items count: ${items.length}');
+      } else if (data is Map<String, dynamic>) {
+        print('📂 [SUBCATEGORIES] Data is Map, keys: ${data.keys.toList()}');
+
+        // Handle {success: true, data: {data: [...]}} structure (same as products/categories API)
+        if (data['success'] != null && data['data'] is Map<String, dynamic>) {
+          final innerData = data['data'] as Map<String, dynamic>;
+          print(
+            '📂 [SUBCATEGORIES] Found success wrapper, checking inner data...',
+          );
+          if (innerData['data'] is List) {
+            items = innerData['data'] as List;
+            print(
+              '📂 [SUBCATEGORIES] Found subcategories in success.data.data, count: ${items.length}',
+            );
+          } else if (innerData['subcategories'] is List) {
+            items = innerData['subcategories'] as List;
+            print(
+              '📂 [SUBCATEGORIES] Found subcategories in success.data.subcategories, count: ${items.length}',
+            );
+          }
+        }
+        // Handle {data: {data: [...]}} structure
+        else if (data['data'] is Map && (data['data'] as Map)['data'] is List) {
+          items = (data['data'] as Map)['data'] as List;
+          print(
+            '📂 [SUBCATEGORIES] Found subcategories in data.data, count: ${items.length}',
+          );
+        }
+        // Handle {data: []} structure
+        else if (data['data'] is List) {
+          items = data['data'] as List;
+          print(
+            '📂 [SUBCATEGORIES] Found subcategories in data, count: ${items.length}',
+          );
+        }
+        // Handle {subcategories: []} structure
+        else if (data['subcategories'] is List) {
+          items = data['subcategories'] as List;
+          print(
+            '📂 [SUBCATEGORIES] Found subcategories in subcategories, count: ${items.length}',
+          );
+        } else {
+          print(
+            '⚠️ [SUBCATEGORIES] Could not find subcategories array in response',
+          );
+        }
       }
 
       final subs = items
@@ -790,11 +1187,21 @@ class _State extends State<AddWebDropshippingProductScreen> {
           .where((e) => e['name']!.isNotEmpty)
           .toList();
 
+      print('📂 [SUBCATEGORIES] Processed subcategories count: ${subs.length}');
+      if (subs.isNotEmpty) {
+        print('📂 [SUBCATEGORIES] First few subcategories:');
+        for (int i = 0; i < (subs.length > 3 ? 3 : subs.length); i++) {
+          print('   - ${subs[i]['id']}: ${subs[i]['name']}');
+        }
+      }
+
       setState(() {
         _subcategories = subs;
         _loadingSubcategories = false;
       });
+      print('✅ [SUBCATEGORIES] Subcategories loaded successfully');
     } catch (e) {
+      print('❌ [SUBCATEGORIES] Error loading subcategories: $e');
       setState(() {
         _loadingSubcategories = false;
         _subcategories = const [];
@@ -940,14 +1347,15 @@ class _State extends State<AddWebDropshippingProductScreen> {
   }
 
   Widget _buildStepperTabs() {
-    return Row(
+    return Wrap(
+      spacing: AppTheme.spacingMedium,
+      runSpacing: AppTheme.spacingSmall,
       children: [
         _buildStepChip(
           1,
           TranslationService().translate('dropshipping.basicInfo'),
           active: _step == 0,
         ),
-        const SizedBox(width: AppTheme.spacingMedium),
         _buildStepChip(
           2,
           TranslationService().translate('dropshipping.media'),
@@ -1041,9 +1449,10 @@ class _State extends State<AddWebDropshippingProductScreen> {
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              GestureDetector(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isStacked = constraints.maxWidth < 420;
+              final currencySelector = GestureDetector(
                 onTap: _openCurrencyPicker,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1084,42 +1493,56 @@ class _State extends State<AddWebDropshippingProductScreen> {
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  controller: _priceCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppTheme.radiusMedium,
-                      ),
-                    ),
-                    isDense: false,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.spacingMedium,
-                      vertical: AppTheme.spacingMedium,
-                    ),
+              );
+              final priceField = TextFormField(
+                controller: _priceCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
-                  validator: (v) {
-                    final txt = (v ?? '').trim();
-                    if (txt.isEmpty)
-                      return TranslationService().translate(
-                        'dropshipping.required',
-                      );
-                    final numVal = num.tryParse(txt);
-                    if (numVal == null || numVal <= 0)
-                      return TranslationService().translate(
-                        'dropshipping.enterValidAmount',
-                      );
-                    return null;
-                  },
+                  isDense: false,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spacingMedium,
+                    vertical: AppTheme.spacingMedium,
+                  ),
                 ),
-              ),
-            ],
+                validator: (v) {
+                  final txt = (v ?? '').trim();
+                  if (txt.isEmpty)
+                    return TranslationService().translate(
+                      'dropshipping.required',
+                    );
+                  final numVal = num.tryParse(txt);
+                  if (numVal == null || numVal <= 0)
+                    return TranslationService().translate(
+                      'dropshipping.enterValidAmount',
+                    );
+                  return null;
+                },
+              );
+
+              if (isStacked) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    currencySelector,
+                    const SizedBox(height: 8),
+                    priceField,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  currencySelector,
+                  const SizedBox(width: 8),
+                  Expanded(child: priceField),
+                ],
+              );
+            },
           ),
         ],
       ),

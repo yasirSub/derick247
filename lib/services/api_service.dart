@@ -68,8 +68,15 @@ class ApiService {
         onError: (error, handler) {
           // Handle common errors
           if (error.response?.statusCode == 401) {
-            // Token expired or invalid
-            _authToken = null;
+            final data = error.response?.data;
+            final message = (data is Map && data['message'] != null)
+                ? data['message'].toString().toLowerCase()
+                : '';
+            final requiresVerification = message.contains('verify your email');
+            if (!requiresVerification) {
+              // Only clear token when it's truly invalid/expired
+              _authToken = null;
+            }
           }
           if (debugLogging) {
             try {
@@ -166,10 +173,82 @@ class ApiService {
     );
   }
 
-  Future<Response> resendVerification() async {
+  Future<Response> forgotPassword(String email) async {
+    final formData = FormData.fromMap({'email': email});
+    return await _dio.post(
+      ApiConfig.forgotPassword,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  Future<void> confirmEmailVerification(Uri verificationLink) async {
+    try {
+      final dio = Dio();
+      await dio.getUri(
+        verificationLink,
+        options: Options(
+          headers: ApiConfig.jsonHeaders,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Response> verifyOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final formData = FormData.fromMap({'email': email, 'otp': otp});
+    return await _dio.post(
+      ApiConfig.verifyOtp,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  Future<Response> resetPassword({
+    required String email,
+    required String otp,
+    required String password,
+    required String confirmPassword,
+  }) async {
+    final formData = FormData.fromMap({
+      'email': email,
+      'otp': otp,
+      'password': password,
+      'password_confirmation': confirmPassword,
+    });
+    return await _dio.post(
+      ApiConfig.resetPassword,
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+  }
+
+  Future<Response> resendVerification({required String email}) async {
+    final formData = FormData.fromMap({'email': email});
     return await _dio.post(
       ApiConfig.resendVerification,
-      options: Options(headers: ApiConfig.formHeaders),
+      data: formData,
+      options: Options(
+        headers: ApiConfig.formHeaders,
+        contentType: Headers.multipartFormDataContentType,
+      ),
     );
   }
 

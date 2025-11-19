@@ -1,11 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/storage_service.dart';
 import '../../widgets/translated_text.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
+import 'verify_email_screen.dart';
+import '../../utils/responsive.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -16,30 +21,52 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'user@gmail.com');
-  final _passwordController = TextEditingController(text: 'password');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  String _preset = 'user'; // 'user' or 'vendor'
-
-  void _applyPreset(String preset) {
-    setState(() {
-      _preset = preset;
-      if (preset == 'vendor') {
-        _emailController.text = 'vendor@gmail.com';
-      } else {
-        _emailController.text = 'user@gmail.com';
-      }
-      _passwordController.text = 'password';
-    });
-  }
 
   bool _rememberMe = false;
+  final StorageService _storage = StorageService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberPreference();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleAlreadyLoggedIn();
+    });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRememberPreference() async {
+    final saved = await _storage.getUserPreference<bool>('remember_me') ?? false;
+    final savedEmail =
+        await _storage.getUserPreference<String>('remember_email');
+    if (!mounted) return;
+    if (saved) {
+      setState(() {
+        _rememberMe = true;
+        if (savedEmail != null) {
+          _emailController.text = savedEmail;
+        }
+      });
+    }
+  }
+
+  Future<void> _persistRememberPreference(String email) async {
+    if (_rememberMe) {
+      await _storage.saveUserPreference('remember_me', true);
+      await _storage.saveUserPreference('remember_email', email);
+    } else {
+      await _storage.saveUserPreference('remember_me', false);
+      await _storage.remove('pref_remember_email');
+    }
   }
 
   Future<void> _login() async {
@@ -51,29 +78,73 @@ class _LoginScreenState extends State<LoginScreen> {
     AuthProvider.debugLogging = true;
     ApiService.debugLogging = true;
 
-    final success = await authProvider.login(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
-    if (success && mounted) {
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.translate('auth.login.success')),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-    } else if (mounted) {
+    final success = await authProvider.login(email, password);
+
+    if (!mounted) return;
+
+    if (success) {
+      await _persistRememberPreference(email);
+      if (authProvider.requiresEmailVerification) {
+        try {
+          await ApiService().resendVerification(email: email);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Verification email resent. Please check your inbox.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        } catch (_) {}
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please verify your email before continuing.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => VerifyEmailScreen(email: email)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.translate('auth.login.success')),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             authProvider.error ?? context.translate('auth.login.failure'),
           ),
           backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  void _handleAlreadyLoggedIn() {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (!auth.isLoggedIn) return;
+
+    if (auth.isEmailVerified) {
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => VerifyEmailScreen(
+            email: auth.user?.email ?? _emailController.text.trim(),
+          ),
         ),
       );
     }
@@ -88,24 +159,15 @@ class _LoginScreenState extends State<LoginScreen> {
           color: Color(0xFFF9FAFB), // Light beige background
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Center(
-              child: Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(maxWidth: 400),
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
+          child: ResponsiveScaffoldBody(
+            maxContentWidth: 420,
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -155,26 +217,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
 
                       const SizedBox(height: 8),
-
-                      // Quick presets
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ChoiceChip(
-                            label: const Text('user@gmail.com'),
-                            selected: _preset == 'user',
-                            onSelected: (_) => _applyPreset('user'),
-                          ),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: const Text('vendor@gmail.com'),
-                            selected: _preset == 'vendor',
-                            onSelected: (_) => _applyPreset('vendor'),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
 
                       // Subtitle
                       Text(
@@ -336,6 +378,20 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ],
+                      ),
+
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ForgotPasswordScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text('Forgot password?'),
+                        ),
                       ),
 
                       const SizedBox(height: AppTheme.spacingMedium),

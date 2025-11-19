@@ -7,11 +7,13 @@ import '../../config/theme_config.dart';
 import '../../providers/auth_provider.dart';
 import '../home/home_screen.dart';
 import 'login_screen.dart';
+import 'verify_email_screen.dart';
 import '../../services/api_service.dart';
 import '../../services/translation_service.dart';
 import '../../widgets/translated_text.dart';
 import '../../models/location_model.dart' as loc;
 import 'package:country_flags/country_flags.dart';
+import '../../utils/responsive.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -27,7 +29,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _usernameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _whatsappController = TextEditingController();
   final _dobController = TextEditingController();
@@ -49,7 +50,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _usernameController.dispose();
     _phoneController.dispose();
     _whatsappController.dispose();
     _dobController.dispose();
@@ -142,7 +142,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'email': _emailController.text.trim(),
       'password': _passwordController.text,
       'password_confirmation': _confirmPasswordController.text,
-      'username': _usernameController.text.trim(),
       'phone': _phoneController.text.trim(),
       'phone_country_code': phoneCountry.phoneCode ?? '',
       'whatsapp': _whatsappController.text.trim(),
@@ -159,11 +158,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final success = await authProvider.register(userData);
 
     if (success && mounted) {
+      final email = _emailController.text.trim();
       _logRegistrationDebug(
-        'Registration succeeded for ${userData['email'] ?? userData['username']}',
+        'Registration succeeded for $email',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account created! Check your email to verify.'),
+          backgroundColor: Colors.green,
+        ),
       );
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (context) => VerifyEmailScreen(email: email),
+        ),
       );
     } else if (mounted) {
       final errorMessage = authProvider.error ?? 'Registration failed';
@@ -249,24 +257,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: Container(
         decoration: const BoxDecoration(color: Color(0xFFF9FAFB)),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Center(
-              child: Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(maxWidth: 440),
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
+          child: ResponsiveScaffoldBody(
+            maxContentWidth: 500,
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -325,109 +324,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: AppTheme.spacingXLarge),
 
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const TranslatedText(
-                                  'auth.register.firstName',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF374151),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _firstNameController,
-                                  style: const TextStyle(fontSize: 16),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return TranslationService().translate(
-                                        'auth.register.firstNameRequired',
-                                      );
-                                    }
-                                    return null;
-                                  },
-                                  decoration: _buildFieldDecoration(
-                                    hintText: TranslationService().translate(
-                                      'auth.register.firstNamePlaceholder',
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      ResponsivePair(
+                        breakpoint: 560,
+                        first: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const TranslatedText(
+                              'auth.register.firstName',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF374151),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const TranslatedText(
-                                  'auth.register.lastName',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF374151),
-                                  ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _firstNameController,
+                              style: const TextStyle(fontSize: 16),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return TranslationService().translate(
+                                    'auth.register.firstNameRequired',
+                                  );
+                                }
+                                return null;
+                              },
+                              decoration: _buildFieldDecoration(
+                                hintText: TranslationService().translate(
+                                  'auth.register.firstNamePlaceholder',
                                 ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _lastNameController,
-                                  style: const TextStyle(fontSize: 16),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return TranslationService().translate(
-                                        'auth.register.lastNameRequired',
-                                      );
-                                    }
-                                    return null;
-                                  },
-                                  decoration: _buildFieldDecoration(
-                                    hintText: TranslationService().translate(
-                                      'auth.register.lastNamePlaceholder',
-                                    ),
-                                  ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        second: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const TranslatedText(
+                              'auth.register.lastName',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _lastNameController,
+                              style: const TextStyle(fontSize: 16),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return TranslationService().translate(
+                                    'auth.register.lastNameRequired',
+                                  );
+                                }
+                                return null;
+                              },
+                              decoration: _buildFieldDecoration(
+                                hintText: TranslationService().translate(
+                                  'auth.register.lastNamePlaceholder',
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Username',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF374151),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _usernameController,
-                            style: const TextStyle(fontSize: 16),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a username';
-                              }
-                              if (value.length < 3) {
-                                return 'Username must be at least 3 characters';
-                              }
-                              return null;
-                            },
-                            decoration: _buildFieldDecoration(
-                              hintText: 'Choose a username',
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 16),
@@ -480,88 +440,76 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: _isLoadingCountries
-                                    ? Container(
-                                        height: 56,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          border: Border.all(
-                                            color: const Color(0xFFE5E7EB),
-                                          ),
-                                        ),
-                                        child:
-                                            const CircularProgressIndicator(),
-                                      )
-                                    : DropdownButtonFormField<loc.Country>(
-                                        value: _selectedPhoneCountry,
-                                        isExpanded: true,
-                                        decoration: _buildFieldDecoration(
-                                          hintText: 'Code',
-                                        ),
-                                        items: _countries.map((country) {
-                                          return DropdownMenuItem<loc.Country>(
-                                            value: country,
-                                            child: Row(
-                                              children: [
-                                                if (country.code != null &&
-                                                    country.code!.isNotEmpty)
-                                                  CountryFlag.fromCountryCode(
-                                                    country.code!,
-                                                    height: 18,
-                                                    width: 26,
-                                                  ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Text(
-                                                    '+${country.phoneCode ?? ''}',
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _selectedPhoneCountry = value;
-                                          });
-                                        },
+                          ResponsivePair(
+                            breakpoint: 560,
+                            firstFlex: 3,
+                            secondFlex: 5,
+                            first: _isLoadingCountries
+                                ? Container(
+                                    height: 56,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: const Color(0xFFE5E7EB),
                                       ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 5,
-                                child: TextFormField(
-                                  controller: _phoneController,
-                                  keyboardType: TextInputType.phone,
-                                  style: const TextStyle(fontSize: 16),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter phone number';
-                                    }
-                                    return null;
-                                  },
-                                  decoration: _buildFieldDecoration(
-                                    hintText: '0123456789',
-                                    prefixText:
-                                        _selectedPhoneCountry != null &&
-                                            _selectedPhoneCountry!.phoneCode !=
-                                                null
-                                        ? '+${_selectedPhoneCountry!.phoneCode} '
-                                        : '',
+                                    ),
+                                    child: const CircularProgressIndicator(),
+                                  )
+                                : DropdownButtonFormField<loc.Country>(
+                                    value: _selectedPhoneCountry,
+                                    isExpanded: true,
+                                    decoration: _buildFieldDecoration(
+                                      hintText: 'Code',
+                                    ),
+                                    items: _countries.map((country) {
+                                      return DropdownMenuItem<loc.Country>(
+                                        value: country,
+                                        child: Row(
+                                          children: [
+                                            if (country.code != null &&
+                                                country.code!.isNotEmpty)
+                                              CountryFlag.fromCountryCode(
+                                                country.code!,
+                                                height: 18,
+                                                width: 26,
+                                              ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                '+${country.phoneCode ?? ''}',
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedPhoneCountry = value;
+                                      });
+                                    },
                                   ),
-                                ),
+                            second: TextFormField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              style: const TextStyle(fontSize: 16),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter phone number';
+                                }
+                                return null;
+                              },
+                              decoration: _buildFieldDecoration(
+                                hintText: '0123456789',
+                                prefixText: _selectedPhoneCountry != null &&
+                                        _selectedPhoneCountry!.phoneCode != null
+                                    ? '+${_selectedPhoneCountry!.phoneCode} '
+                                    : '',
                               ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
@@ -580,89 +528,77 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: _isLoadingCountries
-                                    ? Container(
-                                        height: 56,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          border: Border.all(
-                                            color: const Color(0xFFE5E7EB),
-                                          ),
-                                        ),
-                                        child:
-                                            const CircularProgressIndicator(),
-                                      )
-                                    : DropdownButtonFormField<loc.Country>(
-                                        value: _selectedWhatsappCountry,
-                                        isExpanded: true,
-                                        decoration: _buildFieldDecoration(
-                                          hintText: 'Code',
-                                        ),
-                                        items: _countries.map((country) {
-                                          return DropdownMenuItem<loc.Country>(
-                                            value: country,
-                                            child: Row(
-                                              children: [
-                                                if (country.code != null &&
-                                                    country.code!.isNotEmpty)
-                                                  CountryFlag.fromCountryCode(
-                                                    country.code!,
-                                                    height: 18,
-                                                    width: 26,
-                                                  ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Text(
-                                                    '+${country.phoneCode ?? ''}',
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _selectedWhatsappCountry = value;
-                                          });
-                                        },
+                          ResponsivePair(
+                            breakpoint: 560,
+                            firstFlex: 3,
+                            secondFlex: 5,
+                            first: _isLoadingCountries
+                                ? Container(
+                                    height: 56,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: const Color(0xFFE5E7EB),
                                       ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 5,
-                                child: TextFormField(
-                                  controller: _whatsappController,
-                                  keyboardType: TextInputType.phone,
-                                  style: const TextStyle(fontSize: 16),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter WhatsApp number';
-                                    }
-                                    return null;
-                                  },
-                                  decoration: _buildFieldDecoration(
-                                    hintText: '0123456789',
-                                    prefixText:
-                                        _selectedWhatsappCountry != null &&
-                                            _selectedWhatsappCountry!
-                                                    .phoneCode !=
-                                                null
-                                        ? '+${_selectedWhatsappCountry!.phoneCode} '
-                                        : '',
+                                    ),
+                                    child: const CircularProgressIndicator(),
+                                  )
+                                : DropdownButtonFormField<loc.Country>(
+                                    value: _selectedWhatsappCountry,
+                                    isExpanded: true,
+                                    decoration: _buildFieldDecoration(
+                                      hintText: 'Code',
+                                    ),
+                                    items: _countries.map((country) {
+                                      return DropdownMenuItem<loc.Country>(
+                                        value: country,
+                                        child: Row(
+                                          children: [
+                                            if (country.code != null &&
+                                                country.code!.isNotEmpty)
+                                              CountryFlag.fromCountryCode(
+                                                country.code!,
+                                                height: 18,
+                                                width: 26,
+                                              ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                '+${country.phoneCode ?? ''}',
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedWhatsappCountry = value;
+                                      });
+                                    },
                                   ),
-                                ),
+                            second: TextFormField(
+                              controller: _whatsappController,
+                              keyboardType: TextInputType.phone,
+                              style: const TextStyle(fontSize: 16),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter WhatsApp number';
+                                }
+                                return null;
+                              },
+                              decoration: _buildFieldDecoration(
+                                hintText: '0123456789',
+                                prefixText: _selectedWhatsappCountry != null &&
+                                        _selectedWhatsappCountry!.phoneCode !=
+                                            null
+                                    ? '+${_selectedWhatsappCountry!.phoneCode} '
+                                    : '',
                               ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
@@ -701,101 +637,95 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: 16),
 
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Password',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF374151),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _passwordController,
-                                  obscureText: _obscurePassword,
-                                  style: const TextStyle(fontSize: 16),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter a password';
-                                    }
-                                    if (value.length < 6) {
-                                      return 'Password must be at least 6 characters';
-                                    }
-                                    return null;
-                                  },
-                                  decoration: _buildFieldDecoration(
-                                    hintText: 'Password',
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscurePassword
-                                            ? Icons.visibility_off
-                                            : Icons.visibility,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _obscurePassword = !_obscurePassword;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      ResponsivePair(
+                        breakpoint: 560,
+                        first: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Password',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF374151),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Confirm password',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF374151),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              style: const TextStyle(fontSize: 16),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a password';
+                                }
+                                if (value.length < 6) {
+                                  return 'Password must be at least 6 characters';
+                                }
+                                return null;
+                              },
+                              decoration: _buildFieldDecoration(
+                                hintText: 'Password',
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _confirmPasswordController,
-                                  obscureText: _obscureConfirmPassword,
-                                  style: const TextStyle(fontSize: 16),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please confirm your password';
-                                    }
-                                    if (value != _passwordController.text) {
-                                      return 'Passwords do not match';
-                                    }
-                                    return null;
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
                                   },
-                                  decoration: _buildFieldDecoration(
-                                    hintText: 'Confirm password',
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscureConfirmPassword
-                                            ? Icons.visibility_off
-                                            : Icons.visibility,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _obscureConfirmPassword =
-                                              !_obscureConfirmPassword;
-                                        });
-                                      },
-                                    ),
-                                  ),
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        second: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Confirm password',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _confirmPasswordController,
+                              obscureText: _obscureConfirmPassword,
+                              style: const TextStyle(fontSize: 16),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please confirm your password';
+                                }
+                                if (value != _passwordController.text) {
+                                  return 'Passwords do not match';
+                                }
+                                return null;
+                              },
+                              decoration: _buildFieldDecoration(
+                                hintText: 'Confirm password',
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscureConfirmPassword
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscureConfirmPassword =
+                                          !_obscureConfirmPassword;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 16),
