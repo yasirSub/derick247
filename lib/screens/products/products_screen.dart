@@ -15,9 +15,14 @@ import 'product_detail_screen.dart';
 class ProductsScreen extends StatefulWidget {
   final int? categoryId;
   final String? categoryName;
+  final String? categorySlug;
 
-  const ProductsScreen({Key? key, this.categoryId, this.categoryName})
-    : super(key: key);
+  const ProductsScreen({
+    Key? key,
+    this.categoryId,
+    this.categoryName,
+    this.categorySlug,
+  }) : super(key: key);
 
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
@@ -56,8 +61,24 @@ class _ProductsScreenState extends State<ProductsScreen> {
         productProvider.clearFilters();
       }
 
-      // Always load products fresh when opening ProductsScreen
-      productProvider.loadProducts(refresh: true);
+      // Set category filter using ID (API filters by ID)
+      // Slug is used for URL/query parameter, but ID is used for API filtering
+      print('🛍️ [PRODUCTS_SCREEN] Initializing with:');
+      print('   → categoryId: ${widget.categoryId}');
+      print('   → categoryName: ${widget.categoryName}');
+      print('   → categorySlug: ${widget.categorySlug}');
+      
+      if (widget.categoryId != null) {
+        print('   → Setting category filter to ID: ${widget.categoryId}');
+        // filterByCategory already calls loadProducts, so don't call it again
+        productProvider.filterByCategory(widget.categoryId.toString());
+      } else {
+        print('   → No category ID provided - BASE/HOME screen');
+        print('   → Clearing all filters to show all products');
+        // Always clear filters when no category is provided (for base/home)
+        // This ensures no query parameters are sent
+        productProvider.clearFilters();
+      }
     });
   }
 
@@ -77,6 +98,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   void dispose() {
+    // Clear filters when ProductsScreen is closed (user navigates back)
+    // This ensures home shows all products without filters
+    if (widget.categoryId != null) {
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+      print('🏠 [PRODUCTS_SCREEN] dispose() - Clearing filters when closing category screen');
+      productProvider.clearFilters();
+    }
+    
     _searchController.removeListener(_onSearchChanged);
     _scrollController.removeListener(_onScroll);
     _searchController.dispose();
@@ -97,13 +129,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _debounceTimer?.cancel();
 
     if (query.isEmpty) {
-      // Clear search when empty
+      // Clear only search query when empty, preserve category filter
       final productProvider = Provider.of<ProductProvider>(
         context,
         listen: false,
       );
       if (productProvider.searchQuery != null) {
-        productProvider.clearFilters();
+        // Only clear search, keep category filter if we're in a category
+        productProvider.clearSearchOnly();
+        print('🔍 [PRODUCTS_SCREEN] Search cleared, preserving category filter: ${productProvider.selectedCategory}');
       }
       return;
     }
@@ -113,7 +147,24 @@ class _ProductsScreenState extends State<ProductsScreen> {
         context,
         listen: false,
       );
-      productProvider.searchProducts(query);
+      
+      // CRITICAL: If we're in a category screen, ensure category filter is set before searching
+      if (widget.categoryId != null && productProvider.selectedCategory == null) {
+        print('⚠️ [PRODUCTS_SCREEN] Category filter missing! Setting it now before search.');
+        productProvider.filterByCategory(widget.categoryId.toString());
+        // Wait a bit for filter to be set, then search
+        Future.delayed(const Duration(milliseconds: 100), () {
+          productProvider.searchProducts(query);
+        });
+      } else {
+        // Search will preserve category filter since loadProducts passes both
+        productProvider.searchProducts(query);
+      }
+      
+      print('🔍 [PRODUCTS_SCREEN] Searching with query: "$query"');
+      print('   → Current category filter: ${productProvider.selectedCategory}');
+      print('   → Widget categoryId: ${widget.categoryId}');
+      print('   → ⚠️  Search MUST include category filter if widget.categoryId is set!');
     });
   }
 
@@ -413,13 +464,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             style: TextStyle(
                               color: AppTheme.textSecondaryColor,
                             ),
-                          ),
-                          const SizedBox(height: AppTheme.spacingLarge),
-                          ElevatedButton(
-                            onPressed: () {
-                              productProvider.loadProducts(refresh: true);
-                            },
-                            child: TranslatedText('common.refresh'),
                           ),
                         ],
                       ),

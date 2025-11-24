@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../config/theme_config.dart';
 import '../../../services/api_service.dart';
 import '../../../services/translation_service.dart';
 import '../../../providers/locale_provider.dart';
+import '../paypal_webview_screen.dart';
 
 class GuestCheckoutScreen extends StatefulWidget {
   final String checkoutToken;
@@ -437,7 +437,7 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
         'address': _addressController.text.trim(),
         'payment_method': _selectedPaymentMethod,
       };
-      
+
       // Add product_id and referrer_id from checkout data if available
       if (_checkoutData != null) {
         final productId = _checkoutData!['product_id'];
@@ -461,91 +461,104 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = response.data;
-        
-        // Check if response has PayPal approval link
-        if (responseData != null && 
-            responseData is Map && 
-            responseData['status'] == 'success' &&
-            responseData['approvalLink'] != null) {
-          final approvalLink = responseData['approvalLink'].toString();
-          print('🔗 Opening PayPal approval link: $approvalLink');
-          
-          final translationService = TranslationService();
-          if (mounted) {
-            // Show success message
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  translationService.translate('checkout.redirectingToPayPal'),
+
+        // Handle PayPal redirect if approval link exists
+        if (responseData != null && responseData is Map) {
+          final rawApprovalLink =
+              responseData['approvalLink'] ??
+              responseData['approval_url'] ??
+              responseData['approvalUrl'];
+          if (rawApprovalLink != null &&
+              rawApprovalLink.toString().isNotEmpty) {
+            final approvalLink = rawApprovalLink.toString();
+            print('🔗 Opening PayPal approval link: $approvalLink');
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Opening PayPal...'),
+                  backgroundColor: AppTheme.successColor,
+                  duration: Duration(seconds: 2),
                 ),
-                backgroundColor: AppTheme.successColor,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-            
-            // Open PayPal approval link
-            try {
-              final Uri paypalUri = Uri.parse(approvalLink);
-              final launched = await launchUrl(
-                paypalUri,
-                mode: LaunchMode.externalApplication,
               );
-              
-              if (!launched) {
-                if (mounted) {
+
+              final paypalResult = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      PaypalWebViewScreen(approvalUrl: approvalLink),
+                ),
+              );
+
+              // Handle PayPal return result
+              if (mounted && paypalResult != null) {
+                final translationService = TranslationService();
+                if (paypalResult is Map) {
+                  final isSuccess = paypalResult['success'] == true;
+
+                  if (isSuccess) {
+                    // Payment successful - wait a moment for backend to process order
+                    await Future.delayed(const Duration(seconds: 1));
+                    
+                    // Show success message and navigate back
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          responseData['message']?.toString() ??
+                              translationService.translate('checkout.orderPlaced'),
+                        ),
+                        backgroundColor: AppTheme.successColor,
+                        duration: const Duration(seconds: 4),
+                      ),
+                    );
+                    Navigator.of(context).pop(true);
+                  } else {
+                    // Payment cancelled or failed
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Payment was cancelled'),
+                        backgroundColor: AppTheme.errorColor,
+                      ),
+                    );
+                  }
+                } else {
+                  // Fallback: wait a moment for backend processing
+                  await Future.delayed(const Duration(seconds: 1));
+                  
+                  // Show success message and navigate back
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        translationService.translate('checkout.couldNotOpenPayPal'),
+                        responseData['message']?.toString() ??
+                            translationService.translate('checkout.orderPlaced'),
                       ),
-                      backgroundColor: AppTheme.errorColor,
-                      action: SnackBarAction(
-                        label: translationService.translate('app.retry'),
-                        textColor: Colors.white,
-                        onPressed: () async {
-                          await launchUrl(
-                            paypalUri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        },
-                      ),
+                      backgroundColor: AppTheme.successColor,
+                      duration: const Duration(seconds: 3),
                     ),
                   );
+                  Navigator.of(context).pop(true);
                 }
               }
-            } catch (e) {
-              print('❌ Error opening PayPal link: $e');
-              if (mounted) {
-                final translationService = TranslationService();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '${translationService.translate('checkout.errorOpeningPayPal')}: $e',
-                    ),
-                    backgroundColor: AppTheme.errorColor,
-                  ),
-                );
-              }
             }
+            return;
           }
-        } else {
-          // Fallback: just show success message if no approval link
+        }
+
+        // Fallback: just show success message if no approval link
+        if (mounted) {
           final translationService = TranslationService();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  responseData != null && responseData is Map
-                      ? responseData['message']?.toString() ??
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                responseData != null && responseData is Map
+                    ? responseData['message']?.toString() ??
                           translationService.translate('checkout.orderPlaced')
-                      : translationService.translate('checkout.orderPlaced'),
-                ),
-                backgroundColor: AppTheme.successColor,
-                duration: const Duration(seconds: 3),
+                    : translationService.translate('checkout.orderPlaced'),
               ),
-            );
-            Navigator.of(context).pop(true);
-          }
+              backgroundColor: AppTheme.successColor,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          Navigator.of(context).pop(true);
         }
       } else {
         final errorMessage =

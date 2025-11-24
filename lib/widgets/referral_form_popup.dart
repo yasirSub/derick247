@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../config/theme_config.dart';
 import '../models/product_model.dart';
 import '../services/api_service.dart';
 import '../services/translation_service.dart';
+import '../providers/auth_provider.dart';
+import '../utils/referral_access_helper.dart';
 import 'translated_text.dart';
 
 class ReferralFormPopup extends StatefulWidget {
@@ -62,6 +65,23 @@ class _ReferralFormPopupState extends State<ReferralFormPopup>
     );
 
     _animationController.forward();
+    
+    // Check permission when form opens (safety check)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.isLoggedIn && 
+          ReferralAccessHelper.blockIfNoPermission(
+            context: context,
+            authProvider: authProvider,
+          )) {
+        // Close the form if blocked
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && widget.onClose != null) {
+            widget.onClose!();
+          }
+        });
+      }
+    });
   }
 
   @override

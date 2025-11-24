@@ -7,6 +7,8 @@ import '../screens/profile/vendor_products_screen.dart';
 import '../screens/orders/orders_list_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/wallet/wallet_screen.dart';
+import '../screens/auth/login_screen.dart';
+import '../screens/auth/verify_email_screen.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_model.dart';
 import '../services/storage_service.dart';
@@ -251,7 +253,42 @@ class AppDrawer extends StatelessWidget {
                     label: translationService.translate('app.profile'),
                     selected: _is('profile'),
                     onTap: () {
+                      print('👤 [APP_DRAWER] Profile menu item clicked:');
+                      print('   → User logged in: ${authProvider.isLoggedIn}');
+                      print('   → Email verified: ${authProvider.isEmailVerified}');
+                      
                       Navigator.pop(context);
+                      
+                      // Check if user is logged in
+                      if (!authProvider.isLoggedIn) {
+                        print('   → User not logged in, redirecting to: LoginScreen');
+                        print('   → Route: /login');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LoginScreen(),
+                          ),
+                        );
+                        return;
+                      }
+                      
+                      // Check if email is verified
+                      if (!authProvider.isEmailVerified) {
+                        print('   → Email not verified, redirecting to: VerifyEmailScreen');
+                        print('   → Route: /verify-email');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => VerifyEmailScreen(
+                              email: authProvider.user?.email ?? '',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      
+                      print('   → Redirecting to: ProfileScreen');
+                      print('   → Route: /profile');
                       Navigator.push(
                         context,
                         MaterialPageRoute(

@@ -29,6 +29,7 @@ class ApiConfig {
   static const String forgotPassword = 'forgot-password';
   static const String verifyOtp = 'verify-otp';
   static const String resetPassword = 'reset-password';
+  static const String googleLogin = 'login-google';
 
   // Location endpoints
   static const String locations = 'locations';
@@ -66,12 +67,17 @@ class ApiConfig {
 
   // Vendor Product endpoints
   static const String vendorProduct = 'vendor-product';
+  static const String deleteProductGallery =
+      'products/gallery/'; // DELETE products/gallery/{id}
 
   // Wallet endpoints
   static const String wallet = 'wallet';
   static const String walletCreateOrder = 'wallet/create-order';
+  static const String walletBuyPoints = 'wallet/buy-points';
+  static const String walletBuyPointsWithWallet = 'wallet/buy-points-with-wallet';
   static const String walletWithdraw = 'wallet/withdraw';
   static const String walletSendMoney = 'wallet/send-money';
+  static const String transactions = 'transactions';
 
   // App Assets endpoint
   static const String appAssets = 'app-assets';

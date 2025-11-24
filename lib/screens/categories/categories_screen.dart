@@ -16,11 +16,42 @@ class CategoriesScreen extends StatefulWidget {
 class _CategoriesScreenState extends State<CategoriesScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    
+    // Load categories when screen is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+      productProvider.loadCategories(refresh: true);
+    });
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      // Load more when 200 pixels from bottom
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+      if (!productProvider.isLoadingCategories && productProvider.hasMoreCategories) {
+        productProvider.loadCategories();
+      }
+    }
   }
 
   List<Category> _getFilteredCategories(List<Category> categories) {
@@ -45,6 +76,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             Navigator.of(context).pop();
           },
         ),
+        actions: [], // Remove profile icon from top bar
       ),
       body: Column(
         children: [
@@ -82,7 +114,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           Expanded(
             child: Consumer<ProductProvider>(
               builder: (context, productProvider, child) {
-                if (productProvider.categories.isEmpty) {
+                if (productProvider.categories.isEmpty && productProvider.isLoadingCategories) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
@@ -90,7 +122,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   productProvider.categories,
                 );
 
-                if (filteredCategories.isEmpty) {
+                if (filteredCategories.isEmpty && !productProvider.isLoadingCategories) {
                   return const Center(
                     child: Text(
                       'No categories found',
@@ -103,6 +135,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 }
 
                 return GridView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(AppTheme.spacingMedium),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
@@ -110,8 +143,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     crossAxisSpacing: AppTheme.spacingMedium,
                     mainAxisSpacing: AppTheme.spacingMedium,
                   ),
-                  itemCount: filteredCategories.length,
+                  itemCount: filteredCategories.length + (productProvider.isLoadingCategories ? 1 : 0),
                   itemBuilder: (context, index) {
+                    if (index >= filteredCategories.length) {
+                      // Show loading indicator at the bottom
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(AppTheme.spacingMedium),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
                     final category = filteredCategories[index];
                     return _buildCategoryCard(context, category);
                   },
@@ -127,13 +169,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   Widget _buildCategoryCard(BuildContext context, Category category) {
     return GestureDetector(
       onTap: () {
-        // Navigate to products filtered by category
+        print('📂 [CATEGORIES] Category clicked:');
+        print('   → ID: ${category.id}');
+        print('   → Name: ${category.name}');
+        print('   → Slug: ${category.slug}');
+        print('   → Navigating to ProductsScreen with:');
+        print('      • categoryId: ${category.id}');
+        print('      • categoryName: ${category.name}');
+        print('      • categorySlug: ${category.slug}');
+        // Navigate to products filtered by category using slug
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => ProductsScreen(
               categoryId: category.id,
               categoryName: category.name,
+              categorySlug: category.slug,
             ),
           ),
         );

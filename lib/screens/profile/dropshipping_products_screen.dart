@@ -5,6 +5,7 @@ import '../../config/theme_config.dart';
 import '../../widgets/app_drawer.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/translation_service.dart';
 import '../../widgets/translated_text.dart';
 import 'dropshipping_product_detail_screen.dart';
@@ -30,6 +31,20 @@ class _DropshippingProductsScreenState
   Timer? _debounce;
   String _query = '';
   String? _selectedFilter; // 'all', 'web', 'normal', null
+
+  // Check if user has dropshipping_product permission
+  bool _hasDropshippingPermission() {
+    final user = AuthService().currentUser;
+    if (user == null) return false;
+    
+    // Check both userPermissions and vendorPermissions
+    final allPermissions = [
+      ...user.userPermissions,
+      ...user.vendorPermissions,
+    ];
+    
+    return allPermissions.contains('dropshipping_product');
+  }
 
   @override
   void initState() {
@@ -237,10 +252,11 @@ class _DropshippingProductsScreenState
           ),
           isDark: true,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: _showAddProductOptions,
-            ),
+            if (_hasDropshippingPermission())
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: _showAddProductOptions,
+              ),
           ],
         ),
         backgroundColor: AppTheme.backgroundColor,
@@ -311,6 +327,7 @@ class _DropshippingProductsScreenState
             );
           }
           final product = _filtered[index - 1];
+          final hasPermission = _hasDropshippingPermission();
           return _DropshippingListTile(
             product: product,
             onTap: () {
@@ -322,7 +339,7 @@ class _DropshippingProductsScreenState
                 ),
               );
             },
-            onEdit: () async {
+            onEdit: hasPermission ? () async {
               final created = await Navigator.push<bool>(
                 context,
                 MaterialPageRoute(
@@ -333,8 +350,8 @@ class _DropshippingProductsScreenState
               if (created == true) {
                 _fetchProducts();
               }
-            },
-            onDelete: () async {
+            } : null,
+            onDelete: hasPermission ? () async {
               final confirm = await showModalBottomSheet<bool>(
                 context: context,
                 shape: const RoundedRectangleBorder(
@@ -407,7 +424,7 @@ class _DropshippingProductsScreenState
                   );
                 }
               }
-            },
+            } : null,
           );
         },
       ),
@@ -498,6 +515,17 @@ class _DropshippingProductsScreenState
   }
 
   Future<void> _showAddProductOptions() async {
+    // Check permission before showing add options
+    if (!_hasDropshippingPermission()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to add dropshipping products'),
+        ),
+      );
+      return;
+    }
+
     final result = await showModalBottomSheet<String>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -582,6 +610,9 @@ class _DropshippingListTile extends StatelessWidget {
     this.onEdit,
     this.onDelete,
   });
+
+  bool get _canEdit => onEdit != null;
+  bool get _canDelete => onDelete != null;
 
   Color _statusColor(String? status) {
     if (status == null) return Colors.grey;
@@ -693,16 +724,18 @@ class _DropshippingListTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blue),
-              onPressed: onEdit,
-              tooltip: 'Edit',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: onDelete,
-              tooltip: 'Delete',
-            ),
+            if (_canEdit)
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.blue),
+                onPressed: onEdit,
+                tooltip: 'Edit',
+              ),
+            if (_canDelete)
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: onDelete,
+                tooltip: 'Delete',
+              ),
           ],
         ),
       ),

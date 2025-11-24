@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 class Product {
   final int id;
   final String name;
@@ -37,6 +39,19 @@ class Product {
     this.flag,
   });
 
+  // Helper function to parse price strings (handles formatted strings with commas)
+  static double _parsePrice(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      // Remove commas and parse
+      String cleaned = value.replaceAll(',', '').trim();
+      return double.tryParse(cleaned) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   factory Product.fromJson(Map<String, dynamic> json) {
     // Extract medias map
     Map<String, String> medias = {};
@@ -64,9 +79,11 @@ class Product {
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       slug: json['slug'] ?? '',
-      price: (json['price'] ?? 0).toDouble(),
+      price: _parsePrice(json['price']),
       currencySymbol: json['currency_symbol'] ?? '\$',
-      referrerCommission: json['referrer_commission']?.toDouble(),
+      referrerCommission: json['referrer_commission'] != null
+          ? _parsePrice(json['referrer_commission'])
+          : null,
       shareLink: json['share_link'],
       categoryName: json['category_name'],
       shortDescription: json['short_description'],
@@ -109,10 +126,18 @@ class Product {
     };
   }
 
-  String get formattedPrice => '$currencySymbol ${price.toStringAsFixed(0)}';
-  String get formattedCommission => referrerCommission != null
-      ? '$currencySymbol ${referrerCommission!.toStringAsFixed(0)}'
-      : '$currencySymbol 0';
+  String get formattedPrice {
+    final formatter = NumberFormat('#,##0.00');
+    final formattedValue = formatter.format(price);
+    return '$currencySymbol $formattedValue';
+  }
+
+  String get formattedCommission {
+    if (referrerCommission == null) return '$currencySymbol 0';
+    final formatter = NumberFormat('#,##0.00');
+    final formattedValue = formatter.format(referrerCommission!);
+    return '$currencySymbol $formattedValue';
+  }
 
   String? get firstImage {
     if (thumbnail != null) {

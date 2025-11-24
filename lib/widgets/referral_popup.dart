@@ -9,6 +9,7 @@ import 'share_link_popup.dart';
 import '../screens/auth/login_screen.dart';
 import 'translated_text.dart';
 import '../services/translation_service.dart';
+import '../utils/referral_access_helper.dart';
 
 class ReferralPopup extends StatefulWidget {
   final Product product;
@@ -552,6 +553,24 @@ class _ReferralPopupState extends State<ReferralPopup>
                                       _showAuthenticationNeededPopup(context);
                                       return;
                                     }
+                                    // Check if user is verified
+                                    if (!authProvider.isEmailVerified) {
+                                      Navigator.of(context).pop();
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute(
+                                          builder: (context) => const LoginScreen(),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    // Check call center permission for Refer via Form
+                                    if (ReferralAccessHelper.blockIfNoPermission(
+                                      context: context,
+                                      authProvider: authProvider,
+                                    )) {
+                                      Navigator.of(context).pop();
+                                      return;
+                                    }
                                     Navigator.of(context).pop();
                                     showModalBottomSheet(
                                       context: context,
@@ -567,47 +586,86 @@ class _ReferralPopupState extends State<ReferralPopup>
                                       },
                                     );
                                   },
-                                  child: Container(
-                                    height: 140,
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFC107), // Yellow
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: SingleChildScrollView(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.person_add,
-                                            color: Colors.black87,
-                                            size: 32,
-                                          ),
-                                          const SizedBox(height: 6),
-                                          const TranslatedText(
-                                            'refer.referViaForm',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
+                                  child: Opacity(
+                                    opacity: (authProvider.isLoggedIn && !authProvider.isEmailVerified) ||
+                                            (authProvider.isLoggedIn && !authProvider.canReferFriendToCallCenter)
+                                        ? 0.5
+                                        : 1.0,
+                                    child: Container(
+                                      height: 140,
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: (authProvider.isLoggedIn && !authProvider.isEmailVerified) ||
+                                                (authProvider.isLoggedIn && !authProvider.canReferFriendToCallCenter)
+                                            ? Colors.grey.shade400
+                                            : const Color(0xFFFFC107), // Yellow
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: SingleChildScrollView(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.person_add,
+                                              color: (authProvider.isLoggedIn && !authProvider.isEmailVerified) ||
+                                                      (authProvider.isLoggedIn && !authProvider.canReferFriendToCallCenter)
+                                                  ? Colors.grey.shade600
+                                                  : Colors.black87,
+                                              size: 32,
                                             ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          TranslatedText(
-                                            'refer.fillOutDetailsContact',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black87.withOpacity(
-                                                0.7,
+                                            const SizedBox(height: 6),
+                                            TranslatedText(
+                                              'refer.referViaForm',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: (authProvider.isLoggedIn && !authProvider.isEmailVerified) ||
+                                                        (authProvider.isLoggedIn && !authProvider.canReferFriendToCallCenter)
+                                                    ? Colors.grey.shade600
+                                                    : Colors.black87,
                                               ),
                                             ),
-                                            textAlign: TextAlign.center,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
+                                            const SizedBox(height: 2),
+                                            authProvider.isLoggedIn && !authProvider.isEmailVerified
+                                                ? Text(
+                                                    'Please verify your email',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey.shade600,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  )
+                                                : authProvider.isLoggedIn && !authProvider.canReferFriendToCallCenter
+                                                    ? Text(
+                                                        'You are blocked from the call center',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors.grey.shade600,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                        textAlign: TextAlign.center,
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      )
+                                                    : TranslatedText(
+                                                        'refer.fillOutDetailsContact',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors.black87.withOpacity(
+                                                            0.7,
+                                                          ),
+                                                        ),
+                                                        textAlign: TextAlign.center,
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -618,7 +676,7 @@ class _ReferralPopupState extends State<ReferralPopup>
                               Expanded(
                                 child: GestureDetector(
                                   onTap: () {
-                                    // Share a Link doesn't require login
+                                    // Share a Link doesn't require login or verification
                                     Navigator.of(context).pop();
                                     showModalBottomSheet(
                                       context: context,
@@ -671,13 +729,11 @@ class _ReferralPopupState extends State<ReferralPopup>
                                             ),
                                           ),
                                           const SizedBox(height: 2),
-                                          TranslatedText(
+                                          const TranslatedText(
                                             'refer.sendUniqueReferralLink',
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: Colors.white.withOpacity(
-                                                0.7,
-                                              ),
+                                              color: Colors.white70,
                                             ),
                                             textAlign: TextAlign.center,
                                             maxLines: 2,

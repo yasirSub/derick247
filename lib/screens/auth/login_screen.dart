@@ -5,6 +5,7 @@ import '../../config/theme_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/google_auth_service.dart';
 import '../../widgets/translated_text.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
@@ -45,9 +46,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loadRememberPreference() async {
-    final saved = await _storage.getUserPreference<bool>('remember_me') ?? false;
-    final savedEmail =
-        await _storage.getUserPreference<String>('remember_email');
+    final saved =
+        await _storage.getUserPreference<bool>('remember_me') ?? false;
+    final savedEmail = await _storage.getUserPreference<String>(
+      'remember_email',
+    );
     if (!mounted) return;
     if (saved) {
       setState(() {
@@ -566,9 +569,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               child: ElevatedButton(
-                                onPressed: () {
-                                  // TODO: Implement Google login
-                                },
+                                onPressed: _loginWithGoogle,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
@@ -718,5 +719,103 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _loginWithGoogle() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final googleAuthService = GoogleAuthService();
+
+    // Enable verbose API/auth debug logs
+    AuthProvider.debugLogging = true;
+    ApiService.debugLogging = true;
+
+    try {
+      // Sign in with Google
+      final googleSignInResult = await googleAuthService.signInWithGoogle();
+
+      if (!mounted) return;
+
+      if (googleSignInResult['success'] != true) {
+        // User cancelled or error occurred
+        if (googleSignInResult['message'] != 'Sign-in cancelled') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                googleSignInResult['message'] ?? 'Google sign-in failed',
+              ),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Get the ID token and user info
+      final idToken = googleSignInResult['idToken'];
+      final email = googleSignInResult['email'];
+      final displayName = googleSignInResult['displayName'];
+      final photoUrl = googleSignInResult['photoUrl'];
+
+      if (idToken == null || email == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to get Google credentials'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Send to backend
+      final success = await authProvider.loginWithGoogle(
+        idToken: idToken,
+        email: email,
+        name: displayName,
+        photoUrl: photoUrl,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        if (authProvider.requiresEmailVerification) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please verify your email before continuing.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => VerifyEmailScreen(email: email)),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Google sign-in successful!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              authProvider.error ?? 'Google login failed. Please try again.',
+            ),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
   }
 }

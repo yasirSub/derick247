@@ -393,48 +393,109 @@ class _ShareLinkPopupState extends State<ShareLinkPopup>
                             const SizedBox(width: AppTheme.spacingMedium),
                             // Share Checkout Link Tab
                             Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  final isLoggedIn = Provider.of<AuthProvider>(
+                              child: Builder(
+                                builder: (context) {
+                                  final authProvider = Provider.of<AuthProvider>(
                                     context,
                                     listen: false,
-                                  ).isLoggedIn;
-                                  setState(() {
-                                    _isProductLink = false;
-                                    _linkCopied = false;
-                                    _checkoutRequiresLogin = !isLoggedIn;
-                                  });
+                                  );
+                                  final isLoggedIn = authProvider.isLoggedIn;
+                                  final isVerified = authProvider.isEmailVerified;
+                                  final isDisabled = isLoggedIn && !isVerified;
+                                  
+                                  return GestureDetector(
+                                    onTap: () {
+                                      // Check if user is verified
+                                      if (isDisabled) {
+                                        Navigator.of(context).pushReplacement(
+                                          MaterialPageRoute(
+                                            builder: (context) => const LoginScreen(),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      
+                                      setState(() {
+                                        _isProductLink = false;
+                                        _linkCopied = false;
+                                        _checkoutRequiresLogin = !isLoggedIn;
+                                      });
+                                    },
+                                    child: Opacity(
+                                      opacity: isDisabled ? 0.5 : 1.0,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: AppTheme.spacingMedium,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: !_isProductLink
+                                              ? Colors.yellow
+                                              : const Color(0xFF2D323E),
+                                          borderRadius: BorderRadius.circular(
+                                            AppTheme.radiusMedium,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          TranslationService().translate('refer.shareCheckoutLink'),
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: AppTheme.fontSizeMedium,
+                                            fontWeight: FontWeight.bold,
+                                            color: !_isProductLink
+                                                ? Colors.black
+                                                : Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
                                 },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: AppTheme.spacingMedium,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: !_isProductLink
-                                        ? Colors.yellow
-                                        : const Color(0xFF2D323E),
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusMedium,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    TranslationService().translate('refer.shareCheckoutLink'),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: AppTheme.fontSizeMedium,
-                                      fontWeight: FontWeight.bold,
-                                      color: !_isProductLink
-                                          ? Colors.black
-                                          : Colors.white,
-                                    ),
-                                  ),
-                                ),
                               ),
                             ),
                           ],
                         ),
 
                         const SizedBox(height: AppTheme.spacingLarge),
+
+                        // Show verification hint if user is logged in but not verified and checkout link is selected
+                        if (Provider.of<AuthProvider>(context, listen: false).isLoggedIn &&
+                            !Provider.of<AuthProvider>(context, listen: false).isEmailVerified &&
+                            !_isProductLink)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            margin: const EdgeInsets.only(bottom: AppTheme.spacingMedium),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusMedium,
+                              ),
+                              border: Border.all(
+                                color: Colors.orange.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.orange.shade700,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Please verify your email to share checkout links.',
+                                    style: TextStyle(
+                                      fontSize: AppTheme.fontSizeSmall,
+                                      color: Colors.orange.shade700,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
 
                         if (_checkoutRequiresLogin && !_isProductLink)
                           Container(

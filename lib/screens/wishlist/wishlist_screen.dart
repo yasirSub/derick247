@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/black_board_entry.dart';
 import '../../providers/black_board_provider.dart';
 import '../../providers/product_provider.dart';
@@ -354,106 +355,142 @@ class _TopCommissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      child: InkWell(
       onTap: () => _openRefer(context),
+        borderRadius: BorderRadius.circular(6),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F6FA),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE1E4F0), width: 1.5),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                  // Product Image (small, compact)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                   child: Container(
-                    width: 82,
-                    height: 82,
-                    color: Colors.white,
+                      width: 80,
+                      height: 80,
+                      color: Colors.grey[100],
                     child: entry.imageUrl != null && entry.imageUrl!.isNotEmpty
-                        ? Image.network(
-                            entry.imageUrl!,
+                          ? CachedNetworkImage(
+                              imageUrl: entry.imageUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.broken_image_outlined,
-                              color: Color(0xFF9EA6BA),
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: Colors.grey[200],
+                                child: const Icon(
+                                  Icons.image_not_supported,
+                                  color: Colors.grey,
+                                  size: 24,
+                                ),
                             ),
                           )
-                        : const Icon(
-                            Icons.image_outlined,
-                            color: Color(0xFF9EA6BA),
+                          : Container(
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey,
+                                size: 24,
+                              ),
                           ),
                   ),
                 ),
-                const SizedBox(width: 20),
+                  const SizedBox(width: 12),
+                  // Product Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                     children: [
+                        // Product Name (at top)
                       Text(
                         entry.productName,
                         style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF22304B),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 8),
-                      if (entry.category != null && entry.category!.isNotEmpty)
+                        // Category
+                        if (entry.category != null && entry.category!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
                         RichText(
                           text: TextSpan(
                             style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF5F6D8B),
+                                fontSize: 11.5,
+                                color: Colors.black87,
                             ),
                             children: [
                               TextSpan(
-                                text: '${TranslationService().translate('app.category')}: ',
+                                  text: 'Category: ',
                               ),
                               TextSpan(
                                 text: entry.category,
-                                style: const TextStyle(
-                                  color: Color(0xFFF7931E),
+                                  style: TextStyle(
+                                    color: Colors.orange.shade800,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      const SizedBox(height: 6),
-                      RichText(
-                        text: TextSpan(
+                        ],
+                        const SizedBox(height: 4),
+                        // Referrer Commission text
+                        Text(
+                          'Referrer Commission: ${entry.formattedCommission}',
                           style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
                           ),
-                          children: [
-                            TextSpan(
-                              text: TranslationService().translate(
-                                'leaderboard.referrerLabel',
-                              ),
-                              style: TextStyle(color: Color(0xFF22304B)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        // White button with "Refer Now"
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () => _openRefer(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 5),
+                              minimumSize: const Size(0, 30),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                side: BorderSide(
+                                  color: Colors.grey.shade600,
+                                  width: 1,
                             ),
-                            TextSpan(
-                              text: entry.formattedCommission,
-                              style: const TextStyle(color: Color(0xFFF7931E)),
-                            ),
-                          ],
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      Align(
-                        alignment: Alignment.center,
-                        child: _buildReferButton(context),
+                            child: TranslatedText(
+                              'leaderboard.referNow',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                       ),
                     ],
                   ),
@@ -461,19 +498,20 @@ class _TopCommissionCard extends StatelessWidget {
               ],
             ),
           ),
+            // Rank badge (top-left)
           Positioned(
-            top: -10,
-            left: 16,
+              top: 6,
+              left: 6,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: _badgeColor(rank),
-                borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(4),
                 boxShadow: [
                   BoxShadow(
-                    color: _badgeColor(rank).withOpacity(0.35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                      color: _badgeColor(rank).withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -481,42 +519,16 @@ class _TopCommissionCard extends StatelessWidget {
                 '#$rank',
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: Color(0xFF22304B),
+                    fontSize: 12,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
-          ),
         ],
+        ),
       ),
     );
   }
 
-  Widget _buildReferButton(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _openRefer(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFEB642), Color(0xFFF57815)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFF57815).withOpacity(0.25),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: const TranslatedText(
-          'leaderboard.referNow',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
 }

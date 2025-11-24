@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, curly_braces_in_flow_control_structures, unnecessary_null_comparison
+// ignore_for_file: deprecated_member_use, curly_braces_in_flow_control_structures, unnecessary_null_comparison, avoid_print
 
 import 'dart:io';
 
@@ -8,10 +8,12 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../config/theme_config.dart';
 
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/translation_service.dart';
 import '../../widgets/translated_text.dart';
 
@@ -101,8 +103,10 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
   // Step 3 - media
 
   File? _thumbnail;
+  String? _existingThumbnailUrl;
 
   final List<File> _gallery = [];
+  List<Map<String, dynamic>> _existingGalleryImages = []; // Store {id, url}
 
   bool _submitting = false;
 
@@ -120,9 +124,45 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
 
   List<Map<String, dynamic>> _cities = const [];
 
+  // Check if user has vendor product permissions
+  bool _hasCreatePermission() {
+    final user = AuthService().currentUser;
+    if (user == null) return false;
+    final allPermissions = [
+      ...user.userPermissions,
+      ...user.vendorPermissions,
+    ];
+    return allPermissions.contains('create_product');
+  }
+
+  bool _hasEditPermission() {
+    final user = AuthService().currentUser;
+    if (user == null) return false;
+    final allPermissions = [
+      ...user.userPermissions,
+      ...user.vendorPermissions,
+    ];
+    return allPermissions.contains('edit_product');
+  }
+
+  bool _hasRequiredPermission() {
+    // If editing, need edit permission; if creating, need create permission
+    if (widget.productId != null) {
+      return _hasEditPermission();
+    } else {
+      return _hasCreatePermission();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    
+    // Check permission before allowing access
+    if (!_hasRequiredPermission()) {
+      // Permission check will be handled in build method
+      return;
+    }
 
     // Initialize with one empty shipping country for new products
     if (widget.productId == null) {
@@ -135,6 +175,15 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         ),
       );
     }
+
+    // Add listeners to update UI for button state
+    _nameCtrl.addListener(_updateState);
+    _priceCtrl.addListener(_updateState);
+    _qtyCtrl.addListener(_updateState);
+    _minQtyCtrl.addListener(_updateState);
+    _shortCtrl.addListener(_updateState);
+    _guaranteeDurationCtrl.addListener(_updateState);
+    _guaranteeDetailsCtrl.addListener(_updateState);
 
     // Defer async operations to after the first frame to avoid setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -152,6 +201,10 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         }
       }
     });
+  }
+
+  void _updateState() {
+    if (mounted) setState(() {});
   }
 
   Widget _buildGuaranteeSection() {
@@ -213,17 +266,12 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
               label: TranslationService().translate(
                 'vendorCreate.guaranteeType',
               ),
-
               value: _guaranteeType,
-
               enabled: true,
-
               hint: TranslationService().translate(
                 'vendorCreate.selectGuaranteeType',
               ),
-
               icon: Icons.verified_user_outlined,
-
               onChanged: (value) {
                 if (value == null) return;
 
@@ -231,7 +279,6 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
                   _guaranteeType = value;
                 });
               },
-
               items: _guaranteeTypes
                   .map(
                     (e) => DropdownMenuItem<String>(
@@ -244,6 +291,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
                     ),
                   )
                   .toList(),
+              isRequired: true,
             ),
 
             const SizedBox(height: AppTheme.spacingMedium),
@@ -252,14 +300,12 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
               label: TranslationService().translate(
                 'vendorCreate.guaranteeDuration',
               ),
-
               controller: _guaranteeDurationCtrl,
-
               keyboardType: TextInputType.number,
-
               hint: TranslationService().translate(
                 'vendorCreate.guaranteeDurationHint',
               ),
+              isRequired: true,
             ),
 
             const SizedBox(height: AppTheme.spacingMedium),
@@ -268,10 +314,9 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
               label: TranslationService().translate(
                 'vendorCreate.guaranteeDetails',
               ),
-
               controller: _guaranteeDetailsCtrl,
-
               minLines: 3,
+              isRequired: true,
             ),
           ],
         ],
@@ -281,6 +326,59 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Check permission and show error if not authorized
+    if (!_hasRequiredPermission()) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) {
+            Navigator.of(context).pop();
+          }
+        },
+        child: Scaffold(
+          backgroundColor: AppTheme.backgroundColor,
+          appBar: AppBar(
+            title: Text(
+              TranslationService().translate('vendorCreate.createProduct'),
+            ),
+            backgroundColor: AppTheme.darkAppBarColor,
+            foregroundColor: Colors.white,
+          ),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppTheme.spacingLarge),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: AppTheme.spacingMedium),
+                  const Text(
+                    'Access Denied',
+                    style: TextStyle(
+                      fontSize: AppTheme.fontSizeLarge,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.spacingSmall),
+                  Text(
+                    widget.productId != null
+                        ? 'You do not have permission to edit vendor products.'
+                        : 'You do not have permission to create vendor products.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppTheme.spacingLarge),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: TranslatedText('app.back'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return PopScope(
       canPop: false,
 
@@ -548,15 +646,14 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
       children: [
         _textField(
           label: TranslationService().translate('vendorCreate.productTitle'),
-
           controller: _nameCtrl,
-
           hint: TranslationService().translate('vendorCreate.productTitleHint'),
+          isRequired: true,
         ),
 
         const SizedBox(height: AppTheme.spacingMedium),
 
-        _buildCategoryField(),
+        _buildCategoryField(isRequired: true),
 
         const SizedBox(height: AppTheme.spacingMedium),
 
@@ -569,13 +666,12 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
           children: [
             Expanded(
               flex: 2,
-
               child: _currencyField(
                 label: TranslationService().translate(
                   'vendorCreate.productPrice',
                 ),
-
                 controller: _priceCtrl,
+                isRequired: true,
               ),
             ),
           ],
@@ -587,20 +683,18 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
           label: TranslationService().translate(
             'vendorCreate.minimumOrderQuantity',
           ),
-
           controller: _minQtyCtrl,
-
           keyboardType: TextInputType.number,
+          isRequired: true,
         ),
 
         const SizedBox(height: AppTheme.spacingMedium),
 
         _textField(
           label: TranslationService().translate('vendorCreate.productQuantity'),
-
           controller: _qtyCtrl,
-
           keyboardType: TextInputType.number,
+          isRequired: true,
         ),
 
         const SizedBox(height: AppTheme.spacingMedium),
@@ -614,6 +708,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
             'vendorCreate.productShortSummary',
           ),
           controller: _shortCtrl,
+          isRequired: true,
         ),
 
         const SizedBox(height: AppTheme.spacingMedium),
@@ -622,9 +717,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
           label: TranslationService().translate(
             'vendorCreate.productDescription',
           ),
-
           controller: _descCtrl,
-
           minLines: 5,
         ),
 
@@ -1278,13 +1371,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
           _uploadZone(
             height: 160,
 
-            onTap: () async {
-              final picker = ImagePicker();
-
-              final x = await picker.pickImage(source: ImageSource.gallery);
-
-              if (x != null) setState(() => _thumbnail = File(x.path));
-            },
+            onTap: () => _showImageSourceDialog(isThumbnail: true),
 
             child: _buildThumbnailPreview(),
           ),
@@ -1300,15 +1387,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
           _uploadZone(
             height: 160,
 
-            onTap: () async {
-              final picker = ImagePicker();
-
-              final xs = await picker.pickMultiImage();
-
-              if (xs.isNotEmpty) {
-                setState(() => _gallery.addAll(xs.map((e) => File(e.path))));
-              }
-            },
+            onTap: () => _showImageSourceDialog(isThumbnail: false),
 
             child: _buildGalleryPreview(),
           ),
@@ -1318,53 +1397,42 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
   }
 
   Widget _buildBottomBar() {
+    final bool isNextEnabled = _step > 0 || _isStep0Valid();
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spacingMedium,
-
         vertical: AppTheme.spacingMedium,
       ),
-
       decoration: BoxDecoration(
         color: Colors.white,
-
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-
             blurRadius: 10,
-
             offset: const Offset(0, -2),
           ),
         ],
       ),
-
       child: Row(
         mainAxisAlignment: _step == 0
             ? MainAxisAlignment.start
             : MainAxisAlignment.spaceBetween,
-
         children: [
           if (_step > 0)
             Expanded(
               child: OutlinedButton(
                 onPressed: () => setState(() => _step -= 1),
-
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-
                   side: BorderSide(color: Colors.orange.shade700, width: 1.5),
-
                   foregroundColor: Colors.orange.shade700,
-
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-
                 child: TranslatedText(
                   'vendorCreate.back',
-
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -1372,18 +1440,13 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
                 ),
               ),
             ),
-
           if (_step > 0) const SizedBox(width: AppTheme.spacingMedium),
-
           ElevatedButton.icon(
-            onPressed: _submitting ? null : _onNextOrSubmit,
-
+            onPressed: _submitting || !isNextEnabled ? null : _onNextOrSubmit,
             icon: Icon(
               _step < 2 ? Icons.arrow_forward : Icons.upload_file,
-
               size: 20,
             ),
-
             label: Text(
               _step < 2
                   ? TranslationService().translate('vendorCreate.next')
@@ -1394,21 +1457,17 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
                         : TranslationService().translate(
                             'vendorCreate.uploadProduct',
                           )),
-
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
-
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange.shade700,
-
               foregroundColor: Colors.white,
-
+              disabledBackgroundColor: Colors.grey.shade300,
+              disabledForegroundColor: Colors.grey.shade500,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-
               elevation: 2,
             ),
           ),
@@ -1417,10 +1476,41 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     );
   }
 
+  bool _isStep0Valid() {
+    if (_nameCtrl.text.trim().isEmpty) return false;
+    if (_categoryId == null) return false;
+    if (_priceCtrl.text.trim().isEmpty) return false;
+    if (_minQtyCtrl.text.trim().isEmpty) return false;
+    if (_qtyCtrl.text.trim().isEmpty) return false;
+    if (_shortCtrl.text.trim().isEmpty) return false;
+
+    if (_guaranteeEnabled) {
+      if (_guaranteeDurationCtrl.text.trim().isEmpty) return false;
+      if (_guaranteeDetailsCtrl.text.trim().isEmpty) return false;
+    }
+    return true;
+  }
+
   Future<void> _onNextOrSubmit() async {
     if (_step < 2) {
       setState(() => _step += 1);
 
+      return;
+    }
+
+    // Check permission before submitting
+    if (!_hasRequiredPermission()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.productId != null
+                ? 'You do not have permission to edit vendor products'
+                : 'You do not have permission to create vendor products',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
@@ -1479,6 +1569,13 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
       print('   → Product Origin - State ID: $_stateId');
       print('   → Product Origin - City ID: $_cityId');
       print('   → Has Guarantee: $_guaranteeEnabled');
+      if (_guaranteeEnabled) {
+        print('   → Guarantee Type: $_guaranteeType');
+        print('   → Guarantee Duration: ${_guaranteeDurationCtrl.text.trim()}');
+        print('   → Guarantee Details: ${_guaranteeDetailsCtrl.text.trim()}');
+      } else {
+        print('   → Guarantee fields will be sent as empty strings');
+      }
       print('   → Shipping Destinations Count: ${_shipping.length}');
       if (_shipping.isNotEmpty) {
         print('   → Shipping Destinations Details:');
@@ -1523,14 +1620,15 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
 
         'has_guarantee': _guaranteeEnabled ? 1 : 0,
 
-        // Only add guarantee fields if guarantee is enabled AND fields have values
-        if (_guaranteeEnabled && _guaranteeType.isNotEmpty)
-          'guarantee_type': _guaranteeType,
-        if (_guaranteeEnabled && _guaranteeDurationCtrl.text.trim().isNotEmpty)
-          'guarantee_duration_days': _guaranteeDurationCtrl.text.trim(),
-
-        if (_guaranteeEnabled && _guaranteeDetailsCtrl.text.trim().isNotEmpty)
-          'guarantee_details': _guaranteeDetailsCtrl.text.trim(),
+        // Always send guarantee fields (the backend expects them)
+        // Send actual values if guarantee is enabled, empty strings if disabled
+        'guarantee[type]': _guaranteeEnabled ? _guaranteeType : '',
+        'guarantee[duration]': _guaranteeEnabled
+            ? _guaranteeDurationCtrl.text.trim()
+            : '',
+        'guarantee[details]': _guaranteeEnabled
+            ? _guaranteeDetailsCtrl.text.trim()
+            : '',
       };
 
       // Add shipping destinations to payload (where product can be shipped TO)
@@ -1606,9 +1704,27 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         print('   → Adding thumbnail: ${_thumbnail!.path}');
         payload['thumbnail'] = await MultipartFile.fromFile(
           _thumbnail!.path,
-
           filename: _thumbnail!.path.split('/').last,
         );
+      } else if (widget.productId != null &&
+          _existingThumbnailUrl != null &&
+          _existingThumbnailUrl!.isNotEmpty) {
+        print('   → Downloading existing thumbnail for re-upload...');
+        try {
+          final dir = await getTemporaryDirectory();
+          final tempPath =
+              '${dir.path}/thumb_${widget.productId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final resp = await Dio().download(_existingThumbnailUrl!, tempPath);
+          if (resp.statusCode == 200) {
+            print('   → Existing thumbnail downloaded to: $tempPath');
+            payload['thumbnail'] = await MultipartFile.fromFile(
+              tempPath,
+              filename: tempPath.split('/').last,
+            );
+          }
+        } catch (e) {
+          print('   ⚠️ Failed to download existing thumbnail: $e');
+        }
       }
 
       if (_gallery.isNotEmpty) {
@@ -2030,6 +2146,64 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         _shortCtrl.text = shortSummary;
         _descCtrl.text = description;
 
+        // Images
+        final thumb = obj['thumbnail'] ?? obj['image'] ?? obj['photo'];
+        if (thumb != null && thumb.toString().isNotEmpty) {
+          _existingThumbnailUrl = thumb.toString();
+          print('      • Existing Thumbnail: $_existingThumbnailUrl');
+        }
+
+        final gallery = obj['gallery'] ?? obj['images'];
+        if (gallery is List) {
+          _existingGalleryImages = gallery
+              .map((e) {
+                if (e is Map) {
+                  final url = (e['url'] ?? e['path'] ?? '').toString();
+                  final id = e['id'] ?? e['gallery_image_id'];
+                  if (url.isNotEmpty && id != null) {
+                    return {
+                      'id': id is int ? id : int.tryParse(id.toString()) ?? 0,
+                      'url': url,
+                    };
+                  }
+                }
+                return null;
+              })
+              .whereType<Map<String, dynamic>>()
+              .toList();
+          print(
+            '      • Existing Gallery: ${_existingGalleryImages.length} images (from List)',
+          );
+        } else if (gallery is Map) {
+          // Handle gallery as Map with ID keys (e.g., {232: "url1", 233: "url2"})
+          _existingGalleryImages = gallery.entries
+              .map((entry) {
+                final id = int.tryParse(entry.key.toString());
+                final urlData = entry.value;
+                String url = '';
+
+                if (urlData is Map) {
+                  url = (urlData['url'] ?? urlData['path'] ?? '').toString();
+                } else {
+                  url = urlData.toString();
+                }
+
+                if (url.isNotEmpty && id != null) {
+                  return {'id': id, 'url': url};
+                }
+                return null;
+              })
+              .whereType<Map<String, dynamic>>()
+              .toList();
+          print(
+            '      • Existing Gallery: ${_existingGalleryImages.length} images (from Map)',
+          );
+        } else {
+          print(
+            '      • No gallery data (expected List or Map, got ${gallery?.runtimeType})',
+          );
+        }
+
         // Currency
         print('   → Setting currency...');
         if (obj['currency'] != null) {
@@ -2377,34 +2551,90 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         setState(() {
           // Guarantee
           print('      • Checking guarantee data...');
+
+          // Check if guarantee object exists (from your logs it's a Map)
+          final dynamic guaranteeObj = obj!['guarantee'];
+          final bool hasGuaranteeObj =
+              guaranteeObj != null &&
+                  (guaranteeObj is Map && guaranteeObj.isNotEmpty) ||
+              (guaranteeObj is List && guaranteeObj.isNotEmpty);
+
           final dynamic hasGuaranteeRaw =
-              obj!['has_guarantee'] ??
+              obj['has_guarantee'] ??
               obj['guarantee_enabled'] ??
               obj['is_guarantee'];
 
-          print('         → has_guarantee: ${obj['has_guarantee']}');
-          print('         → guarantee_enabled: ${obj['guarantee_enabled']}');
-          print('         → is_guarantee: ${obj['is_guarantee']}');
-          print('         → Combined value: $hasGuaranteeRaw');
+          // Check for top-level guarantee data (fallback)
+          final bool hasTopLevelGuaranteeData =
+              (obj['guarantee_type'] != null &&
+                  obj['guarantee_type'].toString().isNotEmpty) ||
+              (obj['guarantee_duration'] != null &&
+                  obj['guarantee_duration'].toString().isNotEmpty) ||
+              (obj['guarantee_duration_days'] != null &&
+                  obj['guarantee_duration_days'].toString().isNotEmpty);
 
-          if (hasGuaranteeRaw != null) {
+          print('         → has_guarantee: ${obj['has_guarantee']}');
+          print('         → guarantee object present: $hasGuaranteeObj');
+          print('         → Combined value: $hasGuaranteeRaw');
+          print('         → Top-level data present: $hasTopLevelGuaranteeData');
+
+          if (hasGuaranteeObj) {
+            _guaranteeEnabled = true;
+            print('         → Guarantee enabled based on object presence');
+
+            // Extract data from the guarantee object
+            if (guaranteeObj is Map) {
+              print('         → Guarantee Object Content: $guaranteeObj');
+
+              String rawType = (guaranteeObj['type'] ?? '').toString();
+              // Handle case sensitivity for dropdown
+              if (rawType.isNotEmpty) {
+                // Find matching type in dropdown list (case-insensitive)
+                final match = _guaranteeTypes.firstWhere(
+                  (t) => t.toLowerCase() == rawType.toLowerCase(),
+                  orElse: () => rawType,
+                );
+                _guaranteeType = match;
+              }
+
+              _guaranteeDurationCtrl.text = (guaranteeObj['duration'] ?? '')
+                  .toString();
+              _guaranteeDetailsCtrl.text = (guaranteeObj['details'] ?? '')
+                  .toString();
+            }
+          } else if (hasGuaranteeRaw != null) {
             final bool hasGuarantee = hasGuaranteeRaw is bool
                 ? hasGuaranteeRaw
                 : hasGuaranteeRaw.toString() == '1' ||
                       hasGuaranteeRaw.toString().toLowerCase() == 'true';
 
             _guaranteeEnabled = hasGuarantee;
-
-            print('         → Guarantee enabled: $_guaranteeEnabled');
+            print(
+              '         → Guarantee enabled based on flag: $_guaranteeEnabled',
+            );
+          } else if (hasTopLevelGuaranteeData) {
+            _guaranteeEnabled = true;
+            print(
+              '         → Guarantee enabled based on top-level data presence',
+            );
           } else {
             print(
               '         → No guarantee data found, keeping default: $_guaranteeEnabled',
             );
           }
 
-          if (_guaranteeEnabled) {
-            _guaranteeType = (obj['guarantee_type'] ?? _guaranteeType)
+          // Fallback: if enabled but data not set from object, try top-level fields
+          if (_guaranteeEnabled && !hasGuaranteeObj) {
+            String rawType = (obj['guarantee_type'] ?? _guaranteeType)
                 .toString();
+            if (rawType.isNotEmpty) {
+              final match = _guaranteeTypes.firstWhere(
+                (t) => t.toLowerCase() == rawType.toLowerCase(),
+                orElse: () => rawType,
+              );
+              _guaranteeType = match;
+            }
+
             _guaranteeDurationCtrl.text =
                 (obj['guarantee_duration_days'] ??
                         obj['guarantee_duration'] ??
@@ -2413,7 +2643,9 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
 
             _guaranteeDetailsCtrl.text = (obj['guarantee_details'] ?? '')
                 .toString();
+          }
 
+          if (_guaranteeEnabled) {
             print('         → Guarantee type: $_guaranteeType');
             print(
               '         → Guarantee duration: ${_guaranteeDurationCtrl.text}',
@@ -2532,51 +2764,86 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     print('📂 [FETCH CATEGORIES] Starting fetch...');
     setState(() {
       _loadingCategories = true;
-
       _categories = const [];
     });
 
     try {
-      print('   → Calling API: getCategories()');
-      final res = await ApiService().getCategories();
+      List<dynamic> allItems = [];
+      int currentPage = 1;
+      bool hasMore = true;
 
-      print('   → API Response Status: ${res.statusCode}');
-      final data = res.data;
+      // Load all pages of categories
+      while (hasMore) {
+        print('   → Calling API: getCategories(page: $currentPage)');
+        final res = await ApiService().getCategories(page: currentPage);
 
-      print('   → Response Data Type: ${data.runtimeType}');
+        print('   → API Response Status: ${res.statusCode}');
+        final data = res.data;
 
-      List<dynamic> items = const [];
+        print('   → Response Data Type: ${data.runtimeType}');
 
-      if (data is Map<String, dynamic>) {
-        print('   → Response is Map, keys: ${data.keys.toList()}');
-        final root = data['data'];
+        List<dynamic> items = [];
+        Map<String, dynamic>? paginationData;
 
-        print('   → data field type: ${root.runtimeType}');
-        if (root is Map<String, dynamic> && root['data'] is List) {
-          items = root['data'] as List;
+        if (data is Map<String, dynamic>) {
+          print('   → Response is Map, keys: ${data.keys.toList()}');
+          final root = data['data'];
 
-          print('   → Found nested data.data list with ${items.length} items');
-        } else if (data['data'] is List) {
-          items = data['data'] as List;
-
-          print('   → Found data list with ${items.length} items');
-        } else if (root is List) {
-          items = root as List;
-          print('   → Found data as direct list with ${items.length} items');
+          print('   → data field type: ${root.runtimeType}');
+          if (root is Map<String, dynamic> && root['data'] is List) {
+            items = root['data'] as List;
+            paginationData = root as Map<String, dynamic>?;
+            print('   → Found nested data.data list with ${items.length} items');
+          } else if (data['data'] is List) {
+            items = data['data'] as List;
+            paginationData = data['data'] as Map<String, dynamic>?;
+            print('   → Found data list with ${items.length} items');
+          } else if (root is List) {
+            items = root as List;
+            print('   → Found data as direct list with ${items.length} items');
+          }
+        } else if (data is List) {
+          items = data;
+          print('   → Response is direct list with ${items.length} items');
         }
-      } else if (data is List) {
-        items = data;
 
-        print('   → Response is direct list with ${items.length} items');
+        allItems.addAll(items);
+
+        // Check pagination metadata to determine if there are more pages
+        if (paginationData != null) {
+          final nextPageUrl = paginationData['next_page_url'];
+          if (nextPageUrl != null) {
+            hasMore = true;
+          } else {
+            final currentPageNum = paginationData['current_page'] as int?;
+            final lastPage = paginationData['last_page'] as int?;
+            if (currentPageNum != null && lastPage != null) {
+              hasMore = currentPageNum < lastPage;
+            } else {
+              hasMore = items.length >= 10; // Assume 10 per page if no metadata
+            }
+          }
+        } else {
+          // If no pagination metadata, check if we got a full page
+          hasMore = items.length >= 10;
+        }
+
+        currentPage++;
+        print('   → Loaded page ${currentPage - 1}: ${items.length} items (Total: ${allItems.length})');
+        
+        // Safety check to prevent infinite loops
+        if (currentPage > 100) {
+          print('   ⚠️  Safety limit reached, stopping pagination');
+          break;
+        }
       }
 
-      print('   → Processing ${items.length} items...');
-      final cats = items
+      print('   → Processing ${allItems.length} total items...');
+      final cats = allItems
           .whereType<Map<String, dynamic>>()
           .map(
             (e) => {
               'id': e['id'] ?? e['category_id'],
-
               'name': e['name'] ?? e['title'] ?? 'Unknown',
             },
           )
@@ -2589,12 +2856,11 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         print('   → Category Names: ${cats.map((c) => c['name']).toList()}');
       } else {
         print('   ⚠️  Warning: No valid categories found!');
-        print('   → Raw items: $items');
+        print('   → Raw items: $allItems');
       }
 
       setState(() {
         _categories = cats;
-
         _loadingCategories = false;
       });
 
@@ -2694,50 +2960,66 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     }
   }
 
-  Widget _buildCategoryField() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.spacingSmall),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-
-            child: Text(
-              TranslationService().translate('vendorCreate.productCategory'),
-
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+  Widget _buildCategoryField({bool isRequired = false}) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _categorySearchCtrl,
+      builder: (context, value, child) {
+        final bool showStar = isRequired && value.text.isEmpty;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppTheme.spacingSmall),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: RichText(
+                  text: TextSpan(
+                    text: TranslationService().translate(
+                      'vendorCreate.productCategory',
+                    ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                      fontSize: 14,
+                      fontFamily: 'Outfit',
+                    ),
+                    children: [
+                      if (showStar)
+                        const TextSpan(
+                          text: ' *',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              TextField(
+                controller: _categorySearchCtrl,
+                readOnly: true,
+                enabled: !_loadingCategories,
+                onTap: _loadingCategories ? null : _openCategoryPicker,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.category_outlined),
+                  hintText: _loadingCategories
+                      ? TranslationService().translate(
+                          'vendorCreate.loadingCategories',
+                        )
+                      : (_categorySearchCtrl.text.isEmpty
+                            ? TranslationService().translate(
+                                'vendorCreate.selectCategory',
+                              )
+                            : null),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
           ),
-
-          TextField(
-            controller: _categorySearchCtrl,
-
-            readOnly: true,
-
-            enabled: !_loadingCategories,
-            onTap: _loadingCategories ? null : _openCategoryPicker,
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.category_outlined),
-
-              hintText: _loadingCategories
-                  ? TranslationService().translate(
-                      'vendorCreate.loadingCategories',
-                    )
-                  : (_categorySearchCtrl.text.isEmpty
-                        ? TranslationService().translate(
-                            'vendorCreate.selectCategory',
-                          )
-                        : null),
-              border: const OutlineInputBorder(),
-
-              isDense: true,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -2777,6 +3059,8 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
       context: context,
 
       isScrollControlled: true,
+      
+      useSafeArea: true,
 
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -2789,22 +3073,22 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
 
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: AppTheme.spacingMedium,
+            return Padding(
+              padding: EdgeInsets.only(
+                left: AppTheme.spacingMedium,
 
-                  right: AppTheme.spacingMedium,
+                right: AppTheme.spacingMedium,
 
-                  top: AppTheme.spacingMedium,
+                top: AppTheme.spacingLarge + 32,
 
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                ),
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
 
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
 
                   children: [
+                    const SizedBox(height: 16),
                     TextField(
                       controller: controller,
 
@@ -2838,7 +3122,7 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
                     Flexible(
                       child: filtered.isEmpty
@@ -2892,7 +3176,6 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
                     ),
                   ],
                 ),
-              ),
             );
           },
         );
@@ -2900,58 +3183,74 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     );
   }
 
-  Widget _buildSubcategoryField() {
+  Widget _buildSubcategoryField({bool isRequired = false}) {
     final enabled = _categoryId != null;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.spacingSmall),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 6),
-
-            child: Text(
-              'Product Subcategory',
-
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _subcategorySearchCtrl,
+      builder: (context, value, child) {
+        final bool showStar = isRequired && value.text.isEmpty;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppTheme.spacingSmall),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: RichText(
+                  text: TextSpan(
+                    text: 'Product Subcategory',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                      fontSize: 14,
+                      fontFamily: 'Outfit',
+                    ),
+                    children: [
+                      if (showStar)
+                        const TextSpan(
+                          text: ' *',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              TextField(
+                controller: _subcategorySearchCtrl,
+                readOnly: true,
+                enabled: enabled && !_loadingSubcategories,
+                onTap: enabled && !_loadingSubcategories
+                    ? _openSubcategoryPicker
+                    : null,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(
+                    Icons.subdirectory_arrow_right_outlined,
+                  ),
+                  hintText: _loadingSubcategories
+                      ? TranslationService().translate(
+                          'vendorCreate.loadingSubcategories',
+                        )
+                      : (enabled
+                            ? (_subcategorySearchCtrl.text.isEmpty
+                                  ? TranslationService().translate(
+                                      'vendorCreate.selectSubcategory',
+                                    )
+                                  : null)
+                            : TranslationService().translate(
+                                'vendorCreate.selectCategoryFirst',
+                              )),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
           ),
-
-          TextField(
-            controller: _subcategorySearchCtrl,
-
-            readOnly: true,
-
-            enabled: enabled && !_loadingSubcategories,
-            onTap: enabled && !_loadingSubcategories
-                ? _openSubcategoryPicker
-                : null,
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.subdirectory_arrow_right_outlined),
-
-              hintText: _loadingSubcategories
-                  ? TranslationService().translate(
-                      'vendorCreate.loadingSubcategories',
-                    )
-                  : (enabled
-                        ? (_subcategorySearchCtrl.text.isEmpty
-                              ? TranslationService().translate(
-                                  'vendorCreate.selectSubcategory',
-                                )
-                              : null)
-                        : TranslationService().translate(
-                            'vendorCreate.selectCategoryFirst',
-                          )),
-              border: const OutlineInputBorder(),
-
-              isDense: true,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -3125,25 +3424,35 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
 
-      children: const [
-        Icon(
-          Icons.cloud_upload_outlined,
-
-          size: 28,
-
-          color: AppTheme.textSecondaryColor,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.add_photo_alternate_outlined,
+            size: 32,
+            color: AppTheme.primaryColor,
+          ),
         ),
-
-        SizedBox(height: 8),
-
-        Text('Drag & drop image or click to upload'),
-
-        SizedBox(height: 4),
-
+        const SizedBox(height: 12),
         Text(
-          'Max size: 5MB per file',
-
-          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+          'Tap to add image',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textColor,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Camera or Gallery • Max 5MB',
+          style: TextStyle(
+            color: AppTheme.textSecondaryColor,
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -3153,8 +3462,19 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
     if (_thumbnail != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-
         child: Image.file(_thumbnail!, height: 140, fit: BoxFit.contain),
+      );
+    }
+
+    if (_existingThumbnailUrl != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          _existingThumbnailUrl!,
+          height: 140,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => _uploadHint(),
+        ),
       );
     }
 
@@ -3162,59 +3482,207 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
   }
 
   Widget _buildGalleryPreview() {
-    if (_gallery.isEmpty) return _uploadHint();
+    final totalCount = _existingGalleryImages.length + _gallery.length;
+    if (totalCount == 0) return _uploadHint();
 
     return SizedBox(
       height: 140,
-
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-
-        itemCount: _gallery.length,
-
+        itemCount: totalCount + 1, // +1 for the add more button
         separatorBuilder: (_, __) => const SizedBox(width: 8),
-
         itemBuilder: (context, index) {
-          final file = _gallery[index];
+          // Show "Add More" button at the end
+          if (index == totalCount) {
+            return GestureDetector(
+              onTap: () => _showImageSourceDialog(isThumbnail: false),
+              child: Container(
+                width: 120,
+                height: 140,
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.primaryColor, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey.shade50,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_circle_outline,
+                      size: 40,
+                      color: AppTheme.primaryColor,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add More',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
 
+          if (index < _existingGalleryImages.length) {
+            // Existing image with delete API functionality
+            final imageData = _existingGalleryImages[index];
+            final url = imageData['url'] as String;
+            final imageId = imageData['id'] as int;
+
+            return Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    url,
+                    width: 120,
+                    height: 140,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 120,
+                      height: 140,
+                      color: Colors.grey.shade200,
+                      child: const Icon(Icons.broken_image, color: Colors.grey),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: GestureDetector(
+                    onTap: () async {
+                      // Show confirmation dialog
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text(
+                            TranslationService().translate(
+                              'vendorCreate.deleteImage',
+                            ),
+                          ),
+                          content: Text(
+                            TranslationService().translate(
+                              'vendorCreate.deleteImageConfirm',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: Text(
+                                TranslationService().translate('app.cancel'),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red,
+                              ),
+                              child: Text(
+                                TranslationService().translate('app.delete'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true) {
+                        try {
+                          // Call API to delete the image
+                          final response = await ApiService()
+                              .deleteProductGalleryImage(imageId);
+
+                          if (response.statusCode == 200) {
+                            // Successfully deleted, remove from list
+                            setState(() {
+                              _existingGalleryImages.removeAt(index);
+                            });
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    TranslationService().translate(
+                                      'vendorCreate.imageDeleted',
+                                    ),
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } else {
+                            // Handle error
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Failed to delete image: ${response.data['message'] ?? 'Unknown error'}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error deleting image: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: const Icon(
+                        Icons.delete,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          // New image
+          final file = _gallery[index - _existingGalleryImages.length];
           return Stack(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-
                 child: Image.file(
                   file,
-
                   width: 120,
-
                   height: 140,
-
                   fit: BoxFit.cover,
                 ),
               ),
-
               Positioned(
                 right: 4,
-
                 top: 4,
-
                 child: GestureDetector(
                   onTap: () => setState(() => _gallery.remove(file)),
-
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.black45,
-
                       borderRadius: BorderRadius.circular(12),
                     ),
-
                     padding: const EdgeInsets.all(2),
-
                     child: const Icon(
                       Icons.close,
-
                       size: 16,
-
                       color: Colors.white,
                     ),
                   ),
@@ -3225,6 +3693,198 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
         },
       ),
     );
+  }
+
+  // ---- Image Picker Methods ----
+
+  Future<void> _showImageSourceDialog({required bool isThumbnail}) async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Text(
+                  isThumbnail
+                      ? 'Select Thumbnail Source'
+                      : 'Select Image Source',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: _buildSourceOption(
+                        icon: Icons.camera_alt_rounded,
+                        label: 'Camera',
+                        description: 'Take a photo',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _pickImageFromCamera(isThumbnail: isThumbnail);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildSourceOption(
+                        icon: Icons.photo_library_rounded,
+                        label: 'Gallery',
+                        description: 'Choose from gallery',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _pickImageFromGallery(isThumbnail: isThumbnail);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSourceOption({
+    required IconData icon,
+    required String label,
+    required String description,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppTheme.primaryColor.withOpacity(0.2),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  size: 36,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImageFromCamera({required bool isThumbnail}) async {
+    try {
+      final picker = ImagePicker();
+      final x = await picker.pickImage(source: ImageSource.camera);
+      
+      if (x != null) {
+        setState(() {
+          if (isThumbnail) {
+            _thumbnail = File(x.path);
+          } else {
+            _gallery.add(File(x.path));
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error accessing camera: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickImageFromGallery({required bool isThumbnail}) async {
+    try {
+      final picker = ImagePicker();
+      
+      if (isThumbnail) {
+        final x = await picker.pickImage(source: ImageSource.gallery);
+        if (x != null) {
+          setState(() => _thumbnail = File(x.path));
+        }
+      } else {
+        final xs = await picker.pickMultiImage();
+        if (xs.isNotEmpty) {
+          setState(() => _gallery.addAll(xs.map((e) => File(e.path))));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error accessing gallery: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // ---- Location fetching ----
@@ -3450,148 +4110,163 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
 
   Widget _textField({
     required String label,
-
     required TextEditingController controller,
-
     String? hint,
-
     TextInputType? keyboardType,
-
     bool enabled = true,
-
     List<TextInputFormatter>? inputFormatters,
+    bool isRequired = false,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-
-        const SizedBox(height: 6),
-
-        TextField(
-          controller: controller,
-
-          keyboardType: keyboardType,
-
-          enabled: enabled,
-
-          inputFormatters: inputFormatters,
-          decoration: InputDecoration(
-            hintText: hint,
-
-            filled: true,
-
-            fillColor: Colors.white,
-
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, child) {
+        final bool showStar = isRequired && value.text.trim().isEmpty;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                text: label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                  fontSize: 14,
+                  fontFamily: 'Outfit',
+                ),
+                children: [
+                  if (showStar)
+                    const TextSpan(
+                      text: ' *',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ),
-      ],
+            const SizedBox(height: 6),
+            TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              enabled: enabled,
+              inputFormatters: inputFormatters,
+              decoration: InputDecoration(
+                hintText: hint,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _currencyField({
     required String label,
-
     required TextEditingController controller,
+    bool isRequired = false,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-
-        const SizedBox(height: 6),
-
-        Row(
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, child) {
+        final bool showStar = isRequired && value.text.trim().isEmpty;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onTap: _openCurrencyPicker,
-
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-
-                  vertical: 14,
+            RichText(
+              text: TextSpan(
+                text: label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                  fontSize: 14,
+                  fontFamily: 'Outfit',
                 ),
-
-                decoration: BoxDecoration(
-                  color: Colors.white,
-
-                  border: Border.all(color: Colors.grey.shade300),
-
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                ),
-
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-
-                  children: [
-                    if (_selectedCountryCode != null &&
-                        _selectedCountryCode!.isNotEmpty)
-                      Container(
-                        width: 24,
-
-                        height: 16,
-
-                        margin: const EdgeInsets.only(right: 6),
-
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(3),
-
-                          border: Border.all(
-                            color: Colors.grey.shade300,
-
-                            width: .5,
-                          ),
-                        ),
-
-                        clipBehavior: Clip.antiAlias,
-
-                        child: CountryFlag.fromCountryCode(
-                          _selectedCountryCode!,
-
-                          height: 16,
-
-                          width: 24,
-                        ),
+                children: [
+                  if (showStar)
+                    const TextSpan(
+                      text: ' *',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
                       ),
-
-                    Text(_currencyCode),
-
-                    const SizedBox(width: 4),
-
-                    const Icon(Icons.arrow_drop_down, size: 18),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
-
-            const SizedBox(width: 8),
-
-            Expanded(
-              child: TextField(
-                controller: controller,
-
-                keyboardType: TextInputType.number,
-
-                decoration: InputDecoration(
-                  filled: true,
-
-                  fillColor: Colors.white,
-
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: _openCurrencyPicker,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.radiusMedium,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_selectedCountryCode != null &&
+                            _selectedCountryCode!.isNotEmpty)
+                          Container(
+                            width: 24,
+                            height: 16,
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(3),
+                              border: Border.all(
+                                color: Colors.grey.shade300,
+                                width: .5,
+                              ),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: CountryFlag.fromCountryCode(
+                              _selectedCountryCode!,
+                              height: 16,
+                              width: 24,
+                            ),
+                          ),
+                        Text(_currencyCode),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.arrow_drop_down, size: 18),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusMedium,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -3625,67 +4300,74 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
 
   Widget _multiline({
     required String label,
-
     required TextEditingController controller,
-
     int minLines = 3,
-
     bool enabled = true,
+    bool isRequired = false,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-
-        const SizedBox(height: 6),
-
-        TextField(
-          controller: controller,
-
-          minLines: minLines,
-
-          maxLines: 8,
-
-          enabled: enabled,
-
-          decoration: InputDecoration(
-            filled: true,
-
-            fillColor: Colors.white,
-
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, child) {
+        final bool showStar = isRequired && value.text.trim().isEmpty;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                text: label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                  fontSize: 14,
+                  fontFamily: 'Outfit',
+                ),
+                children: [
+                  if (showStar)
+                    const TextSpan(
+                      text: ' *',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ),
-      ],
+            const SizedBox(height: 6),
+            TextField(
+              controller: controller,
+              minLines: minLines,
+              maxLines: 8,
+              enabled: enabled,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _categoryStyleDropdown<T>({
     required String label,
-
     required T? value,
-
     required ValueChanged<T?> onChanged,
-
     required List<DropdownMenuItem<T>> items,
-
     bool enabled = true,
-
     String? hint,
-
     required IconData icon,
+    bool isRequired = false,
   }) {
     String? displayText;
 
     if (value != null && items.isNotEmpty) {
       try {
         final selectedItem = items.firstWhere((e) => e.value == value);
-
-        // Extract text from Text widget
-
         if (selectedItem.child is Text) {
           displayText = (selectedItem.child as Text).data ?? '';
         } else {
@@ -3696,52 +4378,57 @@ class _VendorCreateProductScreenState extends State<VendorCreateProductScreen> {
       }
     }
 
+    final bool showStar = isRequired && value == null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-
+        RichText(
+          text: TextSpan(
+            text: label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              fontSize: 14,
+              fontFamily: 'Outfit',
+            ),
+            children: [
+              if (showStar)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+        ),
         const SizedBox(height: 6),
-
         Opacity(
           opacity: enabled ? 1 : .6,
-
           child: TextField(
             readOnly: true,
-
             controller: TextEditingController(text: displayText),
-
             onTap: enabled && items.isNotEmpty
                 ? () => _showDropdownBottomSheet<T>(
                     context: context,
-
                     items: items,
-
                     currentValue: value,
-
                     onSelected: onChanged,
-
                     hint: hint,
                   )
                 : null,
-
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: Colors.grey.shade600),
-
               hintText: hint ?? (enabled ? 'Select...' : 'Select first...'),
-
               filled: true,
-
               fillColor: Colors.white,
-
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
-
               suffixIcon: Icon(
                 Icons.arrow_drop_down,
-
                 color: Colors.grey.shade600,
               ),
             ),

@@ -284,6 +284,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return;
     }
 
+    // Check if user is verified - redirect to login
+    if (!authProvider.isEmailVerified) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+      );
+      return;
+    }
+
     try {
       // Add to local cart first
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
@@ -480,7 +490,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         children: [
                           // Price
                           Text(
-                            '${_product!.currencySymbol}${_product!.price.toStringAsFixed(2)}',
+                            '${_product!.currencySymbol} ${_product!.price.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
@@ -734,7 +744,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               'promo.refEarn',
                               params: {
                                 'commission':
-                                    '${_product!.currencySymbol}${commission.toStringAsFixed(0)}',
+                                    '${_product!.currencySymbol} ${commission.toStringAsFixed(0)}',
                               },
                             ),
                             style: const TextStyle(
@@ -766,6 +776,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildBottomActionBar() {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final isDisabled = !authProvider.isLoggedIn || !authProvider.isEmailVerified;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -779,49 +792,115 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ],
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Refer & Earn Button (Yellow)
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () {
-                  _showReferralPopup();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade700,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            // Hint message when disabled
+            if (isDisabled)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.orange.withOpacity(0.3),
+                    width: 1,
                   ),
-                  elevation: 2,
                 ),
-                child: const TranslatedText(
-                  'refer.referAndEarn',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.orange.shade700,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Please verify your email to use this feature',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
+            Row(
+              children: [
+                // Refer & Earn Button (Yellow)
+                Expanded(
+                  child: Opacity(
+                    opacity: isDisabled ? 0.5 : 1.0,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (isDisabled) {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                          );
+                          return;
+                        }
+                        _showReferralPopup();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDisabled 
+                            ? Colors.grey.shade600 
+                            : Colors.orange.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: const TranslatedText(
+                        'refer.referAndEarn',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
 
-            // Add to Cart Button (Dark Grey/Black)
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _addToCart,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey.shade900,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                // Add to Cart Button (Dark Grey/Black)
+                Expanded(
+                  child: Opacity(
+                    opacity: isDisabled ? 0.5 : 1.0,
+                    child: ElevatedButton(
+                      onPressed: isDisabled
+                          ? () {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginScreen(),
+                                ),
+                              );
+                            }
+                          : _addToCart,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDisabled 
+                            ? Colors.grey.shade600 
+                            : Colors.grey.shade900,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: const TranslatedText(
+                        'app.addToCart',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                    ),
                   ),
-                  elevation: 2,
                 ),
-                child: const TranslatedText(
-                  'app.addToCart',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-              ),
+              ],
             ),
           ],
         ),

@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:dio/dio.dart';
 import '../../config/theme_config.dart';
 import '../../services/api_service.dart';
 import '../../services/translation_service.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/translated_text.dart';
+import '../checkout/paypal_webview_screen.dart';
+import '../auth/login_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({Key? key}) : super(key: key);
@@ -23,6 +25,8 @@ class _WalletScreenState extends State<WalletScreen>
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _walletData;
+  List<Map<String, dynamic>> _transactions = [];
+  bool _isLoadingTransactions = false;
   late TabController _tabController;
   late PageController _walletPageController;
   int _currentWalletIndex = 0;
@@ -35,6 +39,7 @@ class _WalletScreenState extends State<WalletScreen>
     _tabController = TabController(length: 2, vsync: this);
     _walletPageController = PageController();
     _loadWalletData();
+    _loadTransactions();
   }
 
   @override
@@ -48,19 +53,26 @@ class _WalletScreenState extends State<WalletScreen>
   void _startAutoScroll() {
     _autoScrollTimer?.cancel();
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (mounted && !_isListView) {
-        if (_currentWalletIndex < 2) {
-          _walletPageController.nextPage(
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-          );
-        } else {
-          // Reset to first page
-          _walletPageController.animateToPage(
-            0,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-          );
+      if (mounted && !_isListView && _walletPageController.hasClients) {
+        try {
+          if (_currentWalletIndex < 2) {
+            _walletPageController.nextPage(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+            );
+          } else {
+            // Reset to first page
+            _walletPageController.animateToPage(
+              0,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+            );
+          }
+        } catch (e) {
+          // PageController not ready yet, cancel timer
+          debugPrint('⚠️ [Wallet] PageController error: $e');
+          _autoScrollTimer?.cancel();
+          _autoScrollTimer = null;
         }
       }
     });
@@ -69,6 +81,20 @@ class _WalletScreenState extends State<WalletScreen>
   void _stopAutoScroll() {
     _autoScrollTimer?.cancel();
     _autoScrollTimer = null;
+  }
+
+  String _formatBalance(dynamic balance) {
+    if (balance == null) return '0';
+    final balanceNum = balance is num
+        ? balance
+        : double.tryParse(balance.toString()) ?? 0;
+    // Format with commas for thousands, no decimal places
+    return balanceNum
+        .toStringAsFixed(0)
+        .replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        );
   }
 
   Future<void> _loadWalletData() async {
@@ -85,6 +111,18 @@ class _WalletScreenState extends State<WalletScreen>
           _walletData = response.data['data'];
         });
       } else {
+        // Check for 401 Unauthorized
+        if (response.statusCode == 401) {
+          // Redirect to login screen
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false, // Remove all previous routes
+            );
+          }
+          return;
+        }
+
         setState(() {
           _error =
               response.data['message']?.toString() ??
@@ -94,6 +132,18 @@ class _WalletScreenState extends State<WalletScreen>
         });
       }
     } catch (e) {
+      // Handle DioException with 401 status code
+      if (e is DioException && e.response?.statusCode == 401) {
+        // Redirect to login screen on 401 error
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false, // Remove all previous routes
+          );
+        }
+        return;
+      }
+
       setState(() {
         _error = e.toString();
       });
@@ -104,10 +154,122 @@ class _WalletScreenState extends State<WalletScreen>
     }
   }
 
+  Future<void> _loadTransactions() async {
+    setState(() {
+      _isLoadingTransactions = true;
+    });
+
+    try {
+      debugPrint('📊 [Wallet] Loading transactions...');
+      final response = await _apiService.getTransactions();
+
+      debugPrint('📊 [Wallet] Transactions API Response:');
+      debugPrint('   → Status Code: ${response.statusCode}');
+      debugPrint('   → Success: ${response.data['success']}');
+      debugPrint('   → Data: ${response.data['data']}');
+
+      // Check for 401 Unauthorized
+      if (response.statusCode == 401) {
+        // Redirect to login screen
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false, // Remove all previous routes
+          );
+        }
+        return;
+      }
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final transactionsData = response.data['data']['data'] as List?;
+
+        debugPrint('   → Transactions Count: ${transactionsData?.length ?? 0}');
+
+        if (transactionsData != null && transactionsData.isNotEmpty) {
+          final mappedTransactions = transactionsData.map((transaction) {
+            // Map API response to UI format
+            final transactionFor =
+                transaction['transaction_for']?.toString() ?? '';
+            final isCredit =
+                transactionFor.toLowerCase().contains('topup') ||
+                transactionFor.toLowerCase().contains('commission');
+
+            // Clean amount (remove commas for display)
+            final amountStr = transaction['amount']?.toString() ?? '0.00';
+            final cleanAmount = amountStr.replaceAll(',', '');
+
+            debugPrint(
+              '   → Mapping transaction: ${transaction['transaction_id']}',
+            );
+            debugPrint('      → Type: $transactionFor');
+            debugPrint('      → Amount: $amountStr -> $cleanAmount');
+            debugPrint('      → Is Credit: $isCredit');
+
+            return {
+              'id': transaction['transaction_id']?.toString() ?? '',
+              'type': transactionFor,
+              'amount': cleanAmount,
+              'isCredit': isCredit,
+              'status': transaction['status']?.toString() ?? '',
+              'date': transaction['date']?.toString() ?? '',
+            };
+          }).toList();
+
+          debugPrint(
+            '📊 [Wallet] Mapped ${mappedTransactions.length} transactions',
+          );
+          setState(() {
+            _transactions = mappedTransactions;
+          });
+        } else {
+          debugPrint('⚠️ [Wallet] No transactions data or empty list');
+          setState(() {
+            _transactions = [];
+          });
+        }
+      } else {
+        debugPrint('❌ [Wallet] API response not successful');
+        debugPrint('   → Response: ${response.data}');
+        setState(() {
+          _transactions = [];
+        });
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ [Wallet] Error loading transactions: $e');
+      debugPrint('   → Stack trace: $stackTrace');
+
+      // Handle DioException with 401 status code
+      if (e is DioException && e.response?.statusCode == 401) {
+        // Redirect to login screen on 401 error
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false, // Remove all previous routes
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        _transactions = [];
+      });
+    } finally {
+      setState(() {
+        _isLoadingTransactions = false;
+      });
+      debugPrint(
+        '📊 [Wallet] Finished loading transactions. Count: ${_transactions.length}',
+      );
+    }
+  }
+
   Future<void> _handleBuyPoints() async {
     final pointsController = TextEditingController();
     String? selectedPaymentSource; // 'paypal' or 'wallet'
     bool _isSubmitting = false;
+
+    // Capture the parent context before showing dialog
+    final parentContext = context;
 
     await showDialog(
       context: context,
@@ -124,26 +286,43 @@ class _WalletScreenState extends State<WalletScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with title and close button
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      TranslationService().translate('wallet.buyEquxx'),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                  // Header with title and close button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          // Points Icon from slider
+                          Image.asset(
+                            'assets/mobile/points icon.png',
+                            width: 28,
+                            height: 28,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                                  Icons.diamond,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            TranslationService().translate('wallet.buyEquxx'),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 24),
 
                 // Points field
@@ -364,166 +543,198 @@ class _WalletScreenState extends State<WalletScreen>
                             });
 
                             try {
-                              // TODO: Replace with actual buy points API endpoint
-                              final response = await _apiService
-                                  .createWalletOrder({
-                                    'points': pointsController.text.trim(),
-                                    'payment_source': selectedPaymentSource,
-                                  });
+                              // Use different endpoint based on payment source
+                              final response = selectedPaymentSource == 'wallet'
+                                  ? await _apiService.buyPointsWithWallet({
+                                      'points': pointsController.text.trim(),
+                                      'payment_source': selectedPaymentSource,
+                                      'payment_method':
+                                          selectedPaymentSource, // Some APIs use payment_method
+                                    })
+                                  : await _apiService.buyPoints({
+                                      'points': pointsController.text.trim(),
+                                      'payment_source': selectedPaymentSource,
+                                      'payment_method':
+                                          selectedPaymentSource, // Some APIs use payment_method
+                                    });
+
+                              debugPrint(
+                                '💳 Wallet order response -> status: ${response.statusCode}, payment_source: $selectedPaymentSource',
+                              );
+                              debugPrint(
+                                '💳 Wallet order response data: ${response.data}',
+                              );
 
                               if (mounted) {
                                 if (response.statusCode == 200 ||
                                     response.statusCode == 201) {
-                                  Navigator.of(context).pop();
+                                  final responseData = response.data;
 
-                                  if (selectedPaymentSource == 'paypal') {
-                                    final approvalUrl =
-                                        response.data['approval_url'];
-                                    if (approvalUrl != null) {
-                                      try {
-                                        final uri = Uri.parse(approvalUrl);
+                                  // Check if response status is success
+                                  if (responseData != null &&
+                                      responseData is Map &&
+                                      responseData['status'] == 'success') {
+                                    // Handle PayPal redirect if approval link exists
+                                    // Check BEFORE popping dialog to ensure context is valid
+                                    if (selectedPaymentSource == 'paypal') {
+                                      // Try multiple locations for approval link
+                                      dynamic rawApprovalLink;
+                                      if (responseData['approvalLink'] != null) {
+                                        rawApprovalLink =
+                                            responseData['approvalLink'];
+                                      } else if (responseData['approval_url'] !=
+                                          null) {
+                                        rawApprovalLink =
+                                            responseData['approval_url'];
+                                      } else if (responseData['approvalUrl'] !=
+                                          null) {
+                                        rawApprovalLink =
+                                            responseData['approvalUrl'];
+                                      } else if (responseData['data'] is Map) {
+                                        final data = responseData['data'] as Map;
+                                        rawApprovalLink =
+                                            data['approvalLink'] ??
+                                            data['approval_url'] ??
+                                            data['approvalUrl'];
+                                      }
 
-                                        // Always try to launch PayPal in browser
-                                        try {
-                                          await launchUrl(
-                                            uri,
-                                            mode:
-                                                LaunchMode.externalApplication,
-                                          );
+                                      debugPrint(
+                                        '💳 PayPal approval link: $rawApprovalLink',
+                                      );
 
-                                          // Show success message after opening
+                                      if (rawApprovalLink != null &&
+                                          rawApprovalLink.toString().isNotEmpty) {
+                                        final approvalLink = rawApprovalLink
+                                            .toString();
+
+                                        // Pop dialog first
+                                        Navigator.of(dialogContext).pop();
+
+                                        if (mounted) {
                                           ScaffoldMessenger.of(
-                                            context,
+                                            parentContext,
                                           ).showSnackBar(
-                                            SnackBar(
-                                              content: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    TranslationService()
-                                                        .translate(
-                                                          'wallet.openingPayPal',
-                                                        ),
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    TranslationService().translate(
-                                                      'wallet.pleaseLoginPayPal',
-                                                    ),
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                            const SnackBar(
+                                              content: Text('Opening PayPal...'),
                                               backgroundColor:
                                                   AppTheme.successColor,
-                                              duration: Duration(seconds: 4),
+                                              duration: Duration(seconds: 2),
                                             ),
                                           );
-                                        } catch (launchError) {
-                                          // If launch fails, show URL as fallback
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  const Text(
-                                                    'Please open PayPal in your browser:',
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  SelectableText(
-                                                    approvalUrl,
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      decoration: TextDecoration
-                                                          .underline,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              backgroundColor:
-                                                  AppTheme.successColor,
-                                              duration: const Duration(
-                                                seconds: 10,
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      } catch (e) {
-                                        // Fallback: show the URL
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  TranslationService()
-                                                      .translate(
-                                                        'wallet.pleaseOpenUrl',
+
+                                          final paypalResult =
+                                              await Navigator.of(parentContext).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      PaypalWebViewScreen(
+                                                        approvalUrl: approvalLink,
                                                       ),
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
+                                                ),
+                                              );
+
+                                          // Handle PayPal return result
+                                          if (mounted && paypalResult != null) {
+                                            if (paypalResult is Map) {
+                                              final isSuccess =
+                                                  paypalResult['success'] == true;
+
+                                              if (isSuccess) {
+                                                // Payment successful - reload wallet and show success message
+                                                await Future.delayed(const Duration(seconds: 1));
+                                                await _loadWalletData();
+                                                await _loadTransactions();
+
+                                                ScaffoldMessenger.of(
+                                                  parentContext,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      '${responseData['points'] != null ? '${responseData['points']} points ' : ''}added successfully! Your wallet balance has been updated.',
+                                                    ),
+                                                    backgroundColor:
+                                                        AppTheme.successColor,
+                                                    duration: const Duration(
+                                                      seconds: 4,
+                                                    ),
+                                                  ),
+                                                );
+                                              } else {
+                                                // Payment cancelled or failed
+                                                ScaffoldMessenger.of(
+                                                  parentContext,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Payment was cancelled',
+                                                    ),
+                                                    backgroundColor:
+                                                        AppTheme.errorColor,
+                                                  ),
+                                                );
+                                              }
+                                            } else {
+                                              // Fallback: reload wallet anyway
+                                              await Future.delayed(const Duration(seconds: 1));
+                                              await _loadWalletData();
+                                              await _loadTransactions();
+                                              ScaffoldMessenger.of(
+                                                parentContext,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    '${responseData['points'] != null ? '${responseData['points']} points ' : ''}added successfully! Your wallet balance has been updated.',
+                                                  ),
+                                                  backgroundColor:
+                                                      AppTheme.successColor,
+                                                  duration: const Duration(
+                                                    seconds: 3,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 4),
-                                                SelectableText(
-                                                  approvalUrl,
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    decoration: TextDecoration
-                                                        .underline,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            backgroundColor:
-                                                AppTheme.successColor,
-                                            duration: const Duration(
-                                              seconds: 10,
-                                            ),
-                                          ),
+                                              );
+                                            }
+                                          }
+                                        }
+                                        return;
+                                      } else {
+                                        debugPrint(
+                                          '⚠️ PayPal selected but no approval link found in response',
                                         );
                                       }
+                                    } else {
+                                      // Handle wallet payment (non-PayPal)
+                                      // Pop dialog first
+                                      Navigator.of(dialogContext).pop();
+                                      
+                                      ScaffoldMessenger.of(parentContext).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '${responseData['points'] != null ? '${responseData['points']} points ' : ''}added successfully! Your wallet balance has been updated.',
+                                          ),
+                                          backgroundColor: AppTheme.successColor,
+                                          duration: const Duration(seconds: 3),
+                                        ),
+                                      );
+                                      
+                                      // Reload wallet data
+                                      await _loadWalletData();
+                                      await _loadTransactions();
                                     }
-                                  }
-
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        response.data['message']?.toString() ??
-                                            TranslationService().translate(
-                                              'wallet.pointsPurchaseSuccess',
-                                            ),
+                                  } else {
+                                    // Status is not 'success'
+                                    Navigator.of(dialogContext).pop();
+                                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          responseData['message']?.toString() ??
+                                              'Failed to process payment',
+                                        ),
+                                        backgroundColor: AppTheme.errorColor,
                                       ),
-                                      backgroundColor: AppTheme.successColor,
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-
-                                  // Reload wallet data
-                                  await _loadWalletData();
+                                    );
+                                  }
                                 } else {
-                                  Navigator.of(context).pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  Navigator.of(dialogContext).pop();
+                                  ScaffoldMessenger.of(parentContext).showSnackBar(
                                     SnackBar(
                                       content: Text(
                                         response.data['message']?.toString() ??
@@ -569,102 +780,21 @@ class _WalletScreenState extends State<WalletScreen>
                               ),
                             ),
                           )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // PayPal Icon
-                              SizedBox(
-                                width: 22,
-                                height: 16,
-                                child: Stack(
-                                  children: [
-                                    Positioned(
-                                      left: 0,
-                                      child: Container(
-                                        width: 16,
-                                        height: 16,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF003087),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      left: 6,
-                                      child: Container(
-                                        width: 16,
-                                        height: 16,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF009CDE),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'PayPal',
-                                style: TextStyle(
-                                  color: Color(0xFF003087), // PayPal blue
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
+                        : Text(
+                            selectedPaymentSource == 'paypal'
+                                ? 'Pay by PayPal'
+                                : selectedPaymentSource == 'wallet'
+                                    ? 'Pay by Wallet'
+                                    : 'Buy Now',
+                            style: const TextStyle(
+                              color: Color(0xFF003087), // PayPal blue
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
                 ),
                 const SizedBox(height: 12),
-
-                // Debit/Credit Card button
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: _isSubmitting
-                        ? null
-                        : () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: TranslatedText(
-                                  'wallet.cardPaymentComingSoon',
-                                ),
-                                backgroundColor: AppTheme.successColor,
-                              ),
-                            );
-                          },
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E40AF), // Dark blue
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      side: BorderSide.none,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.credit_card,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          TranslationService().translate(
-                            'wallet.debitOrCreditCard',
-                          ),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 16),
 
                 // Powered by PayPal
@@ -724,7 +854,7 @@ class _WalletScreenState extends State<WalletScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      TranslationService().translate('wallet.sendMoney'),
+                      'Send Money from Wallet',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -842,40 +972,70 @@ class _WalletScreenState extends State<WalletScreen>
                             });
 
                             try {
+                              final email = emailController.text.trim();
+                              final amount = amountController.text.trim();
+                              
+                              debugPrint('💸 [WALLET SCREEN] Sending money:');
+                              debugPrint('   → Email: $email');
+                              debugPrint('   → Amount: $amount');
+                              
                               final response = await _apiService.sendMoney({
-                                'email': emailController.text.trim(),
-                                'amount': amountController.text.trim(),
+                                'email': email,
+                                'amount': amount,
                               });
+
+                              debugPrint('💸 [WALLET SCREEN] Send money response:');
+                              debugPrint('   → Status Code: ${response.statusCode}');
+                              debugPrint('   → Response: ${response.data}');
 
                               if (mounted) {
                                 Navigator.of(context).pop();
 
-                                if (response.statusCode == 200) {
+                                // Check if response is successful (status code 200 or status field is success)
+                                final responseData = response.data;
+                                final isSuccess = response.statusCode == 200 ||
+                                    (responseData != null &&
+                                        responseData is Map &&
+                                        (responseData['status'] == 'success' ||
+                                            responseData['success'] == true));
+
+                                if (isSuccess) {
                                   // Reload wallet data
                                   await _loadWalletData();
 
+                                  // Show success snackbar message
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        response.data['message']?.toString() ??
-                                            TranslationService().translate(
-                                              'wallet.moneySentSuccess',
-                                            ),
+                                        responseData != null &&
+                                                responseData is Map
+                                            ? (responseData['message']
+                                                    ?.toString() ??
+                                                'Money sent successfully!')
+                                            : 'Money sent successfully!',
                                       ),
                                       backgroundColor: AppTheme.successColor,
-                                      duration: const Duration(seconds: 3),
+                                      duration: const Duration(seconds: 4),
                                     ),
                                   );
                                 } else {
+                                  // Show error snackbar message
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        response.data['message']?.toString() ??
-                                            TranslationService().translate(
-                                              'wallet.failedToSendMoney',
-                                            ),
+                                        responseData != null &&
+                                                responseData is Map
+                                            ? (responseData['message']
+                                                    ?.toString() ??
+                                                TranslationService().translate(
+                                                  'wallet.failedToSendMoney',
+                                                ))
+                                            : TranslationService().translate(
+                                                'wallet.failedToSendMoney',
+                                              ),
                                       ),
                                       backgroundColor: AppTheme.errorColor,
+                                      duration: const Duration(seconds: 3),
                                     ),
                                   );
                                 }
@@ -1022,199 +1182,213 @@ class _WalletScreenState extends State<WalletScreen>
                   ),
                   const SizedBox(height: 12),
 
-                  // PayPal button
-                  GestureDetector(
-                    onTap: _isSubmitting
-                        ? null
-                        : () {
-                            setDialogState(() {
-                              selectedPaymentMethod = 'paypal';
-                            });
-                          },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: selectedPaymentMethod == 'paypal'
-                            ? const Color(0xFFFFC439) // Gold when selected
-                            : const Color(
-                                0xFF334155,
-                              ), // Dark grey when not selected
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: selectedPaymentMethod == 'paypal'
-                              ? const Color(
-                                  0xFF003087,
-                                ) // PayPal blue border when selected
-                              : Colors
-                                    .grey[600]!, // Light grey border when not selected
-                          width: 2,
-                        ),
-                        boxShadow: selectedPaymentMethod == 'paypal'
-                            ? [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFFFFC439,
-                                  ).withOpacity(0.5),
-                                  blurRadius: 12,
-                                  spreadRadius: 2,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ]
-                            : [],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // PayPal Icon
-                          if (selectedPaymentMethod == 'paypal')
-                            SizedBox(
-                              width: 28,
-                              height: 20,
-                              child: Stack(
-                                children: [
-                                  Positioned(
-                                    left: 0,
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF003087), // Dark blue
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    left: 8,
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF009CDE), // Light blue
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            SizedBox(
-                              width: 28,
-                              height: 20,
-                              child: Stack(
-                                children: [
-                                  Positioned(
-                                    left: 0,
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[400],
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    left: 8,
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[500],
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'PayPal',
-                            style: TextStyle(
+                  // Payment method tabs (side by side)
+                  Row(
+                    children: [
+                      // PayPal button (left side)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _isSubmitting
+                              ? null
+                              : () {
+                                  setDialogState(() {
+                                    selectedPaymentMethod = 'paypal';
+                                  });
+                                },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
                               color: selectedPaymentMethod == 'paypal'
-                                  ? const Color(
-                                      0xFF003087,
-                                    ) // PayPal blue when selected
-                                  : Colors
-                                        .grey[300], // Faded grey when not selected
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
+                                  ? const Color(0xFFFFC439) // Gold when selected
+                                  : const Color(
+                                      0xFF334155,
+                                    ), // Dark grey when not selected
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                bottomLeft: Radius.circular(12),
+                              ),
+                              border: Border.all(
+                                color: selectedPaymentMethod == 'paypal'
+                                    ? const Color(
+                                        0xFF003087,
+                                      ) // PayPal blue border when selected
+                                    : Colors
+                                          .grey[600]!, // Light grey border when not selected
+                                width: 2,
+                              ),
+                              boxShadow: selectedPaymentMethod == 'paypal'
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(
+                                          0xFFFFC439,
+                                        ).withOpacity(0.5),
+                                        blurRadius: 12,
+                                        spreadRadius: 2,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ]
+                                  : [],
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Card button
-                  GestureDetector(
-                    onTap: _isSubmitting
-                        ? null
-                        : () {
-                            setDialogState(() {
-                              selectedPaymentMethod = 'card';
-                            });
-                          },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: selectedPaymentMethod == 'card'
-                            ? const Color(0xFF1E40AF) // Dark blue when selected
-                            : const Color(
-                                0xFF334155,
-                              ), // Dark grey when not selected
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: selectedPaymentMethod == 'card'
-                              ? Colors.white
-                              : Colors
-                                    .grey[600]!, // Light grey border when not selected
-                          width: 2,
-                        ),
-                        boxShadow: selectedPaymentMethod == 'card'
-                            ? [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF1E40AF,
-                                  ).withOpacity(0.5),
-                                  blurRadius: 12,
-                                  spreadRadius: 2,
-                                  offset: const Offset(0, 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // PayPal Icon
+                                if (selectedPaymentMethod == 'paypal')
+                                  SizedBox(
+                                    width: 28,
+                                    height: 20,
+                                    child: Stack(
+                                      children: [
+                                        Positioned(
+                                          left: 0,
+                                          child: Container(
+                                            width: 20,
+                                            height: 20,
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFF003087), // Dark blue
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          left: 8,
+                                          child: Container(
+                                            width: 20,
+                                            height: 20,
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFF009CDE), // Light blue
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  SizedBox(
+                                    width: 28,
+                                    height: 20,
+                                    child: Stack(
+                                      children: [
+                                        Positioned(
+                                          left: 0,
+                                          child: Container(
+                                            width: 20,
+                                            height: 20,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[400],
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          left: 8,
+                                          child: Container(
+                                            width: 20,
+                                            height: 20,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[500],
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'PayPal',
+                                  style: TextStyle(
+                                    color: selectedPaymentMethod == 'paypal'
+                                        ? const Color(
+                                            0xFF003087,
+                                          ) // PayPal blue when selected
+                                        : Colors
+                                              .grey[300], // Faded grey when not selected
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
-                              ]
-                            : [],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.credit_card,
-                            color: selectedPaymentMethod == 'card'
-                                ? Colors.white
-                                : Colors.grey[300], // Faded when not selected
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Debit or Credit Card',
-                            style: TextStyle(
-                              color: selectedPaymentMethod == 'card'
-                                  ? Colors.white
-                                  : Colors.grey[300], // Faded when not selected
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+
+                      // Card button (right side)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _isSubmitting
+                              ? null
+                              : () {
+                                  setDialogState(() {
+                                    selectedPaymentMethod = 'card';
+                                  });
+                                },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: selectedPaymentMethod == 'card'
+                                  ? const Color(0xFF1E40AF) // Dark blue when selected
+                                  : const Color(
+                                      0xFF334155,
+                                    ), // Dark grey when not selected
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(12),
+                                bottomRight: Radius.circular(12),
+                              ),
+                              border: Border.all(
+                                color: selectedPaymentMethod == 'card'
+                                    ? Colors.white
+                                    : Colors
+                                          .grey[600]!, // Light grey border when not selected
+                                width: 2,
+                              ),
+                              boxShadow: selectedPaymentMethod == 'card'
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(
+                                          0xFF1E40AF,
+                                        ).withOpacity(0.5),
+                                        blurRadius: 12,
+                                        spreadRadius: 2,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ]
+                                  : [],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Card Icon
+                                Icon(
+                                  Icons.credit_card,
+                                  color: selectedPaymentMethod == 'card'
+                                      ? Colors.white
+                                      : Colors.grey[400],
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Card',
+                                  style: TextStyle(
+                                    color: selectedPaymentMethod == 'card'
+                                        ? Colors.white
+                                        : Colors.grey[300], // Faded grey when not selected
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
 
@@ -1470,15 +1644,22 @@ class _WalletScreenState extends State<WalletScreen>
                               });
 
                               try {
+                                final amount = amountController.text.trim();
+                                
+                                debugPrint('💵 [WALLET SCREEN] Withdrawing funds:');
+                                debugPrint('   → Amount: $amount');
+                                debugPrint('   → Payment Method: $selectedPaymentMethod');
+                                
                                 Map<String, dynamic> withdrawData = {
-                                  'amount': amountController.text.trim(),
+                                  'amount': amount,
                                   'payment_method': selectedPaymentMethod,
                                 };
 
                                 // Add payment method specific data
                                 if (selectedPaymentMethod == 'paypal') {
-                                  withdrawData['email'] = emailController.text
-                                      .trim();
+                                  final email = emailController.text.trim();
+                                  withdrawData['email'] = email;
+                                  debugPrint('   → PayPal Email: $email');
                                 } else if (selectedPaymentMethod == 'card') {
                                   withdrawData['card_holder'] =
                                       cardHolderController.text.trim();
@@ -1488,38 +1669,60 @@ class _WalletScreenState extends State<WalletScreen>
                                       .trim();
                                   withdrawData['cvv'] = cvvController.text
                                       .trim();
+                                  debugPrint('   → Card Holder: ${cardHolderController.text.trim()}');
                                 }
 
                                 final response = await _apiService
                                     .withdrawFromWallet(withdrawData);
 
+                                debugPrint('💵 [WALLET SCREEN] Withdraw response:');
+                                debugPrint('   → Status Code: ${response.statusCode}');
+                                debugPrint('   → Response: ${response.data}');
+
                                 if (mounted) {
                                   Navigator.of(context).pop();
 
-                                  if (response.statusCode == 200) {
+                                  // Check if response is successful (status code 200 or status field is success)
+                                  final responseData = response.data;
+                                  final isSuccess = response.statusCode == 200 ||
+                                      (responseData != null &&
+                                          responseData is Map &&
+                                          (responseData['status'] == 'success' ||
+                                              responseData['success'] == true));
+
+                                  if (isSuccess) {
                                     // Reload wallet data
                                     await _loadWalletData();
 
+                                    // Show success snackbar message
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          response.data['message']
-                                                  ?.toString() ??
-                                              'Withdrawal submitted successfully!',
+                                          responseData != null &&
+                                                  responseData is Map
+                                              ? (responseData['message']
+                                                      ?.toString() ??
+                                                  'Withdrawal submitted successfully!')
+                                              : 'Withdrawal submitted successfully!',
                                         ),
                                         backgroundColor: AppTheme.successColor,
-                                        duration: const Duration(seconds: 3),
+                                        duration: const Duration(seconds: 4),
                                       ),
                                     );
                                   } else {
+                                    // Show error snackbar message
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          response.data['message']
-                                                  ?.toString() ??
-                                              'Failed to submit withdrawal',
+                                          responseData != null &&
+                                                  responseData is Map
+                                              ? (responseData['message']
+                                                      ?.toString() ??
+                                                  'Failed to submit withdrawal')
+                                              : 'Failed to submit withdrawal',
                                         ),
                                         backgroundColor: AppTheme.errorColor,
+                                        duration: const Duration(seconds: 3),
                                       ),
                                     );
                                   }
@@ -1578,6 +1781,9 @@ class _WalletScreenState extends State<WalletScreen>
     final amountController = TextEditingController();
     String? selectedPaymentMethod; // 'paypal' or 'card'
     bool _isSubmitting = false;
+
+    // Capture the parent context before showing dialog
+    final parentContext = context;
 
     await showDialog(
       context: context,
@@ -1788,60 +1994,6 @@ class _WalletScreenState extends State<WalletScreen>
                   ),
                 ),
                 const SizedBox(height: 12),
-
-                // Debit/Credit Card button
-                GestureDetector(
-                  onTap: _isSubmitting
-                      ? null
-                      : () {
-                          setDialogState(() {
-                            selectedPaymentMethod = 'card';
-                          });
-                        },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: selectedPaymentMethod == 'card'
-                          ? const Color(0xFF1E40AF) // Dark blue when selected
-                          : const Color(
-                              0xFFF3F4F6,
-                            ), // Faded grey when not selected
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: selectedPaymentMethod == 'card'
-                            ? Colors.white
-                            : Colors
-                                  .grey[300]!, // Light grey border when not selected
-                        width: 2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.credit_card,
-                          color: selectedPaymentMethod == 'card'
-                              ? Colors.white
-                              : Colors.grey[600], // Faded when not selected
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Debit or Credit Card',
-                          style: TextStyle(
-                            color: selectedPaymentMethod == 'card'
-                                ? Colors.white
-                                : Colors.grey[600], // Faded when not selected
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 24),
 
                 // Submit button
@@ -1890,147 +2042,207 @@ class _WalletScreenState extends State<WalletScreen>
                               _isSubmitting = true;
                             });
 
+                            bool dialogPopped =
+                                false; // Track if dialog was popped for PayPal flow
+
                             try {
                               final response = await _apiService
                                   .createWalletOrder({
                                     'balance': amountController.text.trim(),
+                                    'payment_method': selectedPaymentMethod,
                                   });
+
+                              debugPrint(
+                                '💳 Wallet add balance response -> status: ${response.statusCode}, payment_method: $selectedPaymentMethod',
+                              );
+                              debugPrint(
+                                '💳 Wallet add balance response data: ${response.data}',
+                              );
 
                               if (mounted) {
                                 if (response.statusCode == 200 ||
                                     response.statusCode == 201) {
-                                  final approvalUrl =
-                                      response.data['approval_url'];
-                                  final orderID = response.data['orderID'];
-                                  final amount = response.data['amount'];
+                                  final responseData = response.data;
 
-                                  Navigator.of(context).pop();
+                                  // Handle PayPal redirect if approval link exists
+                                  // Check BEFORE popping dialog to ensure context is valid
+                                  if (selectedPaymentMethod == 'paypal' &&
+                                      responseData != null &&
+                                      responseData is Map) {
+                                    // Try multiple locations for approval link
+                                    dynamic rawApprovalLink;
+                                    if (responseData['approvalLink'] != null) {
+                                      rawApprovalLink =
+                                          responseData['approvalLink'];
+                                    } else if (responseData['approval_url'] !=
+                                        null) {
+                                      rawApprovalLink =
+                                          responseData['approval_url'];
+                                    } else if (responseData['approvalUrl'] !=
+                                        null) {
+                                      rawApprovalLink =
+                                          responseData['approvalUrl'];
+                                    } else if (responseData['data'] is Map) {
+                                      final data = responseData['data'] as Map;
+                                      rawApprovalLink =
+                                          data['approvalLink'] ??
+                                          data['approval_url'] ??
+                                          data['approvalUrl'];
+                                    }
 
-                                  if (approvalUrl != null &&
-                                      selectedPaymentMethod == 'paypal') {
-                                    try {
-                                      final uri = Uri.parse(approvalUrl);
+                                    debugPrint(
+                                      '💳 PayPal approval link: $rawApprovalLink',
+                                    );
 
-                                      // Always try to launch, even if canLaunchUrl fails
-                                      // This ensures PayPal opens in browser
-                                      try {
-                                        await launchUrl(
-                                          uri,
-                                          mode: LaunchMode.externalApplication,
-                                        );
+                                    if (rawApprovalLink != null &&
+                                        rawApprovalLink.toString().isNotEmpty) {
+                                      final approvalLink = rawApprovalLink
+                                          .toString();
 
-                                        // Show success message after opening
+                                      // Pop dialog first
+                                      Navigator.of(context).pop();
+
+                                      if (mounted) {
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
-                                          SnackBar(
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                const Text(
-                                                  'Opening PayPal in your browser...',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Please login to PayPal to complete payment.\nOrder ID: $orderID\nAmount: \$$amount',
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                          const SnackBar(
+                                            content: Text('Opening PayPal...'),
                                             backgroundColor:
                                                 AppTheme.successColor,
-                                            duration: const Duration(
-                                              seconds: 4,
-                                            ),
+                                            duration: Duration(seconds: 2),
                                           ),
                                         );
-                                      } catch (launchError) {
-                                        // If launch fails, show URL as fallback
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  TranslationService().translate(
-                                                    'wallet.pleaseOpenPayPal',
+
+                                        final paypalResult =
+                                            await Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    PaypalWebViewScreen(
+                                                      approvalUrl: approvalLink,
+                                                    ),
+                                              ),
+                                            );
+
+                                        // Handle PayPal return result
+                                        if (mounted && paypalResult != null) {
+                                          if (paypalResult is Map) {
+                                            final isSuccess =
+                                                paypalResult['success'] == true;
+
+                                            if (isSuccess) {
+                                              // Payment successful - wait a moment for backend to process, then reload wallet
+                                              await Future.delayed(const Duration(seconds: 1));
+                                              
+                                              await _loadWalletData();
+                                              await _loadTransactions();
+
+                                              ScaffoldMessenger.of(
+                                                parentContext,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    responseData['message']
+                                                            ?.toString() ??
+                                                        'Payment completed successfully! Your wallet balance has been updated.',
                                                   ),
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
+                                                  backgroundColor:
+                                                      AppTheme.successColor,
+                                                  duration: const Duration(
+                                                    seconds: 4,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 4),
-                                                SelectableText(
-                                                  approvalUrl,
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    decoration: TextDecoration
-                                                        .underline,
+                                              );
+                                            } else {
+                                              // Payment cancelled or failed
+                                              ScaffoldMessenger.of(
+                                                parentContext,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Payment was cancelled',
                                                   ),
+                                                  backgroundColor:
+                                                      AppTheme.errorColor,
                                                 ),
-                                              ],
-                                            ),
-                                            backgroundColor:
-                                                AppTheme.successColor,
-                                            duration: const Duration(
-                                              seconds: 10,
-                                            ),
-                                          ),
-                                        );
+                                              );
+                                            }
+                                          } else {
+                                            // Fallback: reload wallet anyway
+                                            await _loadWalletData();
+                                            await _loadTransactions();
+                                            ScaffoldMessenger.of(
+                                              parentContext,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  responseData['message']
+                                                          ?.toString() ??
+                                                      'Payment processed. Please check your wallet balance.',
+                                                ),
+                                                backgroundColor:
+                                                    AppTheme.successColor,
+                                                duration: const Duration(
+                                                  seconds: 3,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        }
                                       }
-                                    } catch (e) {
-                                      // Fallback: show the URL
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'Order created! Please open this URL in your browser:',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              SelectableText(
-                                                approvalUrl,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  decoration:
-                                                      TextDecoration.underline,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          backgroundColor:
-                                              AppTheme.successColor,
-                                          duration: const Duration(seconds: 10),
-                                        ),
+                                      return;
+                                    } else {
+                                      debugPrint(
+                                        '⚠️ PayPal selected but no approval link found in response',
                                       );
                                     }
-                                  } else if (selectedPaymentMethod == 'card') {
+                                  }
+
+                                  // Pop dialog if not PayPal or no approval link
+                                  // Only pop if dialog wasn't already popped for PayPal flow
+                                  if (!dialogPopped) {
+                                    try {
+                                      if (Navigator.of(
+                                        dialogContext,
+                                      ).canPop()) {
+                                        Navigator.of(dialogContext).pop();
+                                      }
+                                    } catch (popError) {
+                                      debugPrint(
+                                        '⚠️ [Wallet] Error popping dialog: $popError',
+                                      );
+                                    }
+                                  }
+
+                                  // Handle other payment methods if needed
+                                  if (selectedPaymentMethod == 'card') {
                                     // TODO: Implement card payment flow
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    ScaffoldMessenger.of(
+                                      parentContext,
+                                    ).showSnackBar(
                                       const SnackBar(
                                         content: Text(
                                           'Card payment coming soon!',
                                         ),
                                         backgroundColor: AppTheme.successColor,
+                                      ),
+                                    );
+                                  } else {
+                                    // Show success message for non-PayPal payments
+                                    ScaffoldMessenger.of(
+                                      parentContext,
+                                    ).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          responseData != null &&
+                                                  responseData is Map
+                                              ? responseData['message']
+                                                        ?.toString() ??
+                                                    'Payment processed successfully'
+                                              : 'Payment processed successfully',
+                                        ),
+                                        backgroundColor: AppTheme.successColor,
+                                        duration: const Duration(seconds: 3),
                                       ),
                                     );
                                   }
@@ -2041,8 +2253,10 @@ class _WalletScreenState extends State<WalletScreen>
                                   );
                                   await _loadWalletData();
                                 } else {
-                                  Navigator.of(context).pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  Navigator.of(dialogContext).pop();
+                                  ScaffoldMessenger.of(
+                                    parentContext,
+                                  ).showSnackBar(
                                     SnackBar(
                                       content: Text(
                                         response.data['message']?.toString() ??
@@ -2055,13 +2269,47 @@ class _WalletScreenState extends State<WalletScreen>
                               }
                             } catch (e) {
                               if (mounted) {
-                                Navigator.of(context).pop();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error: ${e.toString()}'),
-                                    backgroundColor: AppTheme.errorColor,
-                                  ),
-                                );
+                                try {
+                                  // Try to pop dialog if it's still open
+                                  final navigator = Navigator.of(
+                                    dialogContext,
+                                    rootNavigator: false,
+                                  );
+                                  if (navigator.canPop()) {
+                                    navigator.pop();
+                                  }
+                                } catch (popError) {
+                                  debugPrint(
+                                    '⚠️ [Wallet] Error popping dialog: $popError',
+                                  );
+                                }
+
+                                // Show error message using parent context
+                                if (mounted) {
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (mounted) {
+                                      try {
+                                        ScaffoldMessenger.of(
+                                          parentContext,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Error: ${e.toString()}',
+                                            ),
+                                            backgroundColor:
+                                                AppTheme.errorColor,
+                                          ),
+                                        );
+                                      } catch (scaffoldError) {
+                                        debugPrint(
+                                          '⚠️ [Wallet] Error showing SnackBar: $scaffoldError',
+                                        );
+                                      }
+                                    }
+                                  });
+                                }
                               }
                             }
                           },
@@ -2457,7 +2705,10 @@ class _WalletScreenState extends State<WalletScreen>
 
   Widget _buildTransactionsTab() {
     return RefreshIndicator(
-      onRefresh: _loadWalletData,
+      onRefresh: () async {
+        await _loadWalletData();
+        await _loadTransactions();
+      },
       color: const Color(0xFF7C3AED),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -2591,9 +2842,9 @@ class _WalletScreenState extends State<WalletScreen>
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        '\$1089',
-                        style: TextStyle(
+                      Text(
+                        '\$${_formatBalance(_walletData?['balance'] ?? 0)}',
+                        style: const TextStyle(
                           color: Color(0xFFFFD700), // Bright yellow/gold
                           fontSize: 42,
                           fontWeight: FontWeight.bold,
@@ -2636,7 +2887,8 @@ class _WalletScreenState extends State<WalletScreen>
             child: Center(
               child: GestureDetector(
                 onTap: () async {
-                  const email = 'user@gmail.com';
+                  final email =
+                      _walletData?['email']?.toString() ?? 'user@gmail.com';
                   await Clipboard.setData(ClipboardData(text: email));
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -2668,9 +2920,9 @@ class _WalletScreenState extends State<WalletScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Email : user@gmail.com',
-                        style: TextStyle(
+                      Text(
+                        'Email : ${_walletData?['email']?.toString() ?? 'user@gmail.com'}',
+                        style: const TextStyle(
                           color: Color(0xFFFFD700), // Gold/yellow
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -3112,9 +3364,9 @@ class _WalletScreenState extends State<WalletScreen>
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    '\$1089',
-                    style: TextStyle(
+                  Text(
+                    '\$${_formatBalance(_walletData?['balance'] ?? 0)}',
+                    style: const TextStyle(
                       color: Color(0xFFFFD700),
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -3489,15 +3741,31 @@ class _WalletScreenState extends State<WalletScreen>
   }
 
   Widget _buildTransactionsSection() {
-    // TODO: Load transactions from API when available
-    final transactions = [
-      {
-        'id': 'TX-IXLDLATJHB',
-        'type': 'wallet_topup',
-        'amount': '100.0000',
-        'isCredit': true,
-      },
-    ];
+    if (_isLoadingTransactions) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacingMedium),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 15,
+              offset: const Offset(0, 4),
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final transactions = _transactions;
+
+    debugPrint(
+      '📊 [Wallet] Building transactions section with ${transactions.length} transactions',
+    );
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacingMedium),

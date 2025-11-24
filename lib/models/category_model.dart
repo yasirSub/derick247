@@ -1,6 +1,7 @@
 class Category {
   final int id;
   final String name;
+  final String? slug;
   final String? description;
   final String? media;
   final int? parentId;
@@ -12,6 +13,7 @@ class Category {
   Category({
     required this.id,
     required this.name,
+    this.slug,
     this.description,
     this.media,
     this.parentId,
@@ -21,10 +23,22 @@ class Category {
     this.children,
   });
 
+  // Generate slug from name if not provided
+  static String _generateSlug(String name) {
+    return name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s-]'), '') // Remove special characters
+        .replaceAll(RegExp(r'\s+'), '-') // Replace spaces with hyphens
+        .replaceAll(RegExp(r'-+'), '-') // Replace multiple hyphens with single
+        .trim();
+  }
+
   factory Category.fromJson(Map<String, dynamic> json) {
+    final categoryName = json['name'] ?? '';
     return Category(
       id: json['id'] ?? 0,
-      name: json['name'] ?? '',
+      name: categoryName,
+      slug: json['slug'] ?? _generateSlug(categoryName),
       description: json['description'],
       media: json['media'],
       parentId: json['parent_id'],
@@ -41,6 +55,7 @@ class Category {
     return {
       'id': id,
       'name': name,
+      'slug': slug,
       'description': description,
       'media': media,
       'parent_id': parentId,

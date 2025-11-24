@@ -53,6 +53,30 @@ class ProductCard extends StatelessWidget {
       return;
     }
 
+    // Check if user is verified
+    if (!authProvider.isEmailVerified) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('You are not verified. Please verify your email to add items to cart.'),
+            backgroundColor: AppTheme.errorColor,
+            action: SnackBarAction(
+              label: 'Login',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       // Add to local cart first
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
@@ -309,6 +333,35 @@ class ProductCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                      // Shopping cart icon overlay (bottom-right)
+                      Positioned(
+                        bottom: 6,
+                        right: 6,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _addToCart(context),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Icon(
+                                    Icons.shopping_cart,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -322,131 +375,77 @@ class ProductCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Product Name - fixed height container for consistent positioning
-                    SizedBox(
-                      height: 40, // Fixed height for 2 lines of text
-                      child: Text(
-                        product.name,
+                    // Price - plain orange text (first)
+                    Text(
+                      _formatPriceWithSpace(product.formattedPrice),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade800,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    // Product Name
+                    Text(
+                      product.name,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    // Refer & Earn text
+                    if (hasCommission && showEarnButton) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Refer & Earn ${product.formattedCommission}',
                         style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
                           color: Colors.black87,
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    // Price
-                    priceAsPill
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
+                      const SizedBox(height: 6),
+                      // White button with "Refer & Earn"
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: onRefer,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 5),
+                            minimumSize: const Size(0, 30),
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.orange.shade100),
-                            ),
-                            child: Text(
-                              _formatPriceWithSpace(product.formattedPrice),
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange.shade700,
+                              side: BorderSide(
+                                color: Colors.grey.shade600,
+                                width: 1,
                               ),
-                            ),
-                          )
-                        : Text(
-                            _formatPriceWithSpace(product.formattedPrice),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
                             ),
                           ),
-
-                    const SizedBox(height: 8),
-
-                    // Earn Button
-                    if (hasCommission && showEarnButton)
-                      GestureDetector(
-                        onTap: onRefer,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.orange.shade700,
-                                Colors.deepOrangeAccent.shade200,
-                              ],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.orange.withOpacity(0.15),
-                                blurRadius: 10,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 6,
-                            ),
-                            alignment: Alignment.center,
-                            child: TranslatedText(
-                              'promo.refEarn',
-                              params: {
-                                'commission': product.formattedCommission,
-                              },
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                letterSpacing: 0.04,
-                              ),
+                          child: const Text(
+                            'Refer & Earn',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
 
-              const SizedBox(width: 8),
-
-              // Action Icons
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.shopping_cart_outlined, size: 20),
-                    onPressed: () => _addToCart(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.share, size: 20),
-                    onPressed: () {
-                      _shareProduct(context);
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                ],
-              ),
+              const SizedBox(width: 12),
             ],
           ),
         ),
@@ -477,6 +476,30 @@ class ProductGridCard extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       _showLoginPrompt(context);
+      return;
+    }
+
+    // Check if user is verified
+    if (!authProvider.isEmailVerified) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('You are not verified. Please verify your email to add items to cart.'),
+            backgroundColor: AppTheme.errorColor,
+            action: SnackBarAction(
+              label: 'Login',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
       return;
     }
 
@@ -719,17 +742,25 @@ class ProductGridCard extends StatelessWidget {
                         bottom: 10,
                         right: 10,
                         child: Material(
-                          color: Colors.black.withOpacity(0.72),
-                          borderRadius: BorderRadius.circular(6),
+                          color: Colors.transparent,
                           child: InkWell(
                             onTap: () => _addToCart(context),
-                            borderRadius: BorderRadius.circular(6),
-                            child: const Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Icon(
-                                Icons.shopping_cart,
-                                color: Colors.white,
-                                size: 20,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Icon(
+                                    Icons.shopping_cart,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -738,99 +769,84 @@ class ProductGridCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Product name - fixed height container for consistent positioning
-                      SizedBox(
-                        height: 30, // Fixed height for 2 lines of text
-                        child: Text(
-                          product.name,
-                          style: const TextStyle(
-                            fontSize: 11.7,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                            height: 1.16,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      // Price as pill/label
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.orange.shade100),
-                        ),
-                        child: Text(
-                          _formatPriceWithSpace(product.formattedPrice),
-                          style: TextStyle(
-                            fontSize: 14.2,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange.shade700,
-                          ),
-                        ),
-                      ),
-                      // Ref & Earn
-                      if (hasCommission && showEarnButton) ...[
-                        const SizedBox(height: 4),
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.orange.shade700,
-                                Colors.deepOrangeAccent.shade200,
-                              ],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
+                Flexible(
+                  child: ClipRect(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Price - plain orange text
+                          Text(
+                            _formatPriceWithSpace(product.formattedPrice),
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange.shade800,
                             ),
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.orange.withOpacity(0.13),
-                                blurRadius: 7,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(6),
-                              onTap: onRefer,
-                              child: Container(
-                                width: double.infinity,
-                                alignment: Alignment.center,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 7,
-                                  horizontal: 8,
+                          const SizedBox(height: 2),
+                          // Product name
+                          Text(
+                            product.name,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                              height: 1.15,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          // Refer & Earn text
+                          if (hasCommission && showEarnButton) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'Refer & Earn ${product.formattedCommission}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black87,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            // White button with "Refer & Earn"
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: onRefer,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.black,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 5),
+                                  minimumSize: const Size(0, 30),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    side: BorderSide(
+                                      color: Colors.grey.shade600,
+                                      width: 1,
+                                    ),
+                                  ),
                                 ),
-                                child: TranslatedText(
-                                  'promo.refEarn',
-                                  params: {
-                                    'commission': product.formattedCommission,
-                                  },
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.04,
+                                child: const Text(
+                                  'Refer & Earn',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ],
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],

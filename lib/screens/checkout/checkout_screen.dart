@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../widgets/translated_text.dart';
 import '../../services/translation_service.dart';
 import 'add_address_screen.dart';
+import 'paypal_webview_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({Key? key}) : super(key: key);
@@ -23,6 +24,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   // Selected values
   int? _selectedShippingAddressId;
+  int? _selectedShippingId;
   String? _selectedPaymentMethod;
 
   @override
@@ -46,8 +48,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           // Auto-select first shipping address if available
           if (_checkoutData?['shipping_address'] != null &&
               (_checkoutData!['shipping_address'] as List).isNotEmpty) {
-            _selectedShippingAddressId =
-                _checkoutData!['shipping_address'][0]['id'];
+            final firstAddress = _checkoutData!['shipping_address'][0];
+            _selectedShippingAddressId = firstAddress['id'];
+            _selectedShippingId =
+                firstAddress['shipping_id'] ?? firstAddress['id'];
           }
           // Auto-select first payment method if available
           if (_checkoutData?['payment_methods'] != null) {
@@ -88,6 +92,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    if (_selectedShippingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Shipping option is unavailable. Please reselect an address.',
+          ),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+
     if (_selectedPaymentMethod == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -105,6 +121,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final checkoutData = <String, dynamic>{
         'shipping_address_id': _selectedShippingAddressId,
+        'shipping_id': _selectedShippingId,
         'payment_method': _selectedPaymentMethod,
       };
 
@@ -114,7 +131,108 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _isSubmitting = false;
       });
 
+      debugPrint(
+        '🧾 Checkout response -> status: ${response.statusCode}, payment: $_selectedPaymentMethod',
+      );
+      debugPrint('🧾 Checkout response data: ${response.data}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+
+        // Handle PayPal redirect if approval link exists
+        if (_selectedPaymentMethod == 'paypal_checkout' &&
+            responseData is Map) {
+          final rawApprovalLink =
+              responseData['approvalLink'] ??
+              responseData['approval_url'] ??
+              responseData['approvalUrl'];
+          if (rawApprovalLink != null &&
+              rawApprovalLink.toString().isNotEmpty) {
+            final approvalLink = rawApprovalLink.toString();
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Opening PayPal...'),
+                  backgroundColor: AppTheme.successColor,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+
+              final paypalResult = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      PaypalWebViewScreen(approvalUrl: approvalLink),
+                ),
+              );
+
+              // Handle PayPal return result
+              if (mounted && paypalResult != null) {
+                if (paypalResult is Map) {
+                  final isSuccess = paypalResult['success'] == true;
+
+                  if (isSuccess) {
+                    // Payment successful - wait a moment for backend to process order
+                    await Future.delayed(const Duration(seconds: 1));
+                    
+                    // Clear cart and show success message
+                    final cartProvider =
+                        Provider.of<CartProvider>(context, listen: false);
+                    await cartProvider.clearCart();
+
+                    Navigator.of(context).pop(true);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          responseData['message']?.toString() ??
+                              'Order placed successfully!',
+                        ),
+                        backgroundColor: AppTheme.successColor,
+                        duration: const Duration(seconds: 4),
+                      ),
+                    );
+                  } else {
+                    // Payment cancelled or failed
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Payment was cancelled'),
+                        backgroundColor: AppTheme.errorColor,
+                      ),
+                    );
+                  }
+                } else {
+                  // Fallback: wait a moment for backend processing
+                  await Future.delayed(const Duration(seconds: 1));
+                  
+                  // Clear cart and show success message
+                  final cartProvider =
+                      Provider.of<CartProvider>(context, listen: false);
+                  await cartProvider.clearCart();
+
+                  Navigator.of(context).pop(true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        responseData['message']?.toString() ??
+                            'Order processed. Please check your order status.',
+                      ),
+                      backgroundColor: AppTheme.successColor,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              }
+            }
+            return;
+          }
+        }
+
+        if (_selectedPaymentMethod == 'paypal_checkout') {
+          debugPrint(
+            '⚠️ PayPal selected but backend did not return approvalLink. Falling back to normal order placement.',
+          );
+        }
+
         // Clear cart
         final cartProvider = Provider.of<CartProvider>(context, listen: false);
         await cartProvider.clearCart();
@@ -322,49 +440,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             },
           ),
 
-          // Add New Address Card (dashed border)
+          // Add New Address Action (full-width compact button)
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppTheme.spacingMedium,
             ),
-            child: GestureDetector(
-              onTap: _addNewShippingAddress,
-              child: Container(
-                margin: const EdgeInsets.only(top: AppTheme.spacingMedium),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey[400]!,
-                    width: 2,
-                    style: BorderStyle.solid,
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _addNewShippingAddress,
+                icon: Icon(Icons.add, color: Colors.orange[700]),
+                label: const Text('Add New Address'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppTheme.spacingMedium,
                   ),
-                ),
-                padding: const EdgeInsets.all(AppTheme.spacingLarge * 2),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.add_circle_outline,
-                      size: 48,
-                      color: Colors.orange[700],
-                    ),
-                    const SizedBox(height: AppTheme.spacingMedium),
-                    Text(
-                      'Add New Address',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontSizeMedium,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spacingSmall),
-                    Text(
-                      'Tap to add a new address',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontSizeSmall,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ],
+                  side: BorderSide(color: Colors.orange[700]!, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  foregroundColor: Colors.orange[700],
+                  textStyle: TextStyle(
+                    fontSize: AppTheme.fontSizeMedium,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -482,6 +581,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         onTap: () {
           setState(() {
             _selectedShippingAddressId = address['id'];
+            _selectedShippingId = address['shipping_id'] ?? address['id'];
           });
         },
         child: Padding(
@@ -624,6 +724,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         horizontal: AppTheme.spacingMedium,
         vertical: AppTheme.spacingSmall,
       ),
+      elevation: isSelected ? 4 : 1,
+      color: isSelected ? Colors.white : Colors.grey[50],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: isSelected
+              ? (methodKey == 'paypal_checkout'
+                  ? Colors.blue[300]!
+                  : Colors.orange[300]!)
+              : Colors.grey[200]!,
+          width: isSelected ? 2 : 1,
+        ),
+      ),
       child: InkWell(
         onTap: () {
           setState(() {
@@ -636,31 +749,82 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             children: [
               // Payment Icon
               if (methodKey == 'paypal_checkout')
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Image.asset(
-                    'assets/images/paypal.png',
-                    width: 32,
-                    height: 32,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Icon(Icons.payment, color: Colors.blue[700]),
+                Opacity(
+                  opacity: isSelected ? 1.0 : 0.4,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.blue[50] : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                      border: isSelected
+                          ? Border.all(color: Colors.blue[300]!, width: 2)
+                          : null,
+                    ),
+                    child: Image.asset(
+                      'assets/images/paypal.png',
+                      width: 32,
+                      height: 32,
+                      errorBuilder: (context, error, stackTrace) {
+                        // Fallback: Create PayPal logo using Stack (same as wallet page)
+                        return SizedBox(
+                          width: 22,
+                          height: 16,
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                left: 0,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF003087), // PayPal dark blue
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                left: 6,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF009CDE), // PayPal light blue
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 )
               else if (methodKey == 'wallet')
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.account_balance_wallet,
-                    color: Colors.orange[700],
-                    size: 32,
+                Opacity(
+                  opacity: isSelected ? 1.0 : 0.4,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.orange[50] : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                      border: isSelected
+                          ? Border.all(color: Colors.orange[300]!, width: 2)
+                          : null,
+                    ),
+                    child: Image.asset(
+                      'assets/mobile/wallet_icon.png',
+                      width: 32,
+                      height: 32,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Icon(
+                            Icons.account_balance_wallet,
+                            color: isSelected
+                                ? Colors.orange[700]
+                                : Colors.grey[600],
+                            size: 32,
+                          ),
+                    ),
                   ),
                 ),
               const SizedBox(width: AppTheme.spacingMedium),
@@ -672,9 +836,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   children: [
                     Text(
                       method['name'] ?? methodKey,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: AppTheme.fontSizeMedium,
                         fontWeight: FontWeight.w600,
+                        color: isSelected
+                            ? Colors.black87
+                            : Colors.grey[600],
                       ),
                     ),
                     if (methodKey == 'wallet' && method['balance'] != null)
@@ -682,7 +849,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         'Use your existing balance',
                         style: TextStyle(
                           fontSize: AppTheme.fontSizeSmall,
-                          color: AppTheme.textSecondaryColor,
+                          color: isSelected
+                              ? AppTheme.textSecondaryColor
+                              : Colors.grey[500],
                         ),
                       )
                     else if (methodKey == 'paypal_checkout')

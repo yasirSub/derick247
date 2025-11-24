@@ -166,6 +166,65 @@ class ApiService {
     );
   }
 
+  Future<Response> googleLogin({
+    required String idToken,
+    required String email,
+    String? name,
+    String? photoUrl,
+  }) async {
+    if (debugLogging) {
+      print('🔐 [GOOGLE LOGIN] Starting Google login request');
+      print('   → baseUrl: ${_dio.options.baseUrl}');
+      print('   → endpoint: ${ApiConfig.googleLogin}');
+      print(
+        '   → email: ${email.replaceAll(RegExp(r"(^.).*(@.*$)"), r"$1***$2")}',
+      );
+    }
+
+    final trimmedName = name?.trim();
+    final firstName = trimmedName?.isNotEmpty == true
+        ? trimmedName!.split(' ').first
+        : email.split('@').first;
+    final lastName = (trimmedName != null && trimmedName.contains(' '))
+        ? trimmedName.split(' ').skip(1).join(' ')
+        : null;
+
+    final requestData = {
+      'token': idToken,
+      'id_token': idToken, // keep legacy key for backward compatibility
+      'email': email,
+      'first_name': firstName,
+      if (lastName != null && lastName.isNotEmpty) 'last_name': lastName,
+      if (photoUrl != null) 'photo_url': photoUrl,
+      'provider': 'google',
+    };
+
+    final resp = await _dio.post(
+      ApiConfig.googleLogin,
+      data: requestData,
+      options: Options(
+        headers: ApiConfig.jsonHeaders,
+        contentType: Headers.jsonContentType,
+        validateStatus: (status) => true,
+      ),
+    );
+
+    if (debugLogging) {
+      try {
+        print('✅ [GOOGLE LOGIN RESPONSE]');
+        print('   → status: ${resp.statusCode}');
+        final data = resp.data;
+        if (data is Map) {
+          print('   → keys: ${data.keys.toList()}');
+          print(
+            '   → message: ${data['message'] ?? data['error'] ?? data['status'] ?? data['success']}',
+          );
+        }
+      } catch (_) {}
+    }
+    return resp;
+  }
+
   Future<Response> logout() async {
     return await _dio.post(
       ApiConfig.logout,
@@ -258,8 +317,22 @@ class ApiService {
 
   // Home API method
   Future<Response> getHomeData({int page = 1}) async {
-    final queryParams = {'page': page};
-    return await _dio.get(ApiConfig.home, queryParameters: queryParams);
+    // For base/home, only pass page parameter if it's not the first page
+    // This keeps the base URL clean when returning to home
+    if (page == 1) {
+      print(
+        '🌐 [API_SERVICE] getHomeData called (BASE - no query parameters):',
+      );
+      print('   → URL: ${ApiConfig.home}');
+      print('   → No query parameters (base/home)');
+      return await _dio.get(ApiConfig.home);
+    } else {
+      final queryParams = {'page': page};
+      print('🌐 [API_SERVICE] getHomeData called:');
+      print('   → URL: ${ApiConfig.home}');
+      print('   → Query Parameters: $queryParams');
+      return await _dio.get(ApiConfig.home, queryParameters: queryParams);
+    }
   }
 
   // Product methods
@@ -273,10 +346,27 @@ class ApiService {
     final queryParams = {
       'page': page,
       'limit': limit,
-      if (category != null) 'category': category,
+      if (category != null)
+        'categories': category, // API expects 'categories' (plural)
       if (search != null) 'search': search,
       if (sort != null) 'sort': sort,
     };
+    print('🌐 [API_SERVICE] getProducts called:');
+    print('   → URL: ${ApiConfig.home}');
+    print('   → Query Parameters: $queryParams');
+    print('   → Category parameter (as categories): $category');
+    print('   → Search parameter: $search');
+    if (category != null && search != null) {
+      print(
+        '   → ✅ BOTH category and search are set - will filter by category AND search',
+      );
+    } else if (category != null) {
+      print('   → ✅ Only category is set - will filter by category only');
+    } else if (search != null) {
+      print(
+        '   → ⚠️  Only search is set - will search ALL products (no category filter)',
+      );
+    }
     return await _dio.get(ApiConfig.home, queryParameters: queryParams);
   }
 
@@ -444,7 +534,10 @@ class ApiService {
     throw Exception('Failed to load product with all URL formats');
   }
 
-  Future<Response> getCategories() async {
+  Future<Response> getCategories({int? page}) async {
+    if (page != null) {
+      return await _dio.get('${ApiConfig.categories}?page=$page');
+    }
     return await _dio.get(ApiConfig.categories);
   }
 
@@ -681,14 +774,17 @@ class ApiService {
   }
 
   // Order methods
-  Future<Response> getOrders({String? search}) async {
-    final queryParams = <String, dynamic>{};
-    if (search != null) queryParams['search'] = search;
+  Future<Response> getOrders({
+    String? search,
+    int page = 1,
+    int limit = 10,
+  }) async {
+    final queryParams = <String, dynamic>{'page': page, 'limit': limit};
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
 
-    return await _dio.get(
-      ApiConfig.orders,
-      queryParameters: queryParams.isNotEmpty ? queryParams : null,
-    );
+    return await _dio.get(ApiConfig.orders, queryParameters: queryParams);
   }
 
   Future<Response> getOrderDetails(int orderId) async {
@@ -716,13 +812,46 @@ class ApiService {
 
   // Profile update method
   Future<Response> updateProfile(Map<String, dynamic> profileData) async {
+    print('🌐 [API] updateProfile called');
+    print('🌐 [API] Profile endpoint: ${ApiConfig.profile}');
+
     final formData = FormData.fromMap(profileData);
 
-    return await _dio.post(
-      ApiConfig.profile,
-      data: formData,
-      options: Options(headers: ApiConfig.formHeaders),
-    );
+    // Debug: Print FormData fields
+    print('🌐 [API] FormData fields:');
+    formData.fields.forEach((field) {
+      print('   → ${field.key}: ${field.value}');
+    });
+    print('🌐 [API] FormData files: ${formData.files.length}');
+    formData.files.forEach((file) {
+      print(
+        '   → ${file.key}: ${file.value.filename} (${file.value.length} bytes)',
+      );
+    });
+
+    try {
+      final response = await _dio.post(
+        ApiConfig.profile,
+        data: formData,
+        options: Options(
+          headers: ApiConfig.formHeaders,
+          contentType: Headers.multipartFormDataContentType,
+        ),
+      );
+
+      print('✅ [API] updateProfile success: ${response.statusCode}');
+      return response;
+    } catch (e) {
+      print('❌ [API] updateProfile error: $e');
+      if (e is DioException) {
+        print('❌ [API] DioException details:');
+        print('   → Type: ${e.type}');
+        print('   → Message: ${e.message}');
+        print('   → Response: ${e.response?.data}');
+        print('   → Status Code: ${e.response?.statusCode}');
+      }
+      rethrow;
+    }
   }
 
   // Dropshipping Product methods
@@ -844,7 +973,7 @@ class ApiService {
       final formData = FormData.fromMap(updatePayload);
 
       final response = await _dio.post(
-        ApiConfig.vendorProduct, // Same endpoint as create
+        '${ApiConfig.vendorProduct}/$productId', // Append ID for update
         data: formData,
         options: Options(
           headers: ApiConfig.formHeaders,
@@ -886,6 +1015,34 @@ class ApiService {
       rethrow;
     } finally {
       debugLogging = wasDebugLogging;
+    }
+  }
+
+  // Delete a product gallery image by ID
+  Future<Response> deleteProductGalleryImage(int imageId) async {
+    print('🗑️ [DELETE GALLERY IMAGE] Deleting image ID: $imageId');
+    print('   → Endpoint: ${ApiConfig.deleteProductGallery}$imageId');
+
+    try {
+      final response = await _dio.delete(
+        '${ApiConfig.deleteProductGallery}$imageId',
+        options: Options(
+          headers: ApiConfig.jsonHeaders,
+          validateStatus: (status) => true, // Accept all status codes
+        ),
+      );
+
+      print('✅ [DELETE GALLERY IMAGE] Response received');
+      print('   → Status Code: ${response.statusCode}');
+
+      if (response.data != null && response.data is Map) {
+        print('   → Response: ${response.data}');
+      }
+
+      return response;
+    } catch (e) {
+      print('❌ [DELETE GALLERY IMAGE] Error: $e');
+      rethrow;
     }
   }
 
@@ -939,11 +1096,11 @@ class ApiService {
     );
   }
 
-  Future<Response> withdrawFromWallet(Map<String, dynamic> withdrawData) async {
-    final formData = FormData.fromMap(withdrawData);
+  Future<Response> buyPoints(Map<String, dynamic> orderData) async {
+    final formData = FormData.fromMap(orderData);
 
     return await _dio.post(
-      ApiConfig.walletWithdraw,
+      ApiConfig.walletBuyPoints,
       data: formData,
       options: Options(
         headers: ApiConfig.formHeaders,
@@ -953,11 +1110,11 @@ class ApiService {
     );
   }
 
-  Future<Response> sendMoney(Map<String, dynamic> sendMoneyData) async {
-    final formData = FormData.fromMap(sendMoneyData);
+  Future<Response> buyPointsWithWallet(Map<String, dynamic> orderData) async {
+    final formData = FormData.fromMap(orderData);
 
     return await _dio.post(
-      ApiConfig.walletSendMoney,
+      ApiConfig.walletBuyPointsWithWallet,
       data: formData,
       options: Options(
         headers: ApiConfig.formHeaders,
@@ -965,6 +1122,101 @@ class ApiService {
         validateStatus: (status) => true,
       ),
     );
+  }
+
+  Future<Response> withdrawFromWallet(Map<String, dynamic> withdrawData) async {
+    print('💵 [WITHDRAW] Request data:');
+    print('   → Amount: ${withdrawData['amount']}');
+    print('   → Payment Method: ${withdrawData['payment_method']}');
+    if (withdrawData['email'] != null) {
+      print('   → Email: ${withdrawData['email']}');
+    }
+    if (withdrawData['card_holder'] != null) {
+      print('   → Card Holder: ${withdrawData['card_holder']}');
+    }
+    if (withdrawData['card_number'] != null) {
+      print(
+        '   → Card Number: ${withdrawData['card_number']?.toString().replaceRange(0, withdrawData['card_number'].toString().length - 4, '*' * (withdrawData['card_number'].toString().length - 4))}',
+      );
+    }
+    print('   → Endpoint: ${ApiConfig.walletWithdraw}');
+
+    final formData = FormData.fromMap(withdrawData);
+
+    try {
+      final response = await _dio.post(
+        ApiConfig.walletWithdraw,
+        data: formData,
+        options: Options(
+          headers: ApiConfig.formHeaders,
+          contentType: Headers.multipartFormDataContentType,
+          validateStatus: (status) => true,
+        ),
+      );
+
+      print('💵 [WITHDRAW] Response received:');
+      print('   → Status Code: ${response.statusCode}');
+      print('   → Response Data: ${response.data}');
+
+      if (response.data != null && response.data is Map) {
+        print('   → Status: ${response.data['status']}');
+        print('   → Message: ${response.data['message']}');
+        if (response.data['data'] != null) {
+          print('   → Data: ${response.data['data']}');
+        }
+      }
+
+      return response;
+    } catch (e) {
+      print('💵 [WITHDRAW] Error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Response> getTransactions({int page = 1, int perPage = 10}) async {
+    return await _dio.get(
+      ApiConfig.transactions,
+      queryParameters: {'page': page, 'per_page': perPage},
+      options: Options(headers: ApiConfig.jsonHeaders),
+    );
+  }
+
+  Future<Response> sendMoney(Map<String, dynamic> sendMoneyData) async {
+    print('💸 [SEND MONEY] Request data:');
+    print('   → Email: ${sendMoneyData['email']}');
+    print('   → Amount: ${sendMoneyData['amount']}');
+    print('   → Endpoint: ${ApiConfig.walletSendMoney}');
+
+    final formData = FormData.fromMap(sendMoneyData);
+
+    try {
+      final response = await _dio.post(
+        ApiConfig.walletSendMoney,
+        data: formData,
+        options: Options(
+          headers: ApiConfig.formHeaders,
+          contentType: Headers.multipartFormDataContentType,
+          validateStatus: (status) => true,
+        ),
+      );
+
+      print('💸 [SEND MONEY] Response received:');
+      print('   → Status Code: ${response.statusCode}');
+      print('   → Response Data: ${response.data}');
+
+      if (response.data != null && response.data is Map) {
+        print('   → Status: ${response.data['status']}');
+        print('   → Message: ${response.data['message']}');
+        if (response.data['data'] != null) {
+          print('   → Data: ${response.data['data']}');
+        }
+      }
+
+      return response;
+    } catch (e) {
+      print('💸 [SEND MONEY] Error: $e');
+      rethrow;
+    }
   }
 
   // Get app assets (banners, logo, etc.)

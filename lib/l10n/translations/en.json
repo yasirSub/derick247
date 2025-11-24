@@ -505,7 +505,7 @@
     "failedToLoadWallet": "Failed to load wallet",
     "failedToLoadWalletInformation": "Failed to load wallet information",
     "noWalletDataAvailable": "No wallet data available",
-    "buyEquxx": "Buy Equxx",
+    "buyEquxx": "Buy Points",
     "points": "Points",
     "enterPointsMin": "Enter points (min 5)",
     "pleaseEnterPoints": "Please enter points",

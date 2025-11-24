@@ -5,6 +5,7 @@ import '../../config/theme_config.dart';
 import '../../widgets/app_drawer.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/translation_service.dart';
 import '../../widgets/translated_text.dart';
 import 'vendor_create_product_screen.dart';
@@ -25,6 +26,37 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
   Timer? _debounce;
   String _query = '';
   String? _selectedFilter; // 'all', 'web', 'normal', null
+
+  // Check if user has vendor product permissions
+  bool _hasCreatePermission() {
+    final user = AuthService().currentUser;
+    if (user == null) return false;
+    final allPermissions = [
+      ...user.userPermissions,
+      ...user.vendorPermissions,
+    ];
+    return allPermissions.contains('create_product');
+  }
+
+  bool _hasEditPermission() {
+    final user = AuthService().currentUser;
+    if (user == null) return false;
+    final allPermissions = [
+      ...user.userPermissions,
+      ...user.vendorPermissions,
+    ];
+    return allPermissions.contains('edit_product');
+  }
+
+  bool _hasDeletePermission() {
+    final user = AuthService().currentUser;
+    if (user == null) return false;
+    final allPermissions = [
+      ...user.userPermissions,
+      ...user.vendorPermissions,
+    ];
+    return allPermissions.contains('delete_product');
+  }
 
   @override
   void initState() {
@@ -131,11 +163,12 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: _showAddProductOptions,
-            tooltip: TranslationService().translate('vendor.addProduct'),
-          ),
+          if (_hasCreatePermission())
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: _showAddProductOptions,
+              tooltip: TranslationService().translate('vendor.addProduct'),
+            ),
         ],
       ),
       backgroundColor: AppTheme.backgroundColor,
@@ -205,9 +238,11 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
             );
           }
           final product = _filtered[index - 1];
+          final hasEditPermission = _hasEditPermission();
+          final hasDeletePermission = _hasDeletePermission();
           return _VendorListTile(
             product: product,
-            onEdit: () async {
+            onEdit: hasEditPermission ? () async {
               final created = await Navigator.push<bool>(
                 context,
                 MaterialPageRoute(
@@ -218,8 +253,8 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
               if (created == true) {
                 _fetchProducts();
               }
-            },
-            onDelete: () async {
+            } : null,
+            onDelete: hasDeletePermission ? () async {
               final confirm = await showModalBottomSheet<bool>(
                 context: context,
                 isScrollControlled: true,
@@ -308,7 +343,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                   ));
                 }
               }
-            },
+            } : null,
           );
         },
       ),
@@ -397,6 +432,17 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
   }
 
   Future<void> _showAddProductOptions() async {
+    // Check permission before showing add options
+    if (!_hasCreatePermission()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to add vendor products'),
+        ),
+      );
+      return;
+    }
+
     final result = await showModalBottomSheet<String>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -451,6 +497,9 @@ class _VendorListTile extends StatelessWidget {
   final VoidCallback? onDelete;
 
   const _VendorListTile({required this.product, this.onEdit, this.onDelete});
+
+  bool get _canEdit => onEdit != null;
+  bool get _canDelete => onDelete != null;
 
   Color _statusColor(String? status) {
     if (status == null) return Colors.grey;
@@ -561,16 +610,18 @@ class _VendorListTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blue),
-              onPressed: onEdit,
-              tooltip: TranslationService().translate('vendor.edit'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: onDelete,
-              tooltip: TranslationService().translate('vendor.delete'),
-            ),
+            if (_canEdit)
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.blue),
+                onPressed: onEdit,
+                tooltip: TranslationService().translate('vendor.edit'),
+              ),
+            if (_canDelete)
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: onDelete,
+                tooltip: TranslationService().translate('vendor.delete'),
+              ),
           ],
         ),
       ),

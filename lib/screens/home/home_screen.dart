@@ -28,6 +28,7 @@ import '../profile/dashboard_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:country_flags/country_flags.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../widgets/home_counter_section.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key, this.forceRefresh = false}) : super(key: key);
@@ -60,8 +61,16 @@ class _HomeScreenState extends State<HomeScreen> {
         listen: false,
       );
 
-      productProvider.loadProducts(refresh: widget.forceRefresh);
-      productProvider.loadCategories();
+      // Clear filters when returning to home/base screen
+      if (productProvider.selectedCategory != null ||
+          productProvider.searchQuery != null ||
+          productProvider.sortBy != null) {
+        print('🏠 [HOME] Clearing filters on home screen load');
+        productProvider.clearFilters();
+      } else {
+        productProvider.loadProducts(refresh: widget.forceRefresh);
+      }
+      productProvider.loadCategories(refresh: true);
 
       if (widget.forceRefresh) {
         Provider.of<BlackBoardProvider>(
@@ -90,18 +99,29 @@ class _HomeScreenState extends State<HomeScreen> {
         bottomNavigationBar: CustomBottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: (index) {
+            print('📱 [HOME] Bottom navigation bar clicked:');
+            print('   → Selected index: $index');
+            print('   → Tab names: [Home, Wishlist, Cart, Dashboard]');
+
             final authProvider = Provider.of<AuthProvider>(
               context,
               listen: false,
             );
             if (index == 3) {
+              print('   → Dashboard tab selected (index 3)');
               if (!authProvider.isLoggedIn) {
+                print('   → User not logged in, redirecting to: LoginScreen');
+                print('   → Route: /login');
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => const LoginScreen()),
                 );
                 return;
               }
               if (!authProvider.isEmailVerified) {
+                print(
+                  '   → Email not verified, redirecting to: VerifyEmailScreen',
+                );
+                print('   → Route: /verify-email');
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => VerifyEmailScreen(
@@ -111,12 +131,37 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
                 return;
               }
+              print('   → Redirecting to: DashboardScreen');
+              print('   → Route: /dashboard');
             }
             if (index == 1) {
+              print('   → Wishlist tab selected (index 1)');
+              print('   → Redirecting to: WishlistScreen');
+              print('   → Route: /wishlist');
               Provider.of<BlackBoardProvider>(
                 context,
                 listen: false,
               ).loadEntries(refresh: true);
+            }
+            if (index == 2) {
+              print('   → Cart tab selected (index 2)');
+              print('   → Redirecting to: CartScreen');
+              print('   → Route: /cart');
+            }
+            // Clear filters when returning to home tab (index 0)
+            if (index == 0) {
+              print('   → Home tab selected (index 0)');
+              print('   → Already on HomeScreen');
+              final productProvider = Provider.of<ProductProvider>(
+                context,
+                listen: false,
+              );
+              if (productProvider.selectedCategory != null ||
+                  productProvider.searchQuery != null ||
+                  productProvider.sortBy != null) {
+                print('   → Clearing filters on home tab');
+                productProvider.clearFilters();
+              }
             }
             setState(() {
               _selectedIndex = index;
@@ -145,6 +190,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
   String? _selectedCountryCode;
   List<Map<String, dynamic>> _banners = [];
   bool _isLoadingBanners = true;
+  HomeCounterData? _counterData;
 
   String _flagForCurrency(String? code) {
     if (code == null) return '💱';
@@ -197,19 +243,46 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
-    _loadBanners();
+    _loadAppAssets();
     _loadSelectedCurrency();
     // Removed auto profile refresh due to backend 500 on /profile
   }
 
-  Future<void> _loadBanners() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Clear filters when HomeTab becomes visible (after navigation back)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final productProvider = Provider.of<ProductProvider>(
+          context,
+          listen: false,
+        );
+        if (productProvider.selectedCategory != null ||
+            productProvider.searchQuery != null ||
+            productProvider.sortBy != null) {
+          print('🏠 [HOME_TAB] didChangeDependencies - clearing filters');
+          productProvider.clearFilters();
+        }
+      }
+    });
+  }
+
+  Future<void> _loadAppAssets() async {
     try {
       final response = await _apiService.getAppAssets();
       if (response.statusCode == 200 && mounted) {
         final data = response.data['data'];
-        if (data != null && data['banners'] != null) {
+        if (data != null) {
+          final banners = data['banners'];
+          final counter = data['counter'];
           setState(() {
-            _banners = List<Map<String, dynamic>>.from(data['banners']);
+            if (banners != null) {
+              _banners = List<Map<String, dynamic>>.from(banners);
+            }
+            if (counter != null) {
+              _counterData = HomeCounterData.fromJson(counter);
+            }
             _isLoadingBanners = false;
           });
           if (_banners.isNotEmpty) {
@@ -276,7 +349,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
         listen: false,
       );
       await productProvider.loadProducts(refresh: true);
-      await productProvider.loadCategories();
+      await productProvider.loadCategories(refresh: true);
     }
   }
 
@@ -350,6 +423,23 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Always check and clear filters when HomeTab is visible
+    // This ensures filters are cleared when returning from navigation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final productProvider = Provider.of<ProductProvider>(
+          context,
+          listen: false,
+        );
+        if (productProvider.selectedCategory != null ||
+            productProvider.searchQuery != null ||
+            productProvider.sortBy != null) {
+          print('🏠 [HOME_TAB] build() - Filters detected, clearing filters');
+          productProvider.clearFilters();
+        }
+      }
+    });
+
     return Scaffold(
       drawer: const AppDrawer(current: 'home'),
       backgroundColor: AppTheme.backgroundColor,
@@ -433,6 +523,10 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                       size: 26,
                     ),
               onPressed: () {
+                print('💱 [HOME] Currency selector clicked:');
+                print('   → Current currency: $_selectedCurrency');
+                print('   → Current country code: $_selectedCountryCode');
+                print('   → Opening currency selection dialog');
                 _showCurrencyDialog(context);
               },
             ),
@@ -447,6 +541,44 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                 padding: const EdgeInsets.only(right: 12),
                 child: GestureDetector(
                   onTap: () {
+                    print('👤 [HOME] Profile icon clicked:');
+                    print('   → User logged in: ${authProvider.isLoggedIn}');
+                    print(
+                      '   → Email verified: ${authProvider.isEmailVerified}',
+                    );
+
+                    // Check if user is logged in
+                    if (!authProvider.isLoggedIn) {
+                      print(
+                        '   → User not logged in, redirecting to: LoginScreen',
+                      );
+                      print('   → Route: /login');
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Check if email is verified
+                    if (!authProvider.isEmailVerified) {
+                      print(
+                        '   → Email not verified, redirecting to: VerifyEmailScreen',
+                      );
+                      print('   → Route: /verify-email');
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => VerifyEmailScreen(
+                            email: authProvider.user?.email ?? '',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    print('   → Redirecting to: ProfileScreen');
+                    print('   → Route: /profile');
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => const ProfileScreen(),
@@ -498,7 +630,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
           return RefreshIndicator(
             onRefresh: () async {
               await productProvider.loadProducts(refresh: true);
-              await productProvider.loadCategories();
+              await productProvider.loadCategories(refresh: true);
             },
             child: Container(
               color: const Color(0xFFE9EBEE),
@@ -565,9 +697,17 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                               : _banners.map((banner) {
                                   final imageUrl = banner['image'] as String?;
                                   return GestureDetector(
-                                    onTap: () => _openUrl(
-                                      'https://comisionista247.com/',
-                                    ),
+                                    onTap: () {
+                                      print('🖼️ [HOME] Banner clicked:');
+                                      print(
+                                        '   → Banner index: $_currentBannerIndex',
+                                      );
+                                      print('   → Banner data: $banner');
+                                      print(
+                                        '   → Redirecting to: https://comisionista247.com/',
+                                      );
+                                      _openUrl('https://comisionista247.com/');
+                                    },
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(
                                         AppTheme.radiusMedium,
@@ -652,6 +792,9 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                     ),
                   ),
 
+                  if (_counterData != null)
+                    HomeCounterSection(data: _counterData!),
+
                   // Shop by Category
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -670,6 +813,9 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                         ),
                         TextButton(
                           onPressed: () {
+                            print('📂 [HOME] "See More" (Categories) clicked:');
+                            print('   → Redirecting to: CategoriesScreen');
+                            print('   → Route: /categories');
                             // Navigate to categories screen to show all categories
                             Navigator.push(
                               context,
@@ -705,12 +851,25 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                             final category = productProvider.categories[index];
                             return GestureDetector(
                               onTap: () {
+                                print('📂 [HOME] Category card clicked:');
+                                print('   → Category ID: ${category.id}');
+                                print('   → Category Name: ${category.name}');
+                                print('   → Category Slug: ${category.slug}');
+                                print('   → Redirecting to: ProductsScreen');
+                                print(
+                                  '   → Route: /products?categoryId=${category.id}&categoryName=${category.name}&categorySlug=${category.slug}',
+                                );
+                                print('   → Navigation params:');
+                                print('      • categoryId: ${category.id}');
+                                print('      • categoryName: ${category.name}');
+                                print('      • categorySlug: ${category.slug}');
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => ProductsScreen(
                                       categoryId: category.id,
                                       categoryName: category.name,
+                                      categorySlug: category.slug,
                                     ),
                                   ),
                                 );
@@ -851,35 +1010,115 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                         Row(
                           children: [
                             // View Toggle Button
-                            IconButton(
-                              icon: Icon(
-                                _isGridView ? Icons.list : Icons.grid_view,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _isGridView = !_isGridView;
-                                });
-                              },
-                              tooltip: _isGridView
-                                  ? TranslationService().translate(
-                                      'home.listView',
-                                    )
-                                  : TranslationService().translate(
-                                      'home.gridView',
+                            Consumer<AuthProvider>(
+                              builder: (context, authProvider, child) {
+                                final isDisabled =
+                                    !authProvider.isLoggedIn ||
+                                    !authProvider.isEmailVerified;
+                                return Opacity(
+                                  opacity: isDisabled ? 0.5 : 1.0,
+                                  child: IconButton(
+                                    icon: Icon(
+                                      _isGridView
+                                          ? Icons.list
+                                          : Icons.grid_view,
                                     ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                // Navigate to products screen
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const ProductsScreen(),
+                                    onPressed: () {
+                                      if (isDisabled) {
+                                        print(
+                                          '🔒 [HOME] View toggle clicked (disabled - not logged in):',
+                                        );
+                                        print(
+                                          '   → Redirecting to: LoginScreen',
+                                        );
+                                        print('   → Route: /login');
+                                        Navigator.of(context).pushReplacement(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const LoginScreen(),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      print('👁️ [HOME] View toggle clicked:');
+                                      print(
+                                        '   → Current view: ${_isGridView ? "Grid" : "List"}',
+                                      );
+                                      print(
+                                        '   → Switching to: ${!_isGridView ? "Grid" : "List"}',
+                                      );
+                                      setState(() {
+                                        _isGridView = !_isGridView;
+                                      });
+                                    },
+                                    tooltip: isDisabled
+                                        ? 'Please verify your email'
+                                        : (_isGridView
+                                              ? TranslationService().translate(
+                                                  'home.listView',
+                                                )
+                                              : TranslationService().translate(
+                                                  'home.gridView',
+                                                )),
                                   ),
                                 );
                               },
-                              child: const TranslatedText('app.seeMore'),
+                            ),
+                            Consumer<AuthProvider>(
+                              builder: (context, authProvider, child) {
+                                final isDisabled =
+                                    !authProvider.isLoggedIn ||
+                                    !authProvider.isEmailVerified;
+                                return Opacity(
+                                  opacity: isDisabled ? 0.5 : 1.0,
+                                  child: TextButton(
+                                    onPressed: () {
+                                      if (isDisabled) {
+                                        print(
+                                          '🔒 [HOME] "See More" (Products) clicked (disabled - not logged in):',
+                                        );
+                                        print(
+                                          '   → Redirecting to: LoginScreen',
+                                        );
+                                        print('   → Route: /login');
+                                        Navigator.of(context).pushReplacement(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const LoginScreen(),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      // Clear filters before navigating to base products screen
+                                      final productProvider =
+                                          Provider.of<ProductProvider>(
+                                            context,
+                                            listen: false,
+                                          );
+                                      productProvider.clearFilters();
+                                      print(
+                                        '🏠 [HOME] "See More" (Products) clicked:',
+                                      );
+                                      print(
+                                        '   → Redirecting to: ProductsScreen (base, no filters)',
+                                      );
+                                      print('   → Route: /products');
+                                      print(
+                                        '   → Filters cleared before navigation',
+                                      );
+                                      // Navigate to products screen
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const ProductsScreen(),
+                                        ),
+                                      );
+                                    },
+                                    child: const TranslatedText('app.seeMore'),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -929,6 +1168,16 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                 product: product,
                                 showEarnButton: true,
                                 onTap: () {
+                                  print(
+                                    '🛍️ [HOME] Product card (grid) clicked:',
+                                  );
+                                  print('   → Product ID: ${product.id}');
+                                  print('   → Product Name: ${product.name}');
+                                  print('   → Product Slug: ${product.slug}');
+                                  print(
+                                    '   → Redirecting to: ProductDetailScreen',
+                                  );
+                                  print('   → Route: /products/${product.id}');
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (context) => ProductDetailScreen(
@@ -975,6 +1224,13 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                         label: 'VIEW CART',
                                         textColor: Colors.white,
                                         onPressed: () {
+                                          print(
+                                            '🛒 [HOME] "VIEW CART" snackbar action clicked:',
+                                          );
+                                          print(
+                                            '   → Redirecting to: CartScreen',
+                                          );
+                                          print('   → Route: /cart');
                                           // Navigate to cart screen
                                           Navigator.of(context).push(
                                             MaterialPageRoute(
@@ -1002,6 +1258,18 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                   product: product,
                                   showEarnButton: true,
                                   onTap: () {
+                                    print(
+                                      '🛍️ [HOME] Product card (list) clicked:',
+                                    );
+                                    print('   → Product ID: ${product.id}');
+                                    print('   → Product Name: ${product.name}');
+                                    print('   → Product Slug: ${product.slug}');
+                                    print(
+                                      '   → Redirecting to: ProductDetailScreen',
+                                    );
+                                    print(
+                                      '   → Route: /products/${product.id}',
+                                    );
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
                                         builder: (context) =>
@@ -1049,6 +1317,13 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
                                           ),
                                           textColor: Colors.white,
                                           onPressed: () {
+                                            print(
+                                              '🛒 [HOME] "VIEW CART" snackbar action clicked (list view):',
+                                            );
+                                            print(
+                                              '   → Redirecting to: CartScreen',
+                                            );
+                                            print('   → Route: /cart');
                                             // Navigate to cart screen
                                             Navigator.of(context).push(
                                               MaterialPageRoute(
@@ -1129,11 +1404,15 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
+                  print('🎯 [HOME] Floating action button (podcasts) clicked:');
+                  print('   → User logged in: ${authProvider.isLoggedIn}');
                   // Check if user is logged in
                   if (!authProvider.isLoggedIn) {
+                    print('   → Showing login required bottom sheet');
                     // Show login required bottom sheet
                     LoginRequiredBottomSheet.show(context);
                   } else {
+                    print('   → Showing point options bottom sheet');
                     // User is logged in, show point options
                     PointOptionsBottomSheet.show(context);
                   }

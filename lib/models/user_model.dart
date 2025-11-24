@@ -18,8 +18,11 @@ class User {
   final String? whatsappCountryCode;
   final String? address;
   final int? countryId;
+  final String? country;
   final int? stateId;
+  final String? state;
   final int? cityId;
+  final String? city;
   final String role;
   final bool appliedForVendor;
   final String? avatar;
@@ -46,8 +49,11 @@ class User {
     this.whatsappCountryCode,
     this.address,
     this.countryId,
+    this.country,
     this.stateId,
+    this.state,
     this.cityId,
+    this.city,
     required this.role,
     required this.appliedForVendor,
     this.avatar,
@@ -76,13 +82,22 @@ class User {
       whatsappCountryCode: json['whatsapp_country_code'],
       address: json['address'],
       countryId: json['country_id'],
+      country: json['country'],
       stateId: json['state_id'],
+      state: json['state'],
       cityId: json['city_id'],
+      city: json['city'],
       role: json['role'] ?? 'user',
       appliedForVendor: json['applied_for_vendor'] ?? false,
       avatar: json['avatar'],
-      userPermissions: List<String>.from(json['user_permissions'] ?? []),
-      vendorPermissions: List<String>.from(json['vendor_permission'] ?? []),
+      userPermissions: List<String>.from(
+        json['user_permissions'] ??
+            (json['role'] == 'vendor' ? [] : (json['permissions'] ?? [])),
+      ),
+      vendorPermissions: List<String>.from(
+        json['vendor_permission'] ??
+            (json['role'] == 'vendor' ? (json['permissions'] ?? []) : []),
+      ),
     );
   }
 
@@ -107,8 +122,11 @@ class User {
       'whatsapp_country_code': whatsappCountryCode,
       'address': address,
       'country_id': countryId,
+      'country': country,
       'state_id': stateId,
+      'state': state,
       'city_id': cityId,
+      'city': city,
       'role': role,
       'applied_for_vendor': appliedForVendor,
       'avatar': avatar,

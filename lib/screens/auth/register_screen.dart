@@ -9,6 +9,7 @@ import '../home/home_screen.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
 import '../../services/api_service.dart';
+import '../../services/google_auth_service.dart';
 import '../../services/translation_service.dart';
 import '../../widgets/translated_text.dart';
 import '../../models/location_model.dart' as loc;
@@ -220,6 +221,108 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ? '\nPayload:\n${const JsonEncoder.withIndent('  ').convert(payload)}'
         : '';
     debugPrint('🔍 [Registration][$timestamp] $message$payloadText');
+  }
+
+  Future<void> _signUpWithGoogle() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final googleAuthService = GoogleAuthService();
+
+    // Enable verbose logs to help diagnose API issues during social sign-up flow
+    AuthProvider.debugLogging = true;
+    ApiService.debugLogging = true;
+
+    try {
+      final googleResult = await googleAuthService.signInWithGoogle();
+
+      if (!mounted) return;
+
+      if (googleResult['success'] != true) {
+        if (googleResult['message'] != 'Sign-in cancelled') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text(googleResult['message'] ?? 'Google sign-in failed'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+        return;
+      }
+
+      final idToken = googleResult['idToken'];
+      final email = googleResult['email'];
+      final displayName = googleResult['displayName'];
+      final photoUrl = googleResult['photoUrl'];
+
+      if (idToken == null || email == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to get Google credentials'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final success = await authProvider.loginWithGoogle(
+        idToken: idToken,
+        email: email,
+        name: displayName,
+        photoUrl: photoUrl,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        if (authProvider.requiresEmailVerification) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please verify your email before continuing.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => VerifyEmailScreen(email: email)),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Google sign-in successful!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              authProvider.error ?? 'Google sign-in failed. Please try again.',
+            ),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  void _signUpWithFacebook() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Facebook sign-up is coming soon.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
   }
 
   InputDecoration _buildFieldDecoration({
@@ -821,6 +924,138 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Color(0xFF374151),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Separator
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: const Color(0xFFE5E7EB),
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'Or sign up with',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: const Color(0xFFE5E7EB),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Social signup buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: ElevatedButton(
+                                onPressed: _signUpWithGoogle,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'G',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Google',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF374151),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: ElevatedButton(
+                                onPressed: _signUpWithFacebook,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF1877F2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.facebook,
+                                        color: Colors.white,
+                                        size: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Facebook',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF374151),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

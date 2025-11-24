@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../screens/profile/add_web_dropshipping_product_screen.dart';
 import '../services/translation_service.dart';
+import '../providers/auth_provider.dart';
+import '../screens/auth/login_screen.dart';
 import 'vendor_share_popup.dart';
 
 class PointOptionsBottomSheet extends StatelessWidget {
@@ -22,6 +24,19 @@ class PointOptionsBottomSheet extends StatelessWidget {
   }
 
   void _handleOptionTap(BuildContext context, String option) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // Check verification for all options
+    if (!authProvider.isLoggedIn || !authProvider.isEmailVerified) {
+      Navigator.of(context).pop();
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+      );
+      return;
+    }
+
     // Close the bottom sheet first
     Navigator.of(context).pop();
 
@@ -60,41 +75,77 @@ class PointOptionsBottomSheet extends StatelessWidget {
     required IconData icon,
     required String option,
     Color? iconColor,
+    bool isDisabled = false,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2D2D2D), // Dark grey button background
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 12,
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final shouldDisable = isDisabled || 
+        (!authProvider.isLoggedIn || !authProvider.isEmailVerified);
+
+    return Opacity(
+      opacity: shouldDisable ? 0.5 : 1.0,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: shouldDisable 
+              ? Colors.grey.shade700 
+              : const Color(0xFF2D2D2D), // Dark grey button background
+          borderRadius: BorderRadius.circular(12),
         ),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: iconColor ?? const Color(0xFFFFC107), // Yellow background
-            borderRadius: BorderRadius.circular(12),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 12,
           ),
-          child: Icon(icon, color: Colors.black, size: 24),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+          leading: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: shouldDisable 
+                  ? Colors.grey.shade600 
+                  : iconColor ?? const Color(0xFFFFC107), // Yellow background
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon, 
+              color: shouldDisable ? Colors.grey.shade300 : Colors.black, 
+              size: 24,
+            ),
           ),
+          title: Text(
+            title,
+            style: TextStyle(
+              color: shouldDisable ? Colors.grey.shade300 : Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (shouldDisable)
+                Text(
+                  'Please verify your email',
+                  style: TextStyle(
+                    color: Colors.orange.shade300,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                )
+              else
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Color(0xFFB0B0B0), fontSize: 14),
+                ),
+            ],
+          ),
+          trailing: Icon(
+            Icons.chevron_right, 
+            color: shouldDisable ? Colors.grey.shade400 : Colors.white,
+          ),
+          onTap: shouldDisable 
+              ? () => _handleOptionTap(context, option)
+              : () => _handleOptionTap(context, option),
         ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(color: Color(0xFFB0B0B0), fontSize: 14),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.white),
-        onTap: () => _handleOptionTap(context, option),
       ),
     );
   }

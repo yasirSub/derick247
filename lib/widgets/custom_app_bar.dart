@@ -312,6 +312,12 @@ class _CustomAppBarState extends State<CustomAppBar> {
                             ),
                           ),
                           onTap: () {
+                            print('🔍 [SEARCH] Search suggestion clicked:');
+                            print('   → Product ID: ${product.id}');
+                            print('   → Product Name: ${product.name}');
+                            print('   → Product Slug: ${product.slug ?? "N/A"}');
+                            print('   → Redirecting to: ProductDetailScreen');
+                            print('   → Route: /products/${product.id}');
                             _searchController.clear();
                             _removeOverlay();
                             _searchFocusNode.unfocus();
@@ -493,6 +499,10 @@ class _CustomAppBarState extends State<CustomAppBar> {
   }
 
   void _handleSearch(BuildContext context, String query) {
+    print('🔍 [SEARCH] Search submitted:');
+    print('   → Search query: "$query"');
+    print('   → Redirecting to: ProductsScreen');
+    print('   → Route: /products?search=$query');
     // Navigate to products screen
     Navigator.of(context).push(
       MaterialPageRoute(

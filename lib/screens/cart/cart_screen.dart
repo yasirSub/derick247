@@ -10,6 +10,7 @@ import '../../widgets/custom_app_bar.dart';
 import '../../widgets/referral_form_popup.dart';
 import '../../widgets/translated_text.dart';
 import '../../services/translation_service.dart';
+import '../../utils/referral_access_helper.dart';
 import '../auth/login_screen.dart';
 import '../products/product_detail_screen.dart';
 import '../checkout/checkout_screen.dart';
@@ -650,12 +651,16 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildErrorState() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final errorText = _error?.toLowerCase() ?? '';
     final requiresVerification = errorText.contains('verify your email');
     final isAuthError = (!requiresVerification) &&
         (errorText.contains('401') ||
             errorText.contains('unauthenticated') ||
             errorText.contains('session has expired'));
+    
+    // Check if user is logged in but not verified
+    final isNotVerified = authProvider.isLoggedIn && !authProvider.isEmailVerified;
 
     return Center(
       child: Padding(
@@ -664,13 +669,17 @@ class _CartScreenState extends State<CartScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isAuthError ? Icons.lock_outline : Icons.error_outline,
+              isAuthError || isNotVerified
+                  ? Icons.lock_outline
+                  : Icons.error_outline,
               size: 64,
               color: AppTheme.errorColor,
             ),
             const SizedBox(height: 16),
             Text(
-              requiresVerification
+              isNotVerified
+                  ? 'You are not verified'
+                  : requiresVerification
                   ? 'Email Verification Needed'
                   : isAuthError
                       ? 'Authentication Required'
@@ -683,7 +692,9 @@ class _CartScreenState extends State<CartScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _error ?? 'An error occurred',
+              isNotVerified
+                  ? 'Please verify your email to access your cart.'
+                  : _error ?? 'An error occurred',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.textSecondaryColor,
@@ -691,16 +702,32 @@ class _CartScreenState extends State<CartScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            if (requiresVerification)
+            if (isNotVerified || isAuthError)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('Login'),
+              )
+            else if (requiresVerification)
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => VerifyEmailScreen(
-                        email: Provider.of<AuthProvider>(context, listen: false)
-                                .user
-                                ?.email ??
-                            '',
+                        email: authProvider.user?.email ?? '',
                       ),
                     ),
                   );
@@ -715,7 +742,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
                 child: const Text('Verify Email'),
               )
-            else if (!isAuthError)
+            else
               ElevatedButton(
                 onPressed: _loadCartFromAPI,
                 style: ElevatedButton.styleFrom(
@@ -727,30 +754,6 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 child: const Text('Retry'),
-              )
-            else
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => VerifyEmailScreen(
-                        email: Provider.of<AuthProvider>(context, listen: false)
-                                .user
-                                ?.email ??
-                            '',
-                      ),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                ),
-                child: const Text('Verify Email'),
               ),
           ],
         ),
@@ -1126,6 +1129,37 @@ class _CartScreenState extends State<CartScreen> {
 
   void _showReferAFriendOption() {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Check if user is verified
+    if (!authProvider.isEmailVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please verify your email to use this feature.'),
+          backgroundColor: AppTheme.errorColor,
+          action: SnackBarAction(
+            label: 'Login',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const LoginScreen(),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Check call center permission for Refer via Form
+    if (ReferralAccessHelper.blockIfNoPermission(
+      context: context,
+      authProvider: authProvider,
+    )) {
+      return;
+    }
 
     // Check if cart has items
     if (cartProvider.cartItems.isEmpty) {
